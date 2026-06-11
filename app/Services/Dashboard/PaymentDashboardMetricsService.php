@@ -5,6 +5,7 @@ namespace App\Services\Dashboard;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\Payment\Models\Payment;
 use App\Http\Controllers\Tenant\PaymentController;
+use App\Support\Dashboard\DashboardFilters;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -61,8 +62,9 @@ final class PaymentDashboardMetricsService
      * @param  Builder<Payment>  $filteredPaymentQuery  Query after period, search, and filters (not paginated).
      * @return array<string, mixed>
      */
-    public function build(Request $request, Builder $filteredPaymentQuery): array
+    public function build(Request $request, Builder $filteredPaymentQuery, ?DashboardFilters $filters = null): array
     {
+        $filters ??= DashboardFilters::validated(null, null);
         $tz = (string) config('app.timezone', 'UTC');
         $now = now($tz);
 
@@ -70,6 +72,7 @@ final class PaymentDashboardMetricsService
         $periodBounds = $this->resolvePaymentListPeriod($request);
 
         $collectedBase = Payment::query()->whereIn('payments.status', $completedStatuses);
+        $filters->applyToPaymentQuery($collectedBase);
 
         $totalCollectedAllTime = (float) (clone $collectedBase)->sum('payments.amount');
 
@@ -96,18 +99,21 @@ final class PaymentDashboardMetricsService
             $collectedMomPct = round((($collectedThisMonth - $collectedLastMonth) / $collectedLastMonth) * 100, 1);
         }
 
-        $outstandingBalance = (float) Invoice::query()->open()->sum('amount_due');
-        $openReceivableCount = Invoice::query()->open()->count();
+        $outstandingBase = Invoice::query()->open();
+        $filters->applyDirectScope($outstandingBase);
+        $outstandingBalance = (float) (clone $outstandingBase)->sum('amount_due');
+        $openReceivableCount = (clone $outstandingBase)->count();
 
-        $overdueBase = Invoice::query()
-            ->open()
+        $overdueBase = (clone $outstandingBase)
             ->whereNotNull('due_at')
             ->where('due_at', '<', $now);
         $overdueAmount = (float) (clone $overdueBase)->sum('amount_due');
         $overdueInvoiceCount = (clone $overdueBase)->count();
 
-        $partialInvoiceCount = Invoice::query()->where('status', 'partial')->count();
-        $partialOutstanding = (float) Invoice::query()->where('status', 'partial')->sum('amount_due');
+        $partialBase = Invoice::query()->where('status', 'partial');
+        $filters->applyDirectScope($partialBase);
+        $partialInvoiceCount = (clone $partialBase)->count();
+        $partialOutstanding = (float) (clone $partialBase)->sum('amount_due');
 
         $last30Start = $now->copy()->subDays(29)->startOfDay();
         $last30End = $now->copy()->endOfDay();

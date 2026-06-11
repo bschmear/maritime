@@ -1,9 +1,12 @@
 <?php
+
 namespace App\Domain\Asset\Actions;
 
 use App\Domain\Asset\Models\Asset as RecordModel;
-use Illuminate\Support\Facades\Log;
+use App\Domain\SystemLog\Support\LogSystemEvent;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class DeleteAsset
@@ -12,6 +15,7 @@ class DeleteAsset
     {
         try {
             $record = RecordModel::findOrFail($id);
+            LogSystemEvent::record($record, SystemLogAction::Deleted);
             $record->delete();
 
             return [
@@ -21,8 +25,9 @@ class DeleteAsset
         } catch (QueryException $e) {
             Log::error('Database query error in DeleteAsset', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -30,8 +35,9 @@ class DeleteAsset
         } catch (Throwable $e) {
             Log::error('Unexpected error in DeleteAsset', [
                 'error' => $e->getMessage(),
-                'id' => $id
+                'id' => $id,
             ]);
+
             return [
                 'success' => false,
                 'message' => $e->getMessage(),

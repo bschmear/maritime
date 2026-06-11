@@ -6,9 +6,11 @@ use App\Domain\Contact\Models\Contact;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Customer\Models\Customer as RecordModel;
 use App\Domain\Integration\Support\QuickBooksSettings;
+use App\Domain\SystemLog\Support\LogSystemEvent;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactType;
+use App\Enums\System\SystemLogAction;
 use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +29,16 @@ class CreateCustomer
                 $cid = filter_var($data['contact_id'], FILTER_VALIDATE_INT);
                 if ($cid !== false && $cid > 0) {
                     $existingContactId = $cid;
+                }
+            }
+
+            if ($existingContactId === null) {
+                $subsidiaryId = $data['subsidiary_id'] ?? null;
+                if ($subsidiaryId === null || $subsidiaryId === '') {
+                    $defaultSubsidiaryId = RecordModel::defaultSubsidiaryId();
+                    if ($defaultSubsidiaryId !== null) {
+                        $data['subsidiary_id'] = $defaultSubsidiaryId;
+                    }
                 }
             }
 
@@ -111,6 +123,8 @@ class CreateCustomer
 
                 return $customer;
             });
+
+            LogSystemEvent::record($record, SystemLogAction::Created);
 
             if ($record->contact_id && QuickBooksSettings::forCurrentTenant()->isSyncContactsEnabled()) {
                 $contact = Contact::query()->find($record->contact_id);

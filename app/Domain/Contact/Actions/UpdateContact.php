@@ -4,11 +4,13 @@ namespace App\Domain\Contact\Actions;
 
 use App\Domain\Contact\Models\Contact as RecordModel;
 use App\Domain\Contact\Models\ContactAddress;
+use App\Domain\SystemLog\Support\LogSystemEvent;
 use App\Enums\Entity\ContactMethod;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -161,9 +163,12 @@ class UpdateContact
                     }
                 }
 
+                $record = $record->fresh()->load('addresses');
+                LogSystemEvent::record($record, SystemLogAction::Updated);
+
                 return [
                     'success' => true,
-                    'record' => $record->fresh()->load('addresses'),
+                    'record' => $record,
                 ];
             });
         } catch (QueryException $e) {

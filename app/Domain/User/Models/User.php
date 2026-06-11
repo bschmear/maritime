@@ -40,6 +40,8 @@ class User extends Model
         'signature_file',
         'typed_signature',
         'signature_saved_at',
+        'preferred_subsidiary_id',
+        'preferred_location_id',
     ];
 
     protected $with = ['role.permissions'];
@@ -62,6 +64,16 @@ class User extends Model
     public function manager(): BelongsTo
     {
         return $this->belongsTo(self::class, 'manager_user_id');
+    }
+
+    public function preferredSubsidiary(): BelongsTo
+    {
+        return $this->belongsTo(Subsidiary::class, 'preferred_subsidiary_id');
+    }
+
+    public function preferredLocation(): BelongsTo
+    {
+        return $this->belongsTo(Location::class, 'preferred_location_id');
     }
 
     public function hasPermission(string $permission): bool

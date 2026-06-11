@@ -64,14 +64,59 @@ function closeErrorModal() {
 
 function submitImport() {
     submitting.value = true;
+    // #region agent log
+    fetch('http://127.0.0.1:7667/ingest/666b99fa-cd69-4f7c-9fba-d8b74c1462d2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ae1c12' },
+        body: JSON.stringify({
+            sessionId: 'ae1c12',
+            hypothesisId: 'B',
+            location: 'QuickBooksImport.vue:submitImport',
+            message: 'submit import clicked',
+            data: { type: effectiveType.value, routeUrl: route('quickbooks.import-customers') },
+            timestamp: Date.now(),
+        }),
+    }).catch(() => {});
+    // #endregion
     axios
         .post(route('quickbooks.import-customers'), { type: effectiveType.value })
         .then((res) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7667/ingest/666b99fa-cd69-4f7c-9fba-d8b74c1462d2', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ae1c12' },
+                body: JSON.stringify({
+                    sessionId: 'ae1c12',
+                    hypothesisId: 'B',
+                    location: 'QuickBooksImport.vue:submitImport:success',
+                    message: 'import API success',
+                    data: { status: res.status, message: res.data?.message },
+                    timestamp: Date.now(),
+                }),
+            }).catch(() => {});
+            // #endregion
             successMessage.value = res.data.message || 'Import queued. Records may take a few minutes to appear.';
             showModal.value = false;
             showSuccessModal.value = true;
         })
         .catch((err) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7667/ingest/666b99fa-cd69-4f7c-9fba-d8b74c1462d2', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'ae1c12' },
+                body: JSON.stringify({
+                    sessionId: 'ae1c12',
+                    hypothesisId: 'B',
+                    location: 'QuickBooksImport.vue:submitImport:error',
+                    message: 'import API error',
+                    data: {
+                        status: err.response?.status,
+                        error: err.response?.data?.error || err.response?.data?.message || err.message,
+                    },
+                    timestamp: Date.now(),
+                }),
+            }).catch(() => {});
+            // #endregion
             errorMessage.value = err.response?.data?.error || err.response?.data?.message || 'Import request failed.';
             showModal.value = false;
             showErrorModal.value = true;

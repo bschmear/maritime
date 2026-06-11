@@ -16,8 +16,10 @@ use App\Enums\Estimate\EstimateStatus;
 use App\Enums\Tasks\Priority as TaskPriority;
 use App\Enums\Tasks\Status as TaskStatus;
 use App\Models\AccountSettings;
+use App\Support\Dashboard\DashboardFilters;
 use App\Tenancy\CurrentTenantProfile;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
@@ -45,8 +47,9 @@ class TenantDashboardDataService
      *   meta: array
      * }
      */
-    public function build(Request $request): array
+    public function build(Request $request, ?DashboardFilters $filters = null): array
     {
+        $filters ??= DashboardFilters::validated(null, null);
         $cap = max(1, (int) config('dashboard.list_cap', 10));
         $activityFetchCap = max(15, (int) config('dashboard.activity_fetch_cap', 45));
         $activityPerPage = max(10, (int) config('dashboard.activity_per_page', 10));
@@ -65,7 +68,8 @@ class TenantDashboardDataService
         $tenantUserId = $this->tenantProfile->profile()?->getKey();
 
         $paymentBaseQuery = Payment::query();
-        $paymentDashboard = $this->paymentMetrics->build($request, $paymentBaseQuery);
+        $filters->applyToPaymentQuery($paymentBaseQuery);
+        $paymentDashboard = $this->paymentMetrics->build($request, $paymentBaseQuery, $filters);
 
         $tasks = Task::query()
             ->with([
@@ -98,7 +102,7 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'contact_id', 'next_followup_at']);
 
-        $deliveriesToday = Delivery::query()
+        $deliveriesToday = $this->scoped(Delivery::query(), $filters)
             ->whereNull('delivered_at')
             ->whereNotIn('status', ['delivered', 'cancelled'])
             ->whereBetween('scheduled_at', [$todayStart, $todayEnd])
@@ -106,7 +110,7 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'sequence', 'scheduled_at', 'customer_id']);
 
-        $overdueInvoices = Invoice::query()
+        $overdueInvoices = $this->scoped(Invoice::query(), $filters)
             ->open()
             ->whereNotNull('due_at')
             ->where('due_at', '<', $now)
@@ -114,7 +118,7 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'sequence', 'customer_name', 'amount_due', 'due_at', 'uuid']);
 
-        $stalledOpportunities = Opportunity::query()
+        $stalledOpportunities = $this->scopedOpportunity(Opportunity::query(), $filters)
             ->whereNull('won_at')
             ->whereNull('lost_at')
             ->where('updated_at', '<', $now->copy()->subDays($stalledDays))
@@ -122,7 +126,7 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'sequence', 'estimated_value', 'updated_at', 'customer_id']);
 
-        $expiringEstimates = Estimate::query()
+        $expiringEstimates = $this->scoped(Estimate::query(), $filters)
             ->whereIn('status', [
                 EstimateStatus::Draft->id(),
                 EstimateStatus::PendingApproval->id(),
@@ -134,14 +138,14 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'sequence', 'customer_name', 'expiration_date', 'status']);
 
-        $staleServiceTickets = ServiceTicket::query()
+        $staleServiceTickets = $this->scoped(ServiceTicket::query(), $filters)
             ->whereNotIn('status', [6, 7, 8])
             ->where('updated_at', '<', $now->copy()->subDays($ticketStaleDays))
             ->orderBy('updated_at')
             ->limit($cap)
             ->get(['id', 'display_name', 'service_ticket_number', 'updated_at', 'customer_id']);
 
-        $overdueWorkOrders = WorkOrder::query()
+        $overdueWorkOrders = $this->scoped(WorkOrder::query(), $filters)
             ->whereNotIn('status', [7, 8])
             ->whereNotNull('due_at')
             ->where('due_at', '<', $now)
@@ -149,17 +153,17 @@ class TenantDashboardDataService
             ->limit($cap)
             ->get(['id', 'work_order_number', 'due_at', 'customer_id']);
 
-        $pipelineValue = (float) Opportunity::query()
+        $pipelineValue = (float) $this->scopedOpportunity(Opportunity::query(), $filters)
             ->whereNull('won_at')
             ->whereNull('lost_at')
             ->sum('estimated_value');
 
-        $openServiceTicketCount = ServiceTicket::query()->whereIn('status', [1, 2, 3])->count();
-        $openWorkOrderCount = WorkOrder::query()->whereNotIn('status', [7, 8])->count();
+        $openServiceTicketCount = $this->scoped(ServiceTicket::query(), $filters)->whereIn('status', [1, 2, 3])->count();
+        $openWorkOrderCount = $this->scoped(WorkOrder::query(), $filters)->whereNotIn('status', [7, 8])->count();
 
         // Next 7 days forward from today, plus any overdue (scheduled before today) that are still not delivered.
         // Plain whereBetween(today, today+7) excludes past dates — e.g. Apr 17 is hidden once "today" is Apr 18+.
-        $deliveriesThisWeek = Delivery::query()
+        $deliveriesThisWeek = $this->scoped(Delivery::query(), $filters)
             ->whereNull('delivered_at')
             ->whereNotIn('status', ['delivered', 'cancelled'])
             ->where(function ($q) use ($todayStart, $next7DaysEnd) {
@@ -180,7 +184,7 @@ class TenantDashboardDataService
                 ->get(['id', 'title', 'message', 'type', 'created_at', 'route'])
             : collect();
 
-        $activityPayments = Payment::query()
+        $activityPayments = $this->scopedPayment(Payment::query(), $filters)
             ->with(['invoice' => fn ($q) => $q->select(['id', 'sequence', 'customer_name'])])
             ->whereIn('status', ['completed', 'partially_refunded'])
             ->orderByDesc('paid_at')
@@ -268,8 +272,8 @@ class TenantDashboardDataService
                     'href' => $this->safeRoute('workorders.show', ['workorder' => $w->id]),
                 ])->values()->all(),
                 'counts' => [
-                    'overdue_invoices' => Invoice::query()->open()->whereNotNull('due_at')->where('due_at', '<', $now)->count(),
-                    'stalled_opportunities' => Opportunity::query()
+                    'overdue_invoices' => $this->scoped(Invoice::query(), $filters)->open()->whereNotNull('due_at')->where('due_at', '<', $now)->count(),
+                    'stalled_opportunities' => $this->scopedOpportunity(Opportunity::query(), $filters)
                         ->whereNull('won_at')
                         ->whereNull('lost_at')
                         ->where('updated_at', '<', $now->copy()->subDays($stalledDays))
@@ -320,6 +324,7 @@ class TenantDashboardDataService
                 'list_cap' => $cap,
                 'activity_fetch_cap' => $activityFetchCap,
                 'activity_per_page' => $activityPerPage,
+                'filters' => $filters->toArray(),
             ],
         ];
     }
@@ -494,6 +499,45 @@ class TenantDashboardDataService
     /**
      * @param  array<string, mixed>  $parameters
      */
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private function scoped(Builder $query, DashboardFilters $filters): Builder
+    {
+        $filters->applyDirectScope($query);
+
+        return $query;
+    }
+
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private function scopedOpportunity(Builder $query, DashboardFilters $filters): Builder
+    {
+        $filters->applyToOpportunityQuery($query);
+
+        return $query;
+    }
+
+    /**
+     * @template TModel of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  Builder<TModel>  $query
+     * @return Builder<TModel>
+     */
+    private function scopedPayment(Builder $query, DashboardFilters $filters): Builder
+    {
+        $filters->applyToPaymentQuery($query);
+
+        return $query;
+    }
+
     private function safeRoute(string $name, array $parameters = []): ?string
     {
         if (! Route::has($name)) {

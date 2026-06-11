@@ -36,6 +36,10 @@ const props = defineProps({
         type: Object,
         default: null,
     },
+    defaultSubsidiaryId: {
+        type: Number,
+        default: null,
+    },
 });
 
 const createBootstrap = computed(() => props.transactionBootstrap);
@@ -68,6 +72,11 @@ const selectedCustomer = ref(null);
 const customerId = ref(null);
 const showCreateCustomerForm = ref(false);
 const customerIsLoading = ref(false);
+const customerCreateError = ref('');
+/** 'customer' creates contact + customer profile; 'contact' creates contact only. */
+const newPersonSaveAs = ref('customer');
+const pendingContactId = ref(null);
+const pendingContactName = ref('');
 /** Suppresses auto-advance when re-syncing customerId after navigating back to step 1 */
 const skipCustomerIdAdvance = ref(false);
 
@@ -170,57 +179,157 @@ watch(customerId, async (id) => {
 });
 
 // ==============================
-// Create New Customer
+// Create New Contact / Customer
 // ==============================
-const createCustomer = async () => {
-    if (!newCustomerForm.value.first_name || !newCustomerForm.value.last_name) return;
+const buildNewPersonPayload = () => ({
+    first_name: newCustomerForm.value.first_name,
+    last_name: newCustomerForm.value.last_name,
+    display_name: `${newCustomerForm.value.first_name} ${newCustomerForm.value.last_name}`.trim(),
+    email: newCustomerForm.value.email || null,
+    phone: newCustomerForm.value.phone || null,
+    mobile: newCustomerForm.value.mobile || null,
+    company: newCustomerForm.value.company || null,
+});
 
+const postJson = async (url, payload) => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    return { response, data };
+};
+
+const formatCreateError = (data, fallback) => {
+    const subsidiaryError = data?.errors?.subsidiary_id?.[0];
+    const firstFieldError = Object.values(data?.errors || {}).flat()?.[0];
+
+    return subsidiaryError || firstFieldError || data?.message || fallback;
+};
+
+const applyCreatedCustomer = (newCustomer) => {
+    if (newCustomer?.id) {
+        pendingContactId.value = null;
+        pendingContactName.value = '';
+        customerId.value = newCustomer.id;
+        showCreateCustomerForm.value = false;
+        return true;
+    }
+
+    customerCreateError.value = 'Customer was created but no id was returned. Try selecting them from the list.';
+
+    return false;
+};
+
+const createCustomerProfile = async (extra = {}) => {
+    const payload = { ...buildNewPersonPayload(), ...extra };
+
+    if (!payload.subsidiary_id && props.defaultSubsidiaryId) {
+        payload.subsidiary_id = props.defaultSubsidiaryId;
+    }
+
+    const { response, data } = await postJson(route('customers.store'), payload);
+
+    if (!response.ok) {
+        customerCreateError.value = formatCreateError(
+            data,
+            'Could not create customer. Add a subsidiary under Settings if none exists.',
+        );
+        console.error('Failed to create customer:', data);
+
+        return false;
+    }
+
+    return applyCreatedCustomer(data.record || data);
+};
+
+const submitNewPerson = async () => {
+    if (!newCustomerForm.value.first_name || !newCustomerForm.value.last_name) {
+        return;
+    }
+
+    customerCreateError.value = '';
     customerIsLoading.value = true;
-    try {
-        const response = await fetch(route('customers.store'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-                first_name: newCustomerForm.value.first_name,
-                last_name: newCustomerForm.value.last_name,
-                display_name: `${newCustomerForm.value.first_name} ${newCustomerForm.value.last_name}`,
-                email: newCustomerForm.value.email || null,
-                phone: newCustomerForm.value.phone || null,
-                mobile: newCustomerForm.value.mobile || null,
-                company: newCustomerForm.value.company || null,
-            }),
-        });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Failed to create customer:', errorData);
+    try {
+        if (newPersonSaveAs.value === 'contact') {
+            const { response, data } = await postJson(route('contacts.store'), buildNewPersonPayload());
+
+            if (!response.ok) {
+                customerCreateError.value = formatCreateError(data, 'Could not create contact.');
+                console.error('Failed to create contact:', data);
+
+                return;
+            }
+
+            const contact = data.record || data;
+
+            if (contact?.id) {
+                pendingContactId.value = contact.id;
+                pendingContactName.value = contact.display_name || buildNewPersonPayload().display_name;
+            } else {
+                customerCreateError.value = 'Contact was created but no id was returned.';
+            }
+
             return;
         }
 
-        const data = await response.json();
-        const newCustomer = data.record || data;
-
-        if (newCustomer && newCustomer.id) {
-            customerId.value = newCustomer.id;
-            showCreateCustomerForm.value = false;
-            // watch(customerId) loads full record and advances to asset step
-        }
+        await createCustomerProfile();
     } catch (error) {
-        console.error('Error creating customer:', error);
+        customerCreateError.value = 'Network error while saving. Please try again.';
+        console.error('Error saving person:', error);
     } finally {
         customerIsLoading.value = false;
     }
 };
 
+const promotePendingContactToCustomer = async () => {
+    if (!pendingContactId.value) {
+        return;
+    }
+
+    customerCreateError.value = '';
+    customerIsLoading.value = true;
+
+    try {
+        const payload = {
+            contact_id: pendingContactId.value,
+        };
+
+        if (props.defaultSubsidiaryId) {
+            payload.subsidiary_id = props.defaultSubsidiaryId;
+        }
+
+        await createCustomerProfile(payload);
+    } catch (error) {
+        customerCreateError.value = 'Network error while creating customer profile. Please try again.';
+        console.error('Error promoting contact to customer:', error);
+    } finally {
+        customerIsLoading.value = false;
+    }
+};
+
+const clearPendingContact = () => {
+    pendingContactId.value = null;
+    pendingContactName.value = '';
+    customerCreateError.value = '';
+};
+
 const toggleCreateCustomerForm = () => {
     showCreateCustomerForm.value = !showCreateCustomerForm.value;
     if (showCreateCustomerForm.value) {
+        customerCreateError.value = '';
+        pendingContactId.value = null;
+        pendingContactName.value = '';
+        newPersonSaveAs.value = 'customer';
         newCustomerForm.value = {
             first_name: '',
             last_name: '',
@@ -523,7 +632,9 @@ onMounted(() => {
                         </div>
                         <div>
                             <h1 class="text-xl font-bold text-white">Select a Customer</h1>
-                            <p class="text-blue-100 text-sm mt-0.5">Search customers (contact-linked records) or create a new one</p>
+                            <p class="text-blue-100 text-sm mt-0.5">
+                                Service tickets use a customer profile (contact + customer record). Search existing customers or create new.
+                            </p>
                         </div>
                     </div>
 
@@ -583,8 +694,76 @@ onMounted(() => {
                         </p>
                     </div>
 
-                    <!-- Create New Customer Form -->
+                    <!-- Create New Contact / Customer Form -->
                     <div v-else class="space-y-4">
+                        <div
+                            v-if="pendingContactId"
+                            class="rounded-lg border border-green-200 bg-green-50 px-4 py-4 dark:border-green-800 dark:bg-green-900/20"
+                        >
+                            <p class="text-sm font-medium text-green-800 dark:text-green-200">
+                                Contact saved: {{ pendingContactName }}
+                            </p>
+                            <p class="mt-1 text-xs text-green-700 dark:text-green-300">
+                                Service tickets require a customer profile. Add one to continue this ticket, or view the contact only.
+                            </p>
+                            <div class="mt-4 flex flex-wrap gap-3">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                                    :disabled="customerIsLoading"
+                                    @click="promotePendingContactToCustomer"
+                                >
+                                    <span v-if="customerIsLoading" class="material-icons text-sm animate-spin">refresh</span>
+                                    Create customer profile & continue
+                                </button>
+                                <Link
+                                    :href="route('contacts.show', pendingContactId)"
+                                    class="inline-flex items-center rounded-lg border border-green-300 px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-100 dark:border-green-700 dark:text-green-200 dark:hover:bg-green-900/40"
+                                >
+                                    View contact
+                                </Link>
+                                <button
+                                    type="button"
+                                    class="text-sm font-medium text-green-800 underline dark:text-green-200"
+                                    @click="clearPendingContact"
+                                >
+                                    Create another
+                                </button>
+                            </div>
+                        </div>
+
+                        <template v-else>
+                        <div class="space-y-2">
+                            <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Save as
+                            </p>
+                            <div class="flex flex-wrap gap-4">
+                                <label class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200">
+                                    <input
+                                        v-model="newPersonSaveAs"
+                                        type="radio"
+                                        value="customer"
+                                        class="text-primary-600"
+                                        :disabled="customerIsLoading"
+                                    >
+                                    <span>Customer (contact + customer profile)</span>
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200">
+                                    <input
+                                        v-model="newPersonSaveAs"
+                                        type="radio"
+                                        value="contact"
+                                        class="text-primary-600"
+                                        :disabled="customerIsLoading"
+                                    >
+                                    <span>Contact only</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Customer creates a contact record and a customer profile for service tickets. Contact only saves the person without a customer profile.
+                            </p>
+                        </div>
+
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -653,6 +832,13 @@ onMounted(() => {
                             />
                         </div>
 
+                        <p
+                            v-if="customerCreateError"
+                            class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+                        >
+                            {{ customerCreateError }}
+                        </p>
+
                         <div class="pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                             <button
                                 @click="showCreateCustomerForm = false"
@@ -662,16 +848,23 @@ onMounted(() => {
                                 Cancel
                             </button>
                             <button
-                                @click="createCustomer"
+                                @click="submitNewPerson"
                                 type="button"
                                 :disabled="!newCustomerForm.first_name || !newCustomerForm.last_name || customerIsLoading"
                                 class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                             >
                                 <span v-if="customerIsLoading" class="material-icons text-sm animate-spin">refresh</span>
                                 <span v-else class="material-icons text-sm">person_add</span>
-                                {{ customerIsLoading ? 'Creating...' : 'Create Customer & Continue' }}
+                                {{
+                                    customerIsLoading
+                                        ? 'Saving…'
+                                        : newPersonSaveAs === 'contact'
+                                            ? 'Save contact'
+                                            : 'Create customer & continue'
+                                }}
                             </button>
                         </div>
+                        </template>
                     </div>
                 </div>
             </div>

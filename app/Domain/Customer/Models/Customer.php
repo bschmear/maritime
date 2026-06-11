@@ -20,6 +20,7 @@ use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
+use App\Models\Concerns\HasSystemLogs;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +31,7 @@ use Illuminate\Database\Eloquent\Relations\Relation;
 class Customer extends Model
 {
     use HasDocuments;
+    use HasSystemLogs;
 
     protected $table = 'customer_profiles';
 

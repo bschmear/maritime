@@ -1,0 +1,7 @@
+{
+  "columns": [
+    { "key": "action", "label": "Action", "sortable": true },
+    { "key": "user_id", "label": "User", "sortable": true },
+    { "key": "created_at", "label": "When", "sortable": true }
+  ]
+}

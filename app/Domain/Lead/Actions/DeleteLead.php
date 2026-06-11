@@ -5,6 +5,8 @@ namespace App\Domain\Lead\Actions;
 use App\Domain\BoatShow\Models\BoatShowLead;
 use App\Domain\Contact\Support\ContactDeletionGuard;
 use App\Domain\Lead\Models\Lead as RecordModel;
+use App\Domain\SystemLog\Support\LogSystemEvent;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -38,6 +40,7 @@ class DeleteLead
                 ->where('leadable_id', $lead->getKey())
                 ->delete();
 
+            LogSystemEvent::record($lead, SystemLogAction::Deleted);
             $lead->contact?->delete();
 
             return [

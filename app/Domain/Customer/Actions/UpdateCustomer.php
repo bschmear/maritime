@@ -4,7 +4,9 @@ namespace App\Domain\Customer\Actions;
 
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Customer\Models\Customer as RecordModel;
+use App\Domain\SystemLog\Support\LogSystemEvent;
 use App\Enums\Entity\ContactStatus;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -85,6 +87,7 @@ class UpdateCustomer
             });
 
             $customer->refresh();
+            LogSystemEvent::record($customer, SystemLogAction::Updated);
 
             return [
                 'success' => true,

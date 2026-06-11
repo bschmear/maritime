@@ -5,6 +5,7 @@ import RevenueSnapshotWidget from '@/Components/Tenant/Dashboard/RevenueSnapshot
 import RiskPanelWidget from '@/Components/Tenant/Dashboard/RiskPanelWidget.vue';
 import OperationsWidget from '@/Components/Tenant/Dashboard/OperationsWidget.vue';
 import ActivityFeedWidget from '@/Components/Tenant/Dashboard/ActivityFeedWidget.vue';
+import DashboardFilterBar from '@/Components/Tenant/Dashboard/DashboardFilterBar.vue';
 import OnboardingWizard from '@/Components/Tenant/Onboarding/OnboardingWizard.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -21,6 +22,14 @@ const props = defineProps({
     onboarding: {
         type: Object,
         default: () => ({ complete: true }),
+    },
+    dashboardFilters: {
+        type: Object,
+        default: () => ({ subsidiary_id: null, location_id: null }),
+    },
+    dashboardFilterOptions: {
+        type: Object,
+        default: () => ({ subsidiaries: [], locations: [] }),
     },
 });
 
@@ -72,14 +81,17 @@ function formatCurrency(value) {
 
     <TenantLayout>
         <template #header>
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                        {{ greeting }}, {{ userName }}
-                    </h2>
-                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Here is what needs attention today.</p>
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
+                            {{ greeting }}, {{ userName }}
+                        </h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Here is what needs attention today.</p>
+                    </div>
+                    <p class="shrink-0 text-sm text-gray-500 dark:text-gray-400">{{ todayLabel }}</p>
                 </div>
-                <p class="text-sm text-gray-500 dark:text-gray-400">{{ todayLabel }}</p>
+                <DashboardFilterBar :filters="dashboardFilters" :options="dashboardFilterOptions" />
             </div>
         </template>
 

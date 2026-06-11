@@ -219,6 +219,7 @@ Route::middleware([
     Route::middleware(['auth', 'tenant.access', 'workspace.subscription'])->group(function () {
         // Tenant dashboard
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+        Route::post('/dashboard/filters', [DashboardController::class, 'storeFilters'])->name('dashboard.filters');
 
         Route::prefix('onboarding')->name('onboarding.')->group(function () {
             Route::post('/subsidiary', [OnboardingController::class, 'storeSubsidiary'])->name('subsidiary');

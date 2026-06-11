@@ -4,6 +4,8 @@ namespace App\Domain\Customer\Actions;
 
 use App\Domain\Contact\Support\ContactDeletionGuard;
 use App\Domain\Customer\Models\Customer as RecordModel;
+use App\Domain\SystemLog\Support\LogSystemEvent;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -32,6 +34,7 @@ class DeleteCustomer
                 ];
             }
 
+            LogSystemEvent::record($record, SystemLogAction::Deleted);
             $contact?->delete();
 
             return [

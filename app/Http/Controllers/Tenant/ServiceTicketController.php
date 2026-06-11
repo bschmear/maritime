@@ -205,6 +205,7 @@ class ServiceTicketController extends BaseController
             'timezones' => Timezone::options(),
             'transactionId' => $transactionId,
             'transactionBootstrap' => $transactionBootstrap,
+            'defaultSubsidiaryId' => Customer::defaultSubsidiaryId(),
         ]);
     }
 

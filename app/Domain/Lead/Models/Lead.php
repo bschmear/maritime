@@ -15,6 +15,7 @@ use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
+use App\Models\Concerns\HasSystemLogs;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class Lead extends Model
 {
     use HasDocuments;
+    use HasSystemLogs;
 
     protected $table = 'lead_profiles';
 

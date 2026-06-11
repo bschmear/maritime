@@ -11,7 +11,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\AccountSettings;
 use App\Services\Dashboard\TenantDashboardDataService;
+use App\Support\Dashboard\DashboardFilterOptions;
+use App\Support\Dashboard\DashboardFilters;
 use App\Support\ManufacturerCatalog;
+use App\Tenancy\CurrentTenantProfile;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,7 +23,8 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     public function __construct(
-        private TenantDashboardDataService $tenantDashboardData
+        private TenantDashboardDataService $tenantDashboardData,
+        private CurrentTenantProfile $tenantProfile,
     ) {}
 
     public function index(Request $request): Response
@@ -36,7 +41,9 @@ class DashboardController extends Controller
                 ->first();
         }
 
-        $dashboard = $this->tenantDashboardData->build($request);
+        $tenantUser = $this->tenantProfile->profile();
+        $dashboardFilters = DashboardFilters::fromRequest($request, $tenantUser);
+        $dashboard = $this->tenantDashboardData->build($request, $dashboardFilters);
 
         $settings = AccountSettings::getCurrent();
         $initialStep = $this->resolveOnboardingInitialStep($settings);
@@ -108,8 +115,38 @@ class DashboardController extends Controller
                 'users_count' => $account->users()->count(),
             ] : null,
             'dashboard' => $dashboard,
+            'dashboardFilters' => $dashboardFilters->toArray(),
+            'dashboardFilterOptions' => DashboardFilterOptions::build(),
             'onboarding' => $onboarding,
         ]);
+    }
+
+    public function storeFilters(Request $request): RedirectResponse
+    {
+        $tenantUser = $this->tenantProfile->profile();
+        if ($tenantUser === null) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'subsidiary_id' => ['nullable', 'integer', 'exists:subsidiaries,id'],
+            'location_id' => ['nullable', 'integer', 'exists:locations,id'],
+        ]);
+
+        $filters = DashboardFilters::validated(
+            isset($validated['subsidiary_id']) ? (int) $validated['subsidiary_id'] : null,
+            isset($validated['location_id']) ? (int) $validated['location_id'] : null,
+        );
+
+        $tenantUser->preferred_subsidiary_id = $filters->subsidiaryId;
+        $tenantUser->preferred_location_id = $filters->locationId;
+        $tenantUser->save();
+
+        return redirect()->route('dashboard', array_filter([
+            'subsidiary_id' => $filters->subsidiaryId,
+            'location_id' => $filters->locationId,
+            'onboarding' => $request->query('onboarding'),
+        ], fn ($value) => $value !== null && $value !== ''));
     }
 
     private function resolveOnboardingInitialStep(AccountSettings $settings): int

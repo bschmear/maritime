@@ -1,0 +1,20 @@
+{
+  "action": {
+    "label": "Action",
+    "type": "select",
+    "enum": "App\\Enums\\System\\SystemLogAction",
+    "readOnly": true
+  },
+  "user_id": {
+    "label": "User",
+    "type": "record",
+    "typeDomain": "User",
+    "relationship": "user",
+    "readOnly": true
+  },
+  "created_at": {
+    "label": "When",
+    "type": "datetime",
+    "readOnly": true
+  }
+}

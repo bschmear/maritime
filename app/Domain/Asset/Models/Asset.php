@@ -9,12 +9,15 @@ use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Models\Concerns\HasDocuments;
+use App\Models\Concerns\HasSystemLogs;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Asset extends Model
 {
     use HasDocuments;
+    use HasSystemLogs;
 
     protected $fillable = [
         'type',
@@ -85,7 +88,7 @@ class Asset extends Model
         return $this->hasMany(AssetVariant::class);
     }
 
-    public function customerAssetSpecSheetShares(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function customerAssetSpecSheetShares(): HasMany
     {
         return $this->hasMany(CustomerAssetSpecSheetShare::class, 'asset_id');
     }

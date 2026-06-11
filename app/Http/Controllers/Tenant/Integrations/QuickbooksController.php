@@ -198,7 +198,7 @@ class QuickbooksController extends Controller
 
     public function importCustomers(Request $request): JsonResponse
     {
-        if (! $request->ajax() && ! $request->wantsJson()) {
+        if (! $request->expectsJson()) {
             abort(405, 'This endpoint must be accessed via AJAX or JSON.');
         }
 
@@ -221,10 +221,77 @@ class QuickbooksController extends Controller
             ], 422);
         }
 
-        PullContactsFromQuickBooks::dispatch(
-            (int) $profile->getKey(),
-            $request->input('type'),
+        $profileId = (int) $profile->getKey();
+        $importType = $request->input('type');
+
+        // #region agent log
+        file_put_contents(
+            base_path('.cursor/debug-ae1c12.log'),
+            json_encode([
+                'sessionId' => 'ae1c12',
+                'hypothesisId' => 'B',
+                'location' => 'QuickbooksController::importCustomers',
+                'message' => 'dispatching PullContactsFromQuickBooks',
+                'data' => [
+                    'profileId' => $profileId,
+                    'importType' => $importType,
+                    'queueConnection' => config('queue.default'),
+                    'tenancyInitialized' => tenancy()->initialized,
+                    'tenantId' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+                    'integrationHasTokens' => true,
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ])."\n",
+            FILE_APPEND
         );
+        // #endregion
+
+        $queueConnection = config('queue.default');
+        $queueDbConnection = config('queue.connections.database.connection');
+
+        try {
+            PullContactsFromQuickBooks::dispatch($profileId, $importType);
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks import dispatch failed', [
+                'profile_id' => $profileId,
+                'import_type' => $importType,
+                'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+                'queue_connection' => $queueConnection,
+                'queue_db_connection' => $queueDbConnection,
+                'error' => $e->getMessage(),
+            ]);
+
+            // #region agent log
+            file_put_contents(
+                base_path('.cursor/debug-ae1c12.log'),
+                json_encode([
+                    'sessionId' => 'ae1c12',
+                    'hypothesisId' => 'A',
+                    'location' => 'QuickbooksController::importCustomers:dispatch_failed',
+                    'message' => 'dispatch threw',
+                    'data' => [
+                        'error' => $e->getMessage(),
+                        'queueConnection' => $queueConnection,
+                        'queueDbConnection' => $queueDbConnection,
+                    ],
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ])."\n",
+                FILE_APPEND
+            );
+            // #endregion
+
+            return response()->json([
+                'error' => 'Could not queue the import job. Check that the central jobs table exists and queue workers are running.',
+            ], 500);
+        }
+
+        Log::info('QuickBooks import job queued', [
+            'profile_id' => $profileId,
+            'import_type' => $importType,
+            'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+            'queue_connection' => $queueConnection,
+            'queue_db_connection' => $queueDbConnection,
+        ]);
 
         return response()->json([
             'message' => 'QuickBooks customer import queued. Records may take a few minutes to appear.',

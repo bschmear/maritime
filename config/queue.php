@@ -37,7 +37,8 @@ return [
 
         'database' => [
             'driver' => 'database',
-            'connection' => env('DB_QUEUE_CONNECTION'),
+            // Jobs live on the central connection (public.jobs). Tenant schemas do not have a jobs table.
+            'connection' => env('DB_QUEUE_CONNECTION', config('tenancy.database.central_connection', env('DB_CONNECTION', 'sqlite'))),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),

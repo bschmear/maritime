@@ -26,6 +26,19 @@ class PullContactsFromQuickBooks implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /** @var array{skipped_inactive: int, skipped_no_qbo_id: int, skipped_existing_qbo: int, skipped_email: int, skipped_no_names: int, skipped_no_subsidiary: int, created_lead: int, created_customer: int, failed_create: int} */
+    private array $importStats = [
+        'skipped_inactive' => 0,
+        'skipped_no_qbo_id' => 0,
+        'skipped_existing_qbo' => 0,
+        'skipped_email' => 0,
+        'skipped_no_names' => 0,
+        'skipped_no_subsidiary' => 0,
+        'created_lead' => 0,
+        'created_customer' => 0,
+        'failed_create' => 0,
+    ];
+
     public function __construct(
         public int $tenantUserProfileId,
         public string $recordType,
@@ -41,8 +54,47 @@ class PullContactsFromQuickBooks implements ShouldQueue
             ->where('integration_type', IntegrationType::QuickBooks)
             ->first();
 
+        // #region agent log
+        file_put_contents(
+            base_path('.cursor/debug-ae1c12.log'),
+            json_encode([
+                'sessionId' => 'ae1c12',
+                'hypothesisId' => 'A,E',
+                'location' => 'PullContactsFromQuickBooks::handle:start',
+                'message' => 'job handle started',
+                'data' => [
+                    'recordType' => $this->recordType,
+                    'tenantUserProfileId' => $this->tenantUserProfileId,
+                    'tenancyInitialized' => tenancy()->initialized,
+                    'tenantId' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+                    'integrationFound' => $integration !== null,
+                    'hasAccessToken' => (bool) ($integration?->access_token),
+                    'hasRefreshToken' => (bool) ($integration?->refresh_token),
+                    'queueConnection' => config('queue.default'),
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ])."\n",
+            FILE_APPEND
+        );
+        // #endregion
+
         if (! $integration?->access_token || ! $integration->refresh_token) {
             Log::warning('PullContactsFromQuickBooks: QuickBooks integration not connected');
+
+            // #region agent log
+            file_put_contents(
+                base_path('.cursor/debug-ae1c12.log'),
+                json_encode([
+                    'sessionId' => 'ae1c12',
+                    'hypothesisId' => 'E',
+                    'location' => 'PullContactsFromQuickBooks::handle:early_return',
+                    'message' => 'integration not connected in job context',
+                    'data' => [],
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ])."\n",
+                FILE_APPEND
+            );
+            // #endregion
 
             return;
         }
@@ -80,6 +132,26 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 }
 
                 $count = count($customers);
+
+                // #region agent log
+                file_put_contents(
+                    base_path('.cursor/debug-ae1c12.log'),
+                    json_encode([
+                        'sessionId' => 'ae1c12',
+                        'hypothesisId' => 'D',
+                        'location' => 'PullContactsFromQuickBooks::handle:qb_page',
+                        'message' => 'quickbooks customer page fetched',
+                        'data' => [
+                            'start' => $start,
+                            'customerCount' => $count,
+                            'hasFault' => ! empty($payload['Fault']),
+                        ],
+                        'timestamp' => (int) round(microtime(true) * 1000),
+                    ])."\n",
+                    FILE_APPEND
+                );
+                // #endregion
+
                 $start += $pageSize;
             } while ($count === $pageSize);
 
@@ -89,6 +161,21 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'last_synced_at' => now(),
                 'sync_error_message' => null,
             ]);
+
+            // #region agent log
+            file_put_contents(
+                base_path('.cursor/debug-ae1c12.log'),
+                json_encode([
+                    'sessionId' => 'ae1c12',
+                    'hypothesisId' => 'C',
+                    'location' => 'PullContactsFromQuickBooks::handle:success',
+                    'message' => 'import completed',
+                    'data' => $this->importStats,
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ])."\n",
+                FILE_APPEND
+            );
+            // #endregion
         } catch (\Throwable $e) {
             Log::error('PullContactsFromQuickBooks failed', [
                 'tenant_user_profile_id' => $this->tenantUserProfileId,
@@ -101,6 +188,24 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'sync_status' => IntegrationSyncStatus::Failed,
                 'sync_error_message' => $e->getMessage(),
             ]);
+
+            // #region agent log
+            file_put_contents(
+                base_path('.cursor/debug-ae1c12.log'),
+                json_encode([
+                    'sessionId' => 'ae1c12',
+                    'hypothesisId' => 'D',
+                    'location' => 'PullContactsFromQuickBooks::handle:failed',
+                    'message' => 'import job failed',
+                    'data' => [
+                        'error' => $e->getMessage(),
+                        'importStats' => $this->importStats,
+                    ],
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ])."\n",
+                FILE_APPEND
+            );
+            // #endregion
 
             throw $e;
         }
@@ -120,15 +225,21 @@ class PullContactsFromQuickBooks implements ShouldQueue
     private function importOneCustomer(array $row, CreateCustomer $createCustomer, CreateLead $createLead): void
     {
         if (array_key_exists('Active', $row) && $row['Active'] === false) {
+            $this->importStats['skipped_inactive']++;
+
             return;
         }
 
         $qboId = isset($row['Id']) ? (string) $row['Id'] : '';
         if ($qboId === '') {
+            $this->importStats['skipped_no_qbo_id']++;
+
             return;
         }
 
         if (Contact::query()->where('quickbooks_customer_id', $qboId)->exists()) {
+            $this->importStats['skipped_existing_qbo']++;
+
             return;
         }
 
@@ -146,6 +257,8 @@ class PullContactsFromQuickBooks implements ShouldQueue
             };
 
             if ($exists) {
+                $this->importStats['skipped_email']++;
+
                 return;
             }
         }
@@ -153,6 +266,8 @@ class PullContactsFromQuickBooks implements ShouldQueue
         [$first, $last, $company] = $this->resolveNames($row);
 
         if ($first === '' && $last === '' && $company === '') {
+            $this->importStats['skipped_no_names']++;
+
             return;
         }
 
@@ -180,8 +295,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
                 'source' => 'QuickBooks',
             ]);
             if ($result['success'] ?? false) {
+                $this->importStats['created_lead']++;
                 $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
             } else {
+                $this->importStats['failed_create']++;
                 Log::warning('PullContactsFromQuickBooks: CreateLead failed', [
                     'qbo_id' => $qboId,
                     'message' => $result['message'] ?? null,
@@ -193,6 +310,7 @@ class PullContactsFromQuickBooks implements ShouldQueue
 
         $subsidiaryId = Customer::defaultSubsidiaryId();
         if ($subsidiaryId === null) {
+            $this->importStats['skipped_no_subsidiary']++;
             Log::warning('PullContactsFromQuickBooks: no subsidiary available for customer import', [
                 'qbo_id' => $qboId,
             ]);
@@ -215,8 +333,10 @@ class PullContactsFromQuickBooks implements ShouldQueue
 
         $result = $createCustomer($payload);
         if ($result['success'] ?? false) {
+            $this->importStats['created_customer']++;
             $this->syncAddresses((int) ($result['record']->contact_id ?? 0), $row);
         } else {
+            $this->importStats['failed_create']++;
             Log::warning('PullContactsFromQuickBooks: CreateCustomer failed', [
                 'qbo_id' => $qboId,
                 'message' => $result['message'] ?? null,

@@ -72,6 +72,12 @@
       "modelRelationship": "images"
     },
     {
+      "label": "System log",
+      "domain": "SystemLog",
+      "modelRelationship": "systemLogs",
+      "readOnly": true
+    },
+    {
       "label": "Documents",
       "domain": "Document"
     }

@@ -5,11 +5,13 @@ namespace App\Domain\Contact\Actions;
 use App\Domain\Contact\Models\Contact as RecordModel;
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Integration\Support\QuickBooksSettings;
+use App\Domain\SystemLog\Support\LogSystemEvent;
 use App\Enums\Entity\ContactMethod;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
+use App\Enums\System\SystemLogAction;
 use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -216,6 +218,7 @@ class CreateContact
             });
 
             if (($result['success'] ?? false) && $result['record'] !== null) {
+                LogSystemEvent::record($result['record'], SystemLogAction::Created);
                 $this->maybeQueueQuickBooksContactPush($result['record']);
             }
 

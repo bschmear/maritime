@@ -4,7 +4,9 @@ namespace App\Domain\Lead\Actions;
 
 use App\Domain\Contact\Models\ContactAddress;
 use App\Domain\Lead\Models\Lead as RecordModel;
+use App\Domain\SystemLog\Support\LogSystemEvent;
 use App\Enums\Entity\ContactStatus;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -84,6 +86,7 @@ class UpdateLead
             });
 
             $lead->refresh();
+            LogSystemEvent::record($lead, SystemLogAction::Updated);
 
             return [
                 'success' => true,

@@ -5,9 +5,11 @@ namespace App\Domain\Asset\Actions;
 use App\Domain\Asset\Models\Asset as RecordModel;
 use App\Domain\Asset\Support\SyncAssetSpecValues;
 use App\Domain\AssetSpec\Models\AssetSpecValue;
+use App\Domain\SystemLog\Support\LogSystemEvent;
 use App\Enums\Inventory\BoatType;
 use App\Enums\Inventory\HullMaterial;
 use App\Enums\Inventory\HullType;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -83,6 +85,8 @@ class UpdateAsset
             if (! empty($data['specs']) && is_array($data['specs']) && ! $record->has_variants) {
                 SyncAssetSpecValues::forSpecable($record, (int) $record->type, $data['specs']);
             }
+
+            LogSystemEvent::record($record, SystemLogAction::Updated);
 
             return [
                 'success' => true,
