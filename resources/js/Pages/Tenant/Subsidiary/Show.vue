@@ -204,17 +204,13 @@ const confirmDelete = () => {
                 <div class="relative px-6 py-8 sm:px-10 sm:py-10">
                     <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
                         <div class="space-y-3">
-                            <div class="flex items-start gap-4">
-                                <div
+                            <div class="min-w-0 space-y-3">
+                                <img
                                     v-if="logoUrl"
-                                    class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/25 bg-white/15 p-1.5 backdrop-blur-sm"
-                                >
-                                    <img
-                                        :src="logoUrl"
-                                        :alt="`${subsidiaryLabel} logo`"
-                                        class="max-h-full max-w-full object-contain"
-                                    />
-                                </div>
+                                    :src="logoUrl"
+                                    :alt="`${subsidiaryLabel} logo`"
+                                    class="max-w-[200px] w-full rounded-md bg-white p-1.5 object-contain object-left"
+                                />
                                 <div class="min-w-0 space-y-1">
                                     <h1 class="text-2xl font-bold leading-tight text-white sm:text-3xl">
                                         {{ subsidiaryLabel }}

@@ -22,7 +22,8 @@ const emit = defineEmits(['saved', 'cancelled']);
 
 const isEdit = computed(() => props.mode === 'edit' && props.record?.id);
 const isCreate = computed(() => props.mode === 'create');
-const logoPreview = ref(props.imageUrls?.logo ?? props.record?.logo_url ?? null);
+const savedLogoUrl = ref(props.imageUrls?.logo ?? props.record?.logo_url ?? null);
+const logoPreview = ref(savedLogoUrl.value);
 const logoInputRef = ref(null);
 const locationValidationError = ref('');
 
@@ -121,9 +122,13 @@ const onLogoChange = (event) => {
     }
 };
 
+const openLogoPicker = () => {
+    logoInputRef.value?.click();
+};
+
 const clearLogo = () => {
     form.logo = null;
-    logoPreview.value = null;
+    logoPreview.value = savedLogoUrl.value;
     if (logoInputRef.value) {
         logoInputRef.value.value = '';
     }
@@ -320,35 +325,59 @@ const submit = () => {
                             Branding
                         </h3>
                     </header>
-                    <div class="space-y-4 p-5">
-                        <div v-if="logoPreview" class="relative inline-block">
-                            <img
-                                :src="logoPreview"
-                                alt="Subsidiary logo preview"
-                                class="h-24 w-auto max-w-full rounded-lg border border-gray-200 bg-white object-contain p-2 dark:border-gray-600"
-                            />
-                            <button
-                                type="button"
-                                class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow hover:bg-red-600"
-                                @click="clearLogo"
+                    <div class="space-y-3 p-5">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Logo</label>
+
+                        <div class="mb-1">
+                            <div
+                                v-if="logoPreview"
+                                class="relative flex h-28 w-full items-center justify-center rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900"
                             >
-                                <span class="material-icons text-[16px]">close</span>
-                            </button>
+                                <img
+                                    :src="logoPreview"
+                                    alt="Subsidiary logo preview"
+                                    class="max-h-20 w-auto max-w-full object-contain"
+                                />
+                                <button
+                                    v-if="hasLogoUpload"
+                                    type="button"
+                                    class="absolute -right-2 -top-2 rounded-full bg-red-500 p-1.5 text-white shadow-md transition-colors hover:bg-red-600"
+                                    title="Discard new upload"
+                                    @click="clearLogo"
+                                >
+                                    <span class="material-icons text-base leading-none">close</span>
+                                </button>
+                            </div>
+                            <div
+                                v-else
+                                class="flex h-28 w-full items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-900/40"
+                            >
+                                <span class="material-icons text-4xl text-gray-400 dark:text-gray-500">business</span>
+                            </div>
                         </div>
-                        <div>
-                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Logo</label>
-                            <input
-                                ref="logoInputRef"
-                                type="file"
-                                accept="image/*"
-                                class="input-style"
-                                @change="onLogoChange"
-                            />
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Used on service tickets and customer-facing documents. Max 2MB.
-                            </p>
-                            <p v-if="form.errors.logo" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.logo }}</p>
-                        </div>
+
+                        <input
+                            ref="logoInputRef"
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            @change="onLogoChange"
+                        />
+
+                        <button
+                            type="button"
+                            class="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 dark:focus:ring-offset-gray-800"
+                            @click="openLogoPicker"
+                        >
+                            <span class="material-icons text-base leading-none">upload</span>
+                            <span>{{ logoPreview ? 'Change logo' : 'Upload logo' }}</span>
+                        </button>
+
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Used on service tickets and customer-facing documents. PNG, JPG, or GIF up to 2MB.
+                            <span v-if="!logoPreview && isEdit"> Falls back to the account logo when empty.</span>
+                        </p>
+                        <p v-if="form.errors.logo" class="text-xs text-red-600 dark:text-red-400">{{ form.errors.logo }}</p>
                     </div>
                 </section>
             </div>

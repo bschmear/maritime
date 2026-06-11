@@ -102,6 +102,8 @@ const documentRequestHasCustomer = computed(() => {
 const showSublistEditModal = ref(false);
 const sublistEditRecord = ref(null);
 const isLoadingEditRecord = ref(false);
+/** Bumps when a new edit opens or the modal closes — stale fetches must not apply. */
+const editRecordRequestId = ref(0);
 
 // Sublist Attach Modal State (for Many-to-Many relationships)
 const showSublistAttachModal = ref(false);
@@ -1497,64 +1499,139 @@ const handleSublistItemCreated = async (recordId, createdRecord = null) => {
     // Don't reset sublistCreateFormData - we're caching it now
 };
 
+const isActiveEditRequest = (requestId) =>
+    requestId === editRecordRequestId.value && showSublistEditModal.value;
+
 // Edit modal functions
 const openSublistEditModal = async (item) => {
-    // Show modal immediately with loading state
+    const requestId = ++editRecordRequestId.value;
+    const requestedRecordId = item.id;
+
     showSublistEditModal.value = true;
     isLoadingEditRecord.value = true;
-    
+    sublistEditRecord.value = null;
+
     if (!sublistCreateFormData.value && activeTab.value) {
         await loadSublistSchema(activeTab.value);
+        if (!isActiveEditRequest(requestId)) {
+            return;
+        }
     }
-    
+
     // Fetch the full record with all fields (not just table columns)
     try {
         let url;
         if (activeTab.value.routes?.show) {
             url = route(activeTab.value.routes.show, {
                 asset: props.parentRecord.id,
-                variant: item.id,
+                variant: requestedRecordId,
             });
         } else {
             const domain = activeTab.value.domain;
             const routePlural = getDomainPlural(domain);
             const routeName = `${routePlural}.show`;
             const paramName = getDomainSingular(routePlural);
-            url = route(routeName, { [paramName]: item.id });
+            url = route(routeName, { [paramName]: requestedRecordId });
         }
-        
+
         const response = await axios.get(url, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
+                'Accept': 'application/json',
+            },
         });
-        
-        // Use the full record data from the API
-        sublistEditRecord.value = response.data.record || item;
+
+        if (!isActiveEditRequest(requestId)) {
+            return;
+        }
+
+        const fetchedRecord = response.data.record || item;
+
+        if (fetchedRecord?.id != null && Number(fetchedRecord.id) !== Number(requestedRecordId)) {
+            console.error('[Sublist] Edit fetch returned unexpected record id', {
+                requestedRecordId,
+                receivedId: fetchedRecord.id,
+            });
+            sublistEditRecord.value = item;
+        } else {
+            sublistEditRecord.value = fetchedRecord;
+        }
     } catch (error) {
         console.error('[Sublist] Error fetching full record:', error);
-        // Fallback to using the table data
-        sublistEditRecord.value = item;
+        if (isActiveEditRequest(requestId)) {
+            sublistEditRecord.value = item;
+        }
     } finally {
-        isLoadingEditRecord.value = false;
+        if (isActiveEditRequest(requestId)) {
+            isLoadingEditRecord.value = false;
+        }
     }
 };
 
 const closeSublistEditModal = () => {
+    editRecordRequestId.value += 1;
     showSublistEditModal.value = false;
     sublistEditRecord.value = null;
+    isLoadingEditRecord.value = false;
 };
 
-const handleSublistItemUpdated = async () => {
+const patchParentRelationshipRecord = (relationshipName, updatedRecord) => {
+    if (!relationshipName || !updatedRecord?.id || !props.parentRecord) {
+        return;
+    }
+
+    const snakeKey = camelToSnake(relationshipName);
+    for (const key of [relationshipName, snakeKey]) {
+        const relData = props.parentRecord[key];
+        if (!Array.isArray(relData)) {
+            continue;
+        }
+
+        const idx = relData.findIndex((row) => row.id === updatedRecord.id);
+        if (idx !== -1) {
+            relData[idx] = { ...relData[idx], ...updatedRecord };
+        }
+    }
+};
+
+/** Merge an updated row into local sublist state (and parent eager-loaded M2M data). */
+const syncSublistRowFromRecord = (updatedRecord) => {
+    if (!updatedRecord?.id) {
+        return false;
+    }
+
+    const idx = sublistData.value.findIndex((row) => row.id === updatedRecord.id);
+    if (idx !== -1) {
+        sublistData.value.splice(idx, 1, { ...sublistData.value[idx], ...updatedRecord });
+    }
+
+    const rel = activeTab.value?.modelRelationship;
+    if (rel && activeTab.value?.relationshipType === 'ManyToMany') {
+        patchParentRelationshipRecord(rel, updatedRecord);
+    }
+
+    return idx !== -1;
+};
+
+const handleSublistItemUpdated = async (updatedRecord) => {
+    const record = updatedRecord ?? sublistEditRecord.value;
+    const syncedLocally = syncSublistRowFromRecord(record);
+
     if (activeTab.value) {
-        await fetchSublistData(
-            activeTab.value,
-            sublistPagination.value?.current_page || 1,
-            shouldForceApiFetchForSublist(activeTab.value),
-        );
+        const isManyToMany = activeTab.value.relationshipType === 'ManyToMany';
+
+        // M2M rows come from eager-loaded parent data; refetching would restore stale values.
+        if (!isManyToMany || !syncedLocally) {
+            await fetchSublistData(
+                activeTab.value,
+                sublistPagination.value?.current_page || 1,
+                shouldForceApiFetchForSublist(activeTab.value),
+            );
+        }
+
         emitSublistMutatedIfNeeded();
     }
+
     showSublistEditModal.value = false;
     sublistEditRecord.value = null;
 };
@@ -2210,6 +2287,7 @@ watch(
             </div>
             <VariantForm
                 v-else-if="sublistCreateFormData && sublistEditRecord && isVariantSublistForm"
+                :key="`sublist-edit-variant-${sublistEditRecord.id}`"
                 :schema="sublistCreateFormData.formSchema"
                 :fields-schema="getSublistFieldsSchema()"
                 :record="sublistEditRecord"
@@ -2225,9 +2303,11 @@ watch(
             />
             <Form
                 v-else-if="sublistCreateFormData && sublistEditRecord"
+                :key="`sublist-edit-${sublistEditRecord.id}`"
                 :schema="sublistCreateFormData.formSchema"
                 :fields-schema="getSublistFieldsSchema()"
                 :record="sublistEditRecord"
+                :record-identifier="sublistEditRecord.id"
                 :record-type="sublistCreateFormData.recordType"
                 :enum-options="sublistCreateFormData.enumOptions"
                 :image-urls="sublistCreateFormData.imageUrls || {}"
