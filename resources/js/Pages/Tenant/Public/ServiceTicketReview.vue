@@ -1,5 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { useForm, Head } from '@inertiajs/vue3';
 import { VueSignaturePad } from 'vue-signature-pad';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
@@ -234,55 +237,40 @@ const signaturePadOptions = {
                     </div>
                 </div>
 
-                <div class="bg-white shadow-lg print:shadow-none">
+                <div class="overflow-x-hidden bg-white shadow-lg print:shadow-none">
 
-                    <!-- Company Header -->
-                    <div class="border-b-4 border-gray-900 px-8 print:px-0 py-6 print:border-b-2">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-start gap-6">
-                                <div v-if="logoUrl" class="flex-shrink-0">
-                                    <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain" />
-                                </div>
-                                <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
-                                    <span class="material-icons text-4xl text-gray-400">business</span>
-                                </div>
-                                <div>
-                                    <h1 class="text-2xl font-bold text-gray-900">
-                                        {{ record.subsidiary?.display_name || 'Company Name' }}
-                                    </h1>
-                                    <div class="mt-2 text-sm text-gray-600 space-y-1">
-                                        <p v-if="record.location?.address_line1">
-                                            {{ record.location.address_line1 }}
-                                            <span v-if="record.location?.address_line2">, {{ record.location.address_line2 }}</span>
-                                        </p>
-                                        <p v-if="record.location?.city">
-                                            {{ record.location.city }}<span v-if="record.location?.state">, {{ record.location.state }}</span> {{ record.location?.postal_code }}
-                                        </p>
-                                        <p v-if="record.location?.phone" class="flex items-center gap-1">
-                                            <span class="material-icons text-sm">phone</span>
-                                            {{ formatPhoneNumber(record.location.phone) }}
-                                        </p>
-                                        <p v-if="record.location?.email" class="flex items-center gap-1">
-                                            <span class="material-icons text-sm">email</span>
-                                            {{ record.location.email }}
-                                        </p>
-                                    </div>
-                                </div>
+                    <PublicDocumentHeader
+                        :logo-url="logoUrl"
+                        document-label="Service Ticket"
+                        :document-number="`#${record.service_ticket_number}`"
+                        :document-date="formatDate(record.created_at)"
+                    >
+                        <template #company>
+                            <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
+                                {{ record.subsidiary?.display_name || 'Company Name' }}
+                            </h1>
+                            <div class="mt-2 space-y-1 text-sm text-gray-600">
+                                <p v-if="record.location?.address_line1">
+                                    {{ record.location.address_line1 }}
+                                    <span v-if="record.location?.address_line2">, {{ record.location.address_line2 }}</span>
+                                </p>
+                                <p v-if="record.location?.city">
+                                    {{ record.location.city }}<span v-if="record.location?.state">, {{ record.location.state }}</span> {{ record.location?.postal_code }}
+                                </p>
+                                <p v-if="record.location?.phone" class="flex items-center gap-1 break-all">
+                                    <span class="material-icons shrink-0 text-sm">phone</span>
+                                    {{ formatPhoneNumber(record.location.phone) }}
+                                </p>
+                                <p v-if="record.location?.email" class="flex items-center gap-1 break-all">
+                                    <span class="material-icons shrink-0 text-sm">email</span>
+                                    {{ record.location.email }}
+                                </p>
                             </div>
-                            <div class="text-right">
-                                <div class="text-sm font-medium text-gray-600 uppercase">Service Ticket</div>
-                                <div class="text-3xl font-bold text-gray-900 font-mono">
-                                    #{{ record.service_ticket_number }}
-                                </div>
-                                <div class="text-sm text-gray-600 mt-1">
-                                    {{ formatDate(record.created_at) }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        </template>
+                    </PublicDocumentHeader>
 
                     <!-- Customer & Asset Information -->
-                    <div class="px-8 print:px-0 py-6 bg-gray-50 print:bg-white">
+                    <div class="px-4 sm:px-8 print:px-0 py-6 bg-gray-50 print:bg-white">
                         <div class="service-ticket-customer-asset-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-6">
                             <div>
                                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Information</h2>
@@ -336,7 +324,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Repair Description -->
-                    <div class="px-8 print:px-0 py-6 border-t border-gray-200">
+                    <div class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200">
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Repair Description</h2>
                         <div class="prose prose-sm max-w-none">
                             <p class="text-gray-900 whitespace-pre-line">{{ record.repair_description || '—' }}</p>
@@ -345,7 +333,7 @@ const signaturePadOptions = {
 
                     <div
                         v-if="ticketImages.length"
-                        class="px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
+                        class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
                     >
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Photos</h2>
                         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -374,10 +362,34 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Service Items -->
-                    <div class="px-8 print:px-0 py-6 border-t border-gray-200">
+                    <div class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200">
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Service Items</h2>
 
-                        <table class="w-full">
+                        <div v-if="billableLineItems.length" class="mb-4 space-y-3 md:hidden print:hidden">
+                            <PublicDocumentLineItemCard
+                                v-for="(item, index) in billableLineItems"
+                                :key="`m-${index}`"
+                                :title="item.display_name"
+                                :amount="formatCurrency(calculateLineItemPrice(item))"
+                            >
+                                <p
+                                    v-if="item.description && item.description !== item.display_name"
+                                    class="text-sm text-gray-600"
+                                >
+                                    {{ item.description }}
+                                </p>
+                                <div v-if="item.warranty" class="inline-flex items-center gap-1 rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                    <span class="material-icons text-xs">verified_user</span>
+                                    Warranty
+                                </div>
+                                <PublicDocumentLineItemField label="Qty" :value="item.quantity" />
+                                <PublicDocumentLineItemField label="Type" :value="getBillingTypeLabel(item.billing_type)" />
+                                <PublicDocumentLineItemField label="Est. hours" :value="item.estimated_hours ?? 0" />
+                                <PublicDocumentLineItemField label="Rate" :value="formatCurrency(item.unit_price)" />
+                            </PublicDocumentLineItemCard>
+                        </div>
+
+                        <table class="hidden w-full md:table print:table">
                             <thead>
                                 <tr class="border-b-2 border-gray-900">
                                     <th class="text-left py-3 text-sm font-semibold text-gray-900">Description</th>
@@ -419,7 +431,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Estimate Variance Notice -->
-                    <div v-if="account.estimate_threshold_percent" class="px-8 print:px-0 pb-6">
+                    <div v-if="account.estimate_threshold_percent" class="px-4 sm:px-8 print:px-0 pb-6">
                         <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                             <div class="flex items-start gap-3">
                                 <span class="material-icons text-blue-600 text-xl flex-shrink-0">info</span>
@@ -435,7 +447,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Totals -->
-                    <div class="px-8 print:px-0 py-6 bg-gray-50 border-t border-gray-200">
+                    <div class="px-4 sm:px-8 print:px-0 py-6 bg-gray-50 border-t border-gray-200">
                         <div class="flex justify-end">
                             <div class="w-full md:w-1/2 lg:w-1/3 space-y-3">
                                 <div class="flex justify-between text-sm">
@@ -457,7 +469,7 @@ const signaturePadOptions = {
                     <!-- ==================== SIGNATURE (APPROVED STATE) ==================== -->
                     <div
                         v-if="isApproved && (record.signature_url || (record.signature_method === 5 && record.customer_signature))"
-                        class="px-8 print:px-0 py-6 border-t border-gray-200"
+                        class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200"
                     >
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Signature</h2>
                         <div class="flex items-start gap-6 flex-wrap">
@@ -483,7 +495,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- ==================== AUTHORIZATION SECTION (REVIEW ONLY) ==================== -->
-                    <div v-if="canAct" class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:break-inside-avoid">
+                    <div v-if="canAct" class="px-4 sm:px-8 print:px-0 py-8 border-t-2 border-gray-900 print:break-inside-avoid">
                         <div class="print:hidden">
                         <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Authorization</h2>
 
@@ -715,7 +727,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
+                    <div class="px-4 sm:px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
                         <p>Thank you for your business!</p>
                         <p v-if="record.location?.phone" class="mt-1">
                             Questions? Call us at {{ formatPhoneNumber(record.location.phone) }}

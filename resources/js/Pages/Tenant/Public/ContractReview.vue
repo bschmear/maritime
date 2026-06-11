@@ -1,5 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { useForm, Head } from '@inertiajs/vue3';
 import { VueSignaturePad } from 'vue-signature-pad';
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
@@ -229,53 +232,38 @@ onMounted(() => {
                 </div>
             </div>
 
-            <div class="bg-white shadow-lg print:shadow-none">
+            <div class="overflow-x-hidden bg-white shadow-lg print:shadow-none">
 
-                <!-- Company Header (matches EstimateReview / ServiceTicketReview) -->
-                <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2 print:px-0">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex min-w-0 flex-1 items-start gap-6">
-                            <div v-if="logoUrl" class="flex-shrink-0">
-                                <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain" />
-                            </div>
-                            <div v-else class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded bg-gray-200">
-                                <span class="material-icons text-4xl text-gray-400">business</span>
-                            </div>
-                            <div class="min-w-0">
-                                <h1 class="text-2xl font-bold text-gray-900">{{ companyName }}</h1>
-                                <div v-if="locationPreview" class="mt-2 space-y-1 text-sm text-gray-600">
-                                    <p v-if="locationPreview.line1">
-                                        {{ locationPreview.line1 }}<span v-if="locationPreview.line2">, {{ locationPreview.line2 }}</span>
-                                    </p>
-                                    <p v-if="locationPreview.city">
-                                        {{ locationPreview.city }}<span v-if="locationPreview.state">, {{ locationPreview.state }}</span>
-                                        {{ locationPreview.postal }}
-                                    </p>
-                                    <p v-if="locationPreview.phone" class="flex items-center gap-1">
-                                        <span class="material-icons text-sm">phone</span>
-                                        {{ locationPreview.phone }}
-                                    </p>
-                                    <p v-if="locationPreview.email" class="flex items-center gap-1">
-                                        <span class="material-icons text-sm">email</span>
-                                        {{ locationPreview.email }}
-                                    </p>
-                                </div>
-                            </div>
+                <PublicDocumentHeader
+                    :logo-url="logoUrl"
+                    document-label="Contract"
+                    :document-number="record.contract_number"
+                    :document-date="formatDate(record.created_at)"
+                >
+                    <template #company>
+                        <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">{{ companyName }}</h1>
+                        <div v-if="locationPreview" class="mt-2 space-y-1 text-sm text-gray-600">
+                            <p v-if="locationPreview.line1">
+                                {{ locationPreview.line1 }}<span v-if="locationPreview.line2">, {{ locationPreview.line2 }}</span>
+                            </p>
+                            <p v-if="locationPreview.city">
+                                {{ locationPreview.city }}<span v-if="locationPreview.state">, {{ locationPreview.state }}</span>
+                                {{ locationPreview.postal }}
+                            </p>
+                            <p v-if="locationPreview.phone" class="flex items-center gap-1 break-all">
+                                <span class="material-icons shrink-0 text-sm">phone</span>
+                                {{ locationPreview.phone }}
+                            </p>
+                            <p v-if="locationPreview.email" class="flex items-center gap-1 break-all">
+                                <span class="material-icons shrink-0 text-sm">email</span>
+                                {{ locationPreview.email }}
+                            </p>
                         </div>
-                        <div class="shrink-0 text-right">
-                            <div class="text-sm font-medium uppercase text-gray-600">Contract</div>
-                            <div class="font-mono text-3xl font-bold text-gray-900">
-                                {{ record.contract_number }}
-                            </div>
-                            <div class="mt-1 text-sm text-gray-600">
-                                {{ formatDate(record.created_at) }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    </template>
+                </PublicDocumentHeader>
 
                 <!-- Customer Information -->
-                <div class="bg-gray-50 px-8 py-6 print:px-0">
+                <div class="bg-gray-50 px-4 py-6 sm:px-8 print:px-0">
                     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div>
                             <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Customer Information</h2>
@@ -304,9 +292,44 @@ onMounted(() => {
                 </div>
 
                 <!-- Line Items -->
-                <div v-if="transactionItems.length > 0" class="border-t border-gray-200 px-8 py-6 print:px-0">
+                <div v-if="transactionItems.length > 0" class="border-t border-gray-200 px-4 py-6 sm:px-8 print:px-0">
                     <h2 class="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500">Line Items</h2>
-                    <table class="w-full border border-gray-200 text-sm">
+
+                    <div class="mb-4 space-y-3 md:hidden print:hidden">
+                        <template v-for="item in transactionItems" :key="`m-${item.id}`">
+                            <PublicDocumentLineItemCard
+                                :title="item.name"
+                                :amount="formatCurrency(lineBaseTotal(item) + taxOnItem(item))"
+                            >
+                                <p v-if="item.description" class="text-sm text-gray-600">{{ item.description }}</p>
+                                <PublicDocumentLineItemField label="Qty" :value="item.quantity ?? 1" />
+                                <PublicDocumentLineItemField label="Price" :value="formatCurrency(item.unit_price)" />
+                                <template #children>
+                                    <PublicDocumentLineItemCard
+                                        v-for="(opt, oix) in lineAssetSelectedOptions(item)"
+                                        :key="`m-opt-${item.id}-${opt.id ?? oix}`"
+                                        accent="sky"
+                                        :title="selectedOptionLabel(opt)"
+                                        :amount="formatCurrency(selectedOptionUnitPrice(opt) + taxOnAssetOption(opt))"
+                                    >
+                                        <PublicDocumentLineItemField label="Price" :value="formatCurrency(opt.price)" />
+                                    </PublicDocumentLineItemCard>
+                                    <PublicDocumentLineItemCard
+                                        v-for="(addon, aix) in (item.addons ?? [])"
+                                        :key="`m-addon-${item.id}-${addon.id ?? aix}`"
+                                        muted
+                                        :title="addon.name"
+                                        :amount="formatCurrency(addonBaseTotal(addon) + taxOnAddon(addon))"
+                                    >
+                                        <PublicDocumentLineItemField label="Qty" :value="addon.quantity ?? 1" />
+                                        <PublicDocumentLineItemField label="Price" :value="formatCurrency(addon.price)" />
+                                    </PublicDocumentLineItemCard>
+                                </template>
+                            </PublicDocumentLineItemCard>
+                        </template>
+                    </div>
+
+                    <table class="hidden w-full border border-gray-200 text-sm md:table print:table">
                         <thead class="bg-gray-100">
                             <tr>
                                 <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700">Item</th>
@@ -373,7 +396,7 @@ onMounted(() => {
                 </div>
 
                 <!-- Contract Terms (description) -->
-                <div v-if="record.description" class="border-t border-gray-200 px-8 py-6 print:px-0">
+                <div v-if="record.description" class="border-t border-gray-200 px-4 py-6 sm:px-8 print:px-0">
                     <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Terms &amp; Conditions</h2>
                     <div class="prose prose-sm max-w-none">
                         <p class="whitespace-pre-line text-gray-900">{{ record.description }}</p>
@@ -381,7 +404,7 @@ onMounted(() => {
                 </div>
 
                 <!-- Billing Address -->
-                <div v-if="record.billing_address_line1 || record.transaction?.billing_address_line1" class="border-t border-gray-200 px-8 py-6 print:px-0">
+                <div v-if="record.billing_address_line1 || record.transaction?.billing_address_line1" class="border-t border-gray-200 px-4 py-6 sm:px-8 print:px-0">
                     <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Billing Address</h2>
                     <div class="space-y-1 text-sm text-gray-700">
                         <p>{{ record.billing_address_line1 || record.transaction?.billing_address_line1 }}</p>
@@ -399,7 +422,7 @@ onMounted(() => {
                 <!-- Customer signature: recorded (included when printing) -->
                 <div
                     v-if="isSigned"
-                    class="border-t-2 border-gray-900 px-8 py-8 print:break-inside-avoid print:px-0"
+                    class="border-t-2 border-gray-900 px-4 py-8 sm:px-8 print:break-inside-avoid print:px-0"
                 >
                     <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-900">Customer Signature</h2>
 
@@ -450,7 +473,7 @@ onMounted(() => {
                 </div>
 
                 <!-- Customer signature: capture (hidden when printing) -->
-                <div v-else class="border-t-2 border-gray-900 px-8 py-8 print:hidden print:px-0">
+                <div v-else class="border-t-2 border-gray-900 px-4 py-8 sm:px-8 print:hidden print:px-0">
                     <h2 class="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-900">Customer Signature</h2>
 
                     <!-- Acknowledgement Text -->
@@ -593,7 +616,7 @@ onMounted(() => {
                 </div>
 
                 <!-- Footer -->
-                <div class="bg-gray-900 px-8 py-4 text-center text-xs text-white print:px-0">
+                <div class="bg-gray-900 px-4 py-4 text-center text-xs text-white sm:px-8 print:px-0">
                     <p>Thank you for your business!</p>
                     <p v-if="locationPreview?.phone" class="mt-1">
                         Questions? Call us at {{ formatPhoneNumber(locationPreview.phone) }}

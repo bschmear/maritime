@@ -292,7 +292,6 @@ function disconnectQuickbooks() {
             <QuickBooksImport
                 v-if="quickbooks?.connected"
                 ref="quickBooksImportRef"
-                :allow-type-choice="true"
             />
         </div>
     </TenantLayout>

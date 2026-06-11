@@ -1,4 +1,7 @@
 <script setup>
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import PublicSignatureForm from '@/Components/Tenant/Public/PublicSignatureForm.vue';
 import { computed } from 'vue';
 
@@ -160,55 +163,42 @@ const pricingRows = computed(() => [
         </div>
 
         <div
-            class="bg-white shadow-lg print:shadow-none"
+            class="overflow-x-hidden bg-white shadow-lg print:shadow-none"
             :class="previewMode ? 'consignment-document-preview' : 'dark:bg-gray-900'"
         >
-            <div class="border-b-4 border-gray-900 px-8 print:px-0 py-6 print:border-b-2 dark:border-gray-100">
-                <div class="flex items-start justify-between">
-                    <div class="flex items-start gap-6">
-                        <div v-if="logoUrl" class="flex-shrink-0">
-                            <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain" />
-                        </div>
-                        <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center dark:bg-gray-700">
-                            <span class="material-icons text-4xl text-gray-400">business</span>
-                        </div>
-                        <div>
-                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-                                {{ companyName }}
-                            </h1>
-                            <div class="mt-2 text-sm text-gray-600 dark:text-gray-300 space-y-1">
-                                <p v-if="subsidiary?.address_line_1">
-                                    {{ subsidiary.address_line_1 }}
-                                    <span v-if="subsidiary?.address_line_2">, {{ subsidiary.address_line_2 }}</span>
-                                </p>
-                                <p v-if="subsidiary?.city">
-                                    {{ subsidiary.city }}<span v-if="subsidiary?.state">, {{ subsidiary.state }}</span>
-                                    {{ subsidiary?.postal_code }}
-                                </p>
-                                <p v-if="subsidiary?.phone" class="flex items-center gap-1">
-                                    <span class="material-icons text-sm">phone</span>
-                                    {{ subsidiary.phone }}
-                                </p>
-                                <p v-if="subsidiary?.email" class="flex items-center gap-1">
-                                    <span class="material-icons text-sm">email</span>
-                                    {{ subsidiary.email }}
-                                </p>
-                            </div>
-                        </div>
+            <PublicDocumentHeader
+                :logo-url="logoUrl"
+                document-label="Consignment agreement"
+                :document-number="`#${record.display_name || '—'}`"
+                :document-date="formatDate(record.agreement_date || record.created_at)"
+                dark
+            >
+                <template #company>
+                    <h1 class="text-xl font-bold text-gray-900 break-words dark:text-white sm:text-2xl">
+                        {{ companyName }}
+                    </h1>
+                    <div class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+                        <p v-if="subsidiary?.address_line_1">
+                            {{ subsidiary.address_line_1 }}
+                            <span v-if="subsidiary?.address_line_2">, {{ subsidiary.address_line_2 }}</span>
+                        </p>
+                        <p v-if="subsidiary?.city">
+                            {{ subsidiary.city }}<span v-if="subsidiary?.state">, {{ subsidiary.state }}</span>
+                            {{ subsidiary?.postal_code }}
+                        </p>
+                        <p v-if="subsidiary?.phone" class="flex items-center gap-1 break-all">
+                            <span class="material-icons shrink-0 text-sm">phone</span>
+                            {{ subsidiary.phone }}
+                        </p>
+                        <p v-if="subsidiary?.email" class="flex items-center gap-1 break-all">
+                            <span class="material-icons shrink-0 text-sm">email</span>
+                            {{ subsidiary.email }}
+                        </p>
                     </div>
-                    <div class="text-right">
-                        <div class="text-sm font-medium text-gray-600 uppercase dark:text-gray-400">Consignment agreement</div>
-                        <div class="text-3xl font-bold text-gray-900 font-mono dark:text-white">
-                            #{{ record.display_name || '—' }}
-                        </div>
-                        <div class="text-sm text-gray-600 mt-1 dark:text-gray-400">
-                            {{ formatDate(record.agreement_date || record.created_at) }}
-                        </div>
-                    </div>
-                </div>
-            </div>
+                </template>
+            </PublicDocumentHeader>
 
-            <div class="px-8 print:px-0 py-6 bg-gray-50 dark:bg-gray-800/50 print:bg-white">
+            <div class="px-4 sm:px-8 print:px-0 py-6 bg-gray-50 dark:bg-gray-800/50 print:bg-white">
                 <div class="consignment-owner-asset-grid grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-6">
                     <div>
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Owner / seller</h2>
@@ -258,7 +248,7 @@ const pricingRows = computed(() => [
                 </div>
             </div>
 
-            <div class="px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Agreement details</h2>
                 <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm mb-6">
                     <div>
@@ -286,9 +276,21 @@ const pricingRows = computed(() => [
                 </div>
             </div>
 
-            <div class="px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
+            <div class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Pricing</h2>
-                <table class="w-full">
+
+                <div class="mb-4 space-y-3 md:hidden print:hidden">
+                    <PublicDocumentLineItemCard
+                        v-for="row in pricingRows"
+                        :key="`m-${row.key}`"
+                        :title="row.label"
+                    >
+                        <PublicDocumentLineItemField label="Asking" :value="formatCurrency(record[row.askingKey])" />
+                        <PublicDocumentLineItemField label="Minimum" :value="formatCurrency(record[row.minimumKey])" />
+                    </PublicDocumentLineItemCard>
+                </div>
+
+                <table class="hidden w-full md:table print:table">
                     <thead>
                         <tr class="border-b-2 border-gray-900 dark:border-gray-100">
                             <th class="text-left py-3 text-sm font-semibold text-gray-900 dark:text-white">Item</th>
@@ -306,7 +308,7 @@ const pricingRows = computed(() => [
                 </table>
             </div>
 
-            <div v-if="consignmentPolicies.length" class="px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
+            <div v-if="consignmentPolicies.length" class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Consignment policies</h2>
                 <p v-if="policiesLocked" class="mb-3 text-xs text-gray-500">Policies as agreed at signing</p>
                 <ul class="list-disc space-y-3 pl-5 text-sm text-gray-700 dark:text-gray-300">
@@ -314,7 +316,7 @@ const pricingRows = computed(() => [
                 </ul>
             </div>
 
-            <div v-if="account?.consignment_terms" class="px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
+            <div v-if="account?.consignment_terms" class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700">
                 <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg print:break-inside-avoid dark:bg-blue-950/30 dark:border-blue-800">
                     <div class="flex items-start gap-3">
                         <span class="material-icons text-blue-600 text-xl flex-shrink-0 dark:text-blue-400">info</span>
@@ -328,7 +330,7 @@ const pricingRows = computed(() => [
 
             <div
                 v-if="isSigned && (record.signature_url || (record.signature_method === 5 && record.customer_signature))"
-                class="px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700"
+                class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 dark:border-gray-700"
             >
                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer signature</h2>
                 <div class="flex items-start gap-6 flex-wrap">
@@ -358,7 +360,7 @@ const pricingRows = computed(() => [
 
             <div
                 v-if="!isSigned"
-                class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:break-inside-avoid dark:border-gray-100"
+                class="px-4 sm:px-8 print:px-0 py-8 border-t-2 border-gray-900 print:break-inside-avoid dark:border-gray-100"
             >
                 <div v-if="canAct" class="print:hidden">
                     <h2 class="mb-6 text-sm font-semibold uppercase tracking-wide text-gray-900 dark:text-white">Owner authorization</h2>
@@ -412,7 +414,7 @@ const pricingRows = computed(() => [
                 </div>
             </div>
 
-            <div class="consignment-agreement-footer px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
+            <div class="consignment-agreement-footer px-4 sm:px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
                 <p>Thank you for your business!</p>
                 <p v-if="footerPhone" class="mt-1">
                     Questions? Call us at {{ formatPhoneNumber(footerPhone) }}

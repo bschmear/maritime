@@ -1,5 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { useForm, Head } from '@inertiajs/vue3';
 
 const props = defineProps({
@@ -243,49 +246,34 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div class="bg-white shadow-lg print:shadow-none">
-                    <!-- Company Header (matches ServiceTicketReview) -->
-                    <div class="border-b-4 border-gray-900 px-8 print:px-0 py-6 print:border-b-2">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex items-start gap-6 min-w-0">
-                                <div v-if="logoUrl" class="flex-shrink-0">
-                                    <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain" />
-                                </div>
-                                <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
-                                    <span class="material-icons text-4xl text-gray-400">business</span>
-                                </div>
-                                <div class="min-w-0">
-                                    <h1 class="text-2xl font-bold text-gray-900">
-                                        {{ companyName }}
-                                    </h1>
-                                    <div class="mt-2 text-sm text-gray-600 space-y-1">
-                                        <p v-if="locationLine1">{{ locationLine1 }}</p>
-                                        <p v-if="locationLine2">{{ locationLine2 }}</p>
-                                        <p v-if="record.location?.phone" class="flex items-center gap-1">
-                                            <span class="material-icons text-sm">phone</span>
-                                            {{ record.location.phone }}
-                                        </p>
-                                        <p v-if="record.location?.email" class="flex items-center gap-1">
-                                            <span class="material-icons text-sm">email</span>
-                                            {{ record.location.email }}
-                                        </p>
-                                    </div>
-                                </div>
+                <div class="overflow-x-hidden bg-white shadow-lg print:shadow-none">
+                    <PublicDocumentHeader
+                        :logo-url="logoUrl"
+                        document-label="Estimate"
+                        :document-number="record.display_name"
+                        :document-date="formatDate(record.issue_date || record.created_at)"
+                    >
+                        <template #company>
+                            <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
+                                {{ companyName }}
+                            </h1>
+                            <div class="mt-2 space-y-1 text-sm text-gray-600">
+                                <p v-if="locationLine1">{{ locationLine1 }}</p>
+                                <p v-if="locationLine2">{{ locationLine2 }}</p>
+                                <p v-if="record.location?.phone" class="flex items-center gap-1 break-all">
+                                    <span class="material-icons shrink-0 text-sm">phone</span>
+                                    {{ record.location.phone }}
+                                </p>
+                                <p v-if="record.location?.email" class="flex items-center gap-1 break-all">
+                                    <span class="material-icons shrink-0 text-sm">email</span>
+                                    {{ record.location.email }}
+                                </p>
                             </div>
-                            <div class="text-right shrink-0">
-                                <div class="text-sm font-medium text-gray-600 uppercase">Estimate</div>
-                                <div class="text-3xl font-bold text-gray-900 font-mono">
-                                    {{ record.display_name }}
-                                </div>
-                                <div class="text-sm text-gray-600 mt-1">
-                                    {{ formatDate(record.issue_date || record.created_at) }}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                        </template>
+                    </PublicDocumentHeader>
 
                     <!-- Customer & estimate meta -->
-                    <div class="px-8 print:px-0 py-6 bg-gray-50">
+                    <div class="px-4 sm:px-8 print:px-0 py-6 bg-gray-50">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Information</h2>
@@ -350,9 +338,49 @@ onMounted(() => {
                     </div>
 
                     <!-- Line Items -->
-                    <div v-if="record.line_items?.length" class="px-8 print:px-0 py-6 border-t border-gray-200">
+                    <div v-if="record.line_items?.length" class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200">
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Line Items</h2>
-                        <table class="w-full">
+
+                        <div class="space-y-3 md:hidden print:hidden">
+                            <template v-for="item in record.line_items" :key="`m-${item.id}`">
+                                <PublicDocumentLineItemCard
+                                    :title="item.name || '—'"
+                                    :amount="formatCurrency(lineItemTotal(item))"
+                                >
+                                    <PublicDocumentLineItemField
+                                        v-if="lineItemVariantLabel(item)"
+                                        label="Variant"
+                                        :value="lineItemVariantLabel(item)"
+                                    />
+                                    <PublicDocumentLineItemField label="Qty" :value="item.quantity" />
+                                    <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(item.unit_price)" />
+                                    <template #children>
+                                        <PublicDocumentLineItemCard
+                                            v-for="(opt, optIdx) in item.selected_options || []"
+                                            :key="`m-opt-${item.id}-${optIdx}`"
+                                            accent="sky"
+                                            :title="selectedOptionLabel(opt)"
+                                            :amount="formatCurrency(selectedOptionUnitPrice(opt))"
+                                        >
+                                            <PublicDocumentLineItemField label="Qty" value="1" />
+                                            <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(selectedOptionUnitPrice(opt))" />
+                                        </PublicDocumentLineItemCard>
+                                        <PublicDocumentLineItemCard
+                                            v-for="addon in item.addons || []"
+                                            :key="`m-addon-${addon.id}`"
+                                            muted
+                                            :title="addon.name"
+                                            :amount="formatCurrency(addonTotal(addon))"
+                                        >
+                                            <PublicDocumentLineItemField label="Qty" :value="addon.quantity" />
+                                            <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(addon.price)" />
+                                        </PublicDocumentLineItemCard>
+                                    </template>
+                                </PublicDocumentLineItemCard>
+                            </template>
+                        </div>
+
+                        <table class="hidden w-full md:table print:table">
                             <thead>
                                 <tr class="border-b-2 border-gray-900">
                                     <th class="text-left py-3 text-sm font-semibold text-gray-900">Description</th>
@@ -410,7 +438,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Totals -->
-                    <div class="px-8 print:px-0 py-6 bg-gray-50 border-t border-gray-200">
+                    <div class="px-4 sm:px-8 print:px-0 py-6 bg-gray-50 border-t border-gray-200">
                         <div class="flex justify-end">
                             <div class="w-full md:w-1/2 lg:w-1/3 space-y-3">
                                 <div class="flex justify-between text-sm">
@@ -432,7 +460,7 @@ onMounted(() => {
                     <!-- Notes / Terms -->
                     <div
                         v-if="record.notes || record.terms"
-                        class="px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
+                        class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
                     >
                         <div v-if="record.notes" class="mb-6">
                             <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Notes</h2>
@@ -451,7 +479,7 @@ onMounted(() => {
                     <!-- Legacy signature / approval note (approved) -->
                     <div
                         v-if="isApproved && hasLegacySignature"
-                        class="px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
+                        class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200 print:break-inside-avoid"
                     >
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Signature</h2>
                         <div class="flex items-start gap-6 flex-wrap">
@@ -479,14 +507,14 @@ onMounted(() => {
 
                     <div
                         v-if="isApproved && record.approval_note"
-                        class="px-8 print:px-0 py-6 border-t border-gray-200"
+                        class="px-4 sm:px-8 print:px-0 py-6 border-t border-gray-200"
                     >
                         <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Approval note</h2>
                         <p class="text-sm text-gray-700 whitespace-pre-line">{{ record.approval_note }}</p>
                     </div>
 
                     <!-- Customer authorization (pending only) -->
-                    <div v-if="canAct" class="px-8 print:px-0 py-8 border-t-2 border-gray-900 print:hidden">
+                    <div v-if="canAct" class="px-4 sm:px-8 print:px-0 py-8 border-t-2 border-gray-900 print:hidden">
                         <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Authorization</h2>
 
                         <div v-if="ackText" class="mb-8 p-5 bg-gray-50 border border-gray-200 rounded-lg">
@@ -582,7 +610,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
+                    <div class="px-4 sm:px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
                         <p>Thank you for your business!</p>
                         <p v-if="footerPhone" class="mt-1">Questions? Call us at {{ formatPhoneNumber(footerPhone) }}</p>
                     </div>

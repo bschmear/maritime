@@ -1,5 +1,8 @@
 <script setup>
 import PublicBrandingFooter from '@/Components/Tenant/Public/PublicBrandingFooter.vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import { computed, onMounted } from 'vue';
 
@@ -103,46 +106,34 @@ onMounted(() => {
                 </button>
             </div>
 
-            <div class="bg-white shadow-lg print:shadow-none rounded-lg overflow-hidden print:rounded-none">
-                <div class="border-b-4 border-gray-900 px-8 print:px-0 py-6 print:border-b-2">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex items-start gap-6 min-w-0">
-                            <div v-if="logoUrl" class="flex-shrink-0">
-                                <img :src="logoUrl" alt="Company logo" class="h-20 w-auto max-w-[180px] object-contain" />
-                            </div>
-                            <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
-                                <span class="material-icons text-4xl text-gray-400">business</span>
-                            </div>
-                            <div class="min-w-0">
-                                <h1 class="text-2xl font-bold text-gray-900">
-                                    {{ record.subsidiary?.display_name || account?.name || 'Company' }}
-                                </h1>
-                                <p class="mt-1 text-sm text-gray-600">
-                                    Warranty claim for vendor:
-                                    <span class="font-semibold text-gray-900">{{ record.vendor?.display_name || '—' }}</span>
-                                </p>
-                            </div>
+            <div class="overflow-x-hidden rounded-lg bg-white shadow-lg print:rounded-none print:shadow-none">
+                <PublicDocumentHeader
+                    :logo-url="logoUrl"
+                    document-label="Warranty claim"
+                    :document-number="claimRef"
+                    :document-date="formatDate(record.created_at)"
+                >
+                    <template #company>
+                        <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
+                            {{ record.subsidiary?.display_name || account?.name || 'Company' }}
+                        </h1>
+                        <p class="mt-1 text-sm text-gray-600">
+                            Warranty claim for vendor:
+                            <span class="font-semibold text-gray-900 break-words">{{ record.vendor?.display_name || '—' }}</span>
+                        </p>
+                    </template>
+                    <template #meta-extra>
+                        <div class="mt-2">
+                            <span
+                                class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-800"
+                            >
+                                {{ statusLabel(record.status) }}
+                            </span>
                         </div>
-                        <div class="text-right shrink-0">
-                            <div class="text-sm font-medium text-gray-600 uppercase">Warranty claim</div>
-                            <div class="text-2xl sm:text-3xl font-bold text-gray-900 font-mono">
-                                {{ claimRef }}
-                            </div>
-                            <div class="text-sm text-gray-600 mt-1">
-                                {{ formatDate(record.created_at) }}
-                            </div>
-                            <div class="mt-2">
-                                <span
-                                    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-gray-100 text-gray-800"
-                                >
-                                    {{ statusLabel(record.status) }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                    </template>
+                </PublicDocumentHeader>
 
-                <div class="px-8 print:px-0 py-6 bg-gray-50 border-b border-gray-200">
+                <div class="px-4 sm:px-8 print:px-0 py-6 bg-gray-50 border-b border-gray-200">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Work order</h2>
@@ -159,14 +150,14 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div v-if="record.notes" class="px-8 print:px-0 py-6 border-b border-gray-200">
+                <div v-if="record.notes" class="px-4 sm:px-8 print:px-0 py-6 border-b border-gray-200">
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Claim notes</h2>
                     <p class="text-sm text-gray-900 whitespace-pre-line">{{ record.notes }}</p>
                 </div>
 
                 <div
                     v-if="claimImages.length"
-                    class="px-8 print:px-0 py-6 border-b border-gray-200 print:break-inside-avoid"
+                    class="px-4 sm:px-8 print:px-0 py-6 border-b border-gray-200 print:break-inside-avoid"
                 >
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Photos</h2>
                     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -188,7 +179,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div v-if="claimDocuments.length" class="px-8 print:px-0 py-6 border-b border-gray-200">
+                <div v-if="claimDocuments.length" class="px-4 sm:px-8 print:px-0 py-6 border-b border-gray-200">
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Documents</h2>
                     <ul class="list-disc pl-5 text-sm text-gray-800 space-y-1">
                         <li v-for="doc in claimDocuments" :key="doc.id">
@@ -197,9 +188,32 @@ onMounted(() => {
                     </ul>
                 </div>
 
-                <div class="px-8 print:px-0 py-6 border-b border-gray-200">
+                <div class="px-4 sm:px-8 print:px-0 py-6 border-b border-gray-200">
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-4">Line items</h2>
-                    <div class="overflow-x-auto rounded-lg border border-gray-200">
+
+                    <div class="mb-4 space-y-3 md:hidden print:hidden">
+                        <PublicDocumentLineItemCard
+                            v-for="row in lineItems"
+                            :key="`m-${row.id}`"
+                            :title="serviceLineDisplayName(row)"
+                            :amount="formatMoney(row.line_total_cost)"
+                        >
+                            <PublicDocumentLineItemField label="Coverage" :value="costTypeLabel(row.cost_type)" />
+                            <PublicDocumentLineItemField label="Qty" :value="row.quantity" />
+                            <PublicDocumentLineItemField label="Cost" :value="formatMoney(row.cost)" />
+                            <div v-if="(row.description || '').trim()" class="border-t border-gray-200/80 pt-2">
+                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Service description</div>
+                                <div class="mt-0.5 whitespace-pre-line text-sm text-gray-800">{{ row.description }}</div>
+                            </div>
+                            <div class="border-t border-gray-200/80 pt-2">
+                                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Vendor feedback</div>
+                                <div v-if="(row.notes || '').trim()" class="mt-0.5 whitespace-pre-line text-sm text-gray-800">{{ row.notes }}</div>
+                                <div v-else class="mt-0.5 text-sm text-gray-400">—</div>
+                            </div>
+                        </PublicDocumentLineItemCard>
+                    </div>
+
+                    <div class="hidden overflow-x-auto rounded-lg border border-gray-200 md:block print:block">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
                                 <tr>
@@ -252,7 +266,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div class="px-8 print:px-0 py-6 print:hidden">
+                <div class="px-4 sm:px-8 print:px-0 py-6 print:hidden">
                     <div class="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-900">
                         <p class="font-medium">Respond in the vendor portal</p>
                         <p class="mt-1 text-primary-800">

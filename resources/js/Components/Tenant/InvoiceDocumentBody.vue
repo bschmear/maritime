@@ -1,4 +1,6 @@
 <script setup>
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { computed } from 'vue';
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
@@ -199,11 +201,74 @@ const customerFacingLineTotal = (item) => {
             </p>
         </div>
 
-        <div class="border-t border-gray-200 px-8 py-6">
+        <div class="border-t border-gray-200 px-4 py-6 sm:px-8">
             <h2 class="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Line items
             </h2>
-            <table class="w-full">
+
+            <div v-if="lineItems.length" class="mb-4 space-y-3 md:hidden print:hidden">
+                <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`m-bo-${group.primary.id}-${gIdx}`">
+                    <PublicDocumentLineItemCard
+                        :title="itemPrimaryLabel(group.primary)"
+                        :amount="formatCurrency(customerFacingLineTotal(group.primary))"
+                    >
+                        <span
+                            v-if="itemableBadge(group.primary)"
+                            class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700"
+                        >
+                            {{ itemableBadge(group.primary) }}
+                        </span>
+                        <PublicDocumentLineItemField
+                            v-if="variantLabel(group.primary)"
+                            label="Variant"
+                            :value="variantLabel(group.primary)"
+                        />
+                        <PublicDocumentLineItemField
+                            v-if="unitLabel(group.primary)"
+                            label="Unit"
+                            :value="unitLabel(group.primary)"
+                        />
+                        <PublicDocumentLineItemField label="Qty" :value="group.primary.quantity ?? 1" />
+                        <PublicDocumentLineItemField label="Unit price">
+                            <span v-if="isCoveredWarranty(group.primary)" class="text-blue-700">Covered under warranty</span>
+                            <span v-else>{{ formatCurrency(group.primary.unit_price ?? group.primary.price) }}</span>
+                        </PublicDocumentLineItemField>
+                        <PublicDocumentLineItemField label="Discount">
+                            <span v-if="isCoveredWarranty(group.primary)">—</span>
+                            <span v-else>{{ discountCell(group.primary) }}</span>
+                        </PublicDocumentLineItemField>
+                        <template #children>
+                            <PublicDocumentLineItemCard
+                                v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
+                                :key="`m-bo-opt-${group.primary.id}-${oi}`"
+                                accent="sky"
+                                :title="selectedOptionLabel(opt)"
+                                :amount="formatCurrency(opt.price)"
+                            >
+                                <PublicDocumentLineItemField label="Qty" value="1" />
+                                <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(opt.price)" />
+                            </PublicDocumentLineItemCard>
+                            <PublicDocumentLineItemCard
+                                v-for="(add, ai) in group.flatAddons"
+                                :key="`m-bo-ad-${add.id}-${ai}`"
+                                muted
+                                :title="flatAddonDisplayName(group.primary.name, add)"
+                                :amount="formatCurrency(customerFacingLineTotal(add))"
+                            >
+                                <PublicDocumentLineItemField label="Qty" :value="add.quantity ?? 1" />
+                                <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(add.unit_price ?? add.price)" />
+                                <PublicDocumentLineItemField label="Discount">
+                                    <span v-if="isCoveredWarranty(add)">—</span>
+                                    <span v-else>{{ discountCell(add) }}</span>
+                                </PublicDocumentLineItemField>
+                            </PublicDocumentLineItemCard>
+                        </template>
+                    </PublicDocumentLineItemCard>
+                </template>
+            </div>
+            <p v-else class="py-6 text-center text-sm text-gray-500 md:hidden print:hidden">No line items</p>
+
+            <table class="hidden w-full md:table print:table">
                 <thead>
                     <tr class="border-b-2 border-gray-900">
                         <th class="py-3 pr-4 text-left text-sm font-semibold text-gray-900">Item</th>
@@ -454,11 +519,74 @@ const customerFacingLineTotal = (item) => {
             </p>
         </div>
 
-        <div class="px-8 py-6 print:break-inside-avoid">
+        <div class="px-4 py-6 sm:px-8 print:break-inside-avoid">
             <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
                 Line items
             </h2>
-            <div class="overflow-x-auto border border-gray-200 print:border-0">
+
+            <div v-if="lineItems.length" class="mb-4 space-y-3 md:hidden print:hidden">
+                <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`m-inv-${group.primary.id}-${gIdx}`">
+                    <PublicDocumentLineItemCard
+                        :title="itemPrimaryLabel(group.primary)"
+                        :amount="formatCurrency(customerFacingLineTotal(group.primary))"
+                    >
+                        <span
+                            v-if="itemableBadge(group.primary)"
+                            class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                        >
+                            {{ itemableBadge(group.primary) }}
+                        </span>
+                        <PublicDocumentLineItemField
+                            v-if="variantLabel(group.primary)"
+                            label="Variant"
+                            :value="variantLabel(group.primary)"
+                        />
+                        <PublicDocumentLineItemField
+                            v-if="unitLabel(group.primary)"
+                            label="Unit"
+                            :value="unitLabel(group.primary)"
+                        />
+                        <PublicDocumentLineItemField label="Qty" :value="group.primary.quantity ?? 1" />
+                        <PublicDocumentLineItemField label="Unit price">
+                            <span v-if="isCoveredWarranty(group.primary)" class="text-blue-700">Covered under warranty</span>
+                            <span v-else>{{ formatCurrency(group.primary.unit_price ?? group.primary.price) }}</span>
+                        </PublicDocumentLineItemField>
+                        <PublicDocumentLineItemField label="Discount">
+                            <span v-if="isCoveredWarranty(group.primary)">—</span>
+                            <span v-else>{{ discountCell(group.primary) }}</span>
+                        </PublicDocumentLineItemField>
+                        <template #children>
+                            <PublicDocumentLineItemCard
+                                v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
+                                :key="`m-inv-opt-${group.primary.id}-${oi}`"
+                                accent="sky"
+                                :title="selectedOptionLabel(opt)"
+                                :amount="formatCurrency(opt.price)"
+                            >
+                                <PublicDocumentLineItemField label="Qty" value="1" />
+                                <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(opt.price)" />
+                            </PublicDocumentLineItemCard>
+                            <PublicDocumentLineItemCard
+                                v-for="(add, ai) in group.flatAddons"
+                                :key="`m-inv-ad-${add.id}-${ai}`"
+                                muted
+                                :title="flatAddonDisplayName(group.primary.name, add)"
+                                :amount="formatCurrency(customerFacingLineTotal(add))"
+                            >
+                                <PublicDocumentLineItemField label="Qty" :value="add.quantity ?? 1" />
+                                <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(add.unit_price ?? add.price)" />
+                                <PublicDocumentLineItemField label="Discount">
+                                    <span v-if="isCoveredWarranty(add)">—</span>
+                                    <span v-else>{{ discountCell(add) }}</span>
+                                </PublicDocumentLineItemField>
+                            </PublicDocumentLineItemCard>
+                        </template>
+                    </PublicDocumentLineItemCard>
+                </template>
+            </div>
+            <p v-else class="py-6 text-center text-sm text-gray-500 md:hidden print:hidden">No line items</p>
+
+            <div class="hidden overflow-x-auto border border-gray-200 md:block print:block print:border-0">
                 <table class="w-full text-left text-sm text-gray-900">
                     <thead class="bg-gray-50 text-xs uppercase text-gray-500">
                         <tr>

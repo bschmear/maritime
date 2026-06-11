@@ -1,5 +1,8 @@
 <script setup>
 import { computed } from 'vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import PublicSignatureForm from '@/Components/Tenant/Public/PublicSignatureForm.vue';
 
 const props = defineProps({
@@ -109,59 +112,42 @@ const customerAddressLine1 = computed(
 </script>
 
 <template>
-    <div class="bg-white shadow-lg print:shadow-none">
-        <!-- Header -->
-        <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2">
-            <div class="flex items-start justify-between">
-                <div class="flex items-start gap-6">
-                    <div v-if="effectiveLogoUrl" class="flex-shrink-0">
-                        <img :src="effectiveLogoUrl" alt="Company Logo" class="h-20 w-auto max-w-[150px] object-contain" />
-                    </div>
-                    <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center">
-                        <span class="material-icons text-4xl text-gray-400">business</span>
-                    </div>
-
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">
-                            {{ record.subsidiary?.display_name || account.name || 'Company Name' }}
-                        </h1>
-                        <div class="mt-2 text-sm text-gray-600 space-y-1">
-                            <p v-if="record.location?.address_line_1 || record.location?.address_line1">
-                                {{ record.location.address_line_1 || record.location.address_line1 }}
-                                <span v-if="record.location?.address_line_2 || record.location?.address_line2"
-                                    >, {{ record.location.address_line_2 || record.location.address_line2 }}</span
-                                >
-                            </p>
-                            <p v-if="record.location?.city">
-                                {{ record.location.city }}<span v-if="record.location?.state">, {{ record.location.state }}</span>
-                                {{ record.location?.postal_code }}
-                            </p>
-                            <p v-if="record.location?.phone" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">phone</span>
-                                {{ record.location.phone }}
-                            </p>
-                            <p v-if="record.location?.email" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">email</span>
-                                {{ record.location.email }}
-                            </p>
-                        </div>
-                    </div>
+    <div class="overflow-x-hidden bg-white shadow-lg print:shadow-none">
+        <PublicDocumentHeader
+            :logo-url="effectiveLogoUrl"
+            document-label="Delivery"
+            :document-number="record.display_name"
+            :document-date="formatDate(record.created_at)"
+        >
+            <template #company>
+                <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
+                    {{ record.subsidiary?.display_name || account.name || 'Company Name' }}
+                </h1>
+                <div class="mt-2 space-y-1 text-sm text-gray-600">
+                    <p v-if="record.location?.address_line_1 || record.location?.address_line1">
+                        {{ record.location.address_line_1 || record.location.address_line1 }}
+                        <span v-if="record.location?.address_line_2 || record.location?.address_line2"
+                            >, {{ record.location.address_line_2 || record.location.address_line2 }}</span
+                        >
+                    </p>
+                    <p v-if="record.location?.city">
+                        {{ record.location.city }}<span v-if="record.location?.state">, {{ record.location.state }}</span>
+                        {{ record.location?.postal_code }}
+                    </p>
+                    <p v-if="record.location?.phone" class="flex items-center gap-1 break-all">
+                        <span class="material-icons shrink-0 text-sm">phone</span>
+                        {{ record.location.phone }}
+                    </p>
+                    <p v-if="record.location?.email" class="flex items-center gap-1 break-all">
+                        <span class="material-icons shrink-0 text-sm">email</span>
+                        {{ record.location.email }}
+                    </p>
                 </div>
-
-                <div class="text-right">
-                    <div class="text-sm font-medium text-gray-600 uppercase">Delivery</div>
-                    <div class="text-3xl font-bold text-gray-900 font-mono">
-                        {{ record.display_name }}
-                    </div>
-                    <div class="text-sm text-gray-600 mt-1">
-                        {{ formatDate(record.created_at) }}
-                    </div>
-                </div>
-            </div>
-        </div>
+            </template>
+        </PublicDocumentHeader>
 
         <!-- Customer Information -->
-        <div class="px-8 py-6 bg-gray-50">
+        <div class="px-4 py-6 sm:px-8 bg-gray-50">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Customer Information</h2>
@@ -224,7 +210,7 @@ const customerAddressLine1 = computed(
         </div>
 
         <!-- Delivery Information -->
-        <div class="px-8 py-6 border-t border-gray-200">
+        <div class="px-4 py-6 sm:px-8 border-t border-gray-200">
             <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Delivery Information</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -255,12 +241,22 @@ const customerAddressLine1 = computed(
         </div>
 
         <!-- Line items -->
-        <div class="px-8 py-6 border-t border-gray-200">
+        <div class="px-4 py-6 sm:px-8 border-t border-gray-200">
             <h2 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Items in this delivery</h2>
             <div v-if="lineItems.length === 0" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-600">
                 No line items are recorded for this delivery.
             </div>
-            <div v-else class="overflow-x-auto rounded-lg border border-gray-200">
+            <div v-else class="space-y-3 md:hidden print:hidden">
+                <PublicDocumentLineItemCard
+                    v-for="item in lineItems"
+                    :key="`m-${item.id}`"
+                    :title="itemName(item)"
+                >
+                    <PublicDocumentLineItemField label="Variant" :value="itemVariantLabel(item) ?? '—'" />
+                    <PublicDocumentLineItemField label="Unit / serial" :value="itemUnitLabel(item) ?? '—'" />
+                </PublicDocumentLineItemCard>
+            </div>
+            <div v-if="lineItems.length > 0" class="hidden overflow-x-auto rounded-lg border border-gray-200 md:block print:block">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
@@ -281,7 +277,7 @@ const customerAddressLine1 = computed(
         </div>
 
         <!-- Already signed (public + staff preview) -->
-        <div v-if="isSigned" class="px-8 py-6 border-t-2 border-gray-900 bg-green-50 print:bg-white">
+        <div v-if="isSigned" class="px-4 py-6 sm:px-8 border-t-2 border-gray-900 bg-green-50 print:bg-white">
             <div class="text-center">
                 <div class="flex items-center justify-center mb-4">
                     <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -302,7 +298,7 @@ const customerAddressLine1 = computed(
         </div>
 
         <!-- Live signature form (public, unsigned) -->
-        <div v-else-if="canSign" class="px-8 py-8 border-t-2 border-gray-900 print:hidden">
+        <div v-else-if="canSign" class="px-4 py-8 sm:px-8 border-t-2 border-gray-900 print:hidden">
             <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-6">Customer Signature</h2>
             <PublicSignatureForm
                 :action="signAction"
@@ -314,7 +310,7 @@ const customerAddressLine1 = computed(
         </div>
 
         <!-- Preview: blank signature block -->
-        <div v-else-if="isPreview && !isSigned" class="px-8 py-6 border-t-2 border-gray-900">
+        <div v-else-if="isPreview && !isSigned" class="px-4 py-6 sm:px-8 border-t-2 border-gray-900">
             <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Customer Signature</h2>
             <div v-if="deliveryAckBody" class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                 <p class="text-sm text-gray-900 leading-relaxed whitespace-pre-line">{{ deliveryAckBody }}</p>
@@ -336,7 +332,7 @@ const customerAddressLine1 = computed(
         </div>
 
         <!-- Footer -->
-        <div class="px-8 py-4 bg-gray-900 text-white text-center text-xs">
+        <div class="px-4 py-4 sm:px-8 bg-gray-900 text-white text-center text-xs">
             <p>Thank you for your business!</p>
             <p v-if="record.location?.phone" class="mt-1">
                 Questions? Call us at {{ record.location.phone }}

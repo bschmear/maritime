@@ -556,6 +556,114 @@ const formatDate = (value) => {
     }
 };
 
+const pseudoRecord = computed(() => {
+    const base = props.record ?? null;
+    if (!base) {
+        return null;
+    }
+
+    const resolvedContactId = base.contact_id
+        ?? base.customer?.contact_id
+        ?? base.customer?.contact?.id
+        ?? null;
+
+    if (!resolvedContactId) {
+        return base;
+    }
+
+    return {
+        ...base,
+        contact_id: resolvedContactId,
+        contact: base.contact ?? base.customer?.contact ?? {
+            id: resolvedContactId,
+            display_name: base.customer?.display_name ?? '',
+        },
+    };
+});
+
+const contactPartyField = computed(() => {
+    const fromSchema = props.fieldsSchema?.customer_id ?? {};
+
+    return {
+        type: 'record',
+        typeDomain: 'Contact',
+        label: fromSchema.label || 'Contact / Lead / Customer',
+        required: true,
+        create: true,
+        ...fromSchema,
+        typeDomain: 'Contact',
+        create: true,
+    };
+});
+
+const resolvingContact = ref(false);
+
+const postJson = async (url, payload) => {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+
+    return { response, data };
+};
+
+const resolveCustomerFromContact = async (requestedContactId) => {
+    if (!requestedContactId) {
+        form.customer_id = null;
+        return;
+    }
+
+    resolvingContact.value = true;
+
+    try {
+        const response = await fetch(route('contacts.show', requestedContactId), {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        const contact = data.record || data;
+
+        if (contact?.customer?.id) {
+            form.customer_id = contact.customer.id;
+            return;
+        }
+
+        const { response: createResponse, data: createData } = await postJson(route('customers.store'), {
+            contact_id: requestedContactId,
+            subsidiary_id: form.subsidiary_id || props.account?.default_subsidiary_id || null,
+        });
+
+        if (createResponse.ok) {
+            const customer = createData.record || createData;
+            if (customer?.id) {
+                form.customer_id = customer.id;
+            }
+        }
+    } catch (error) {
+        console.error('Error resolving contact to customer:', error);
+    } finally {
+        resolvingContact.value = false;
+    }
+};
+
 // ==============================
 // Initialize Form
 // ==============================
@@ -656,6 +764,12 @@ if (props.record?.transaction_id != null) {
 } else if (props.record?.transaction?.id != null) {
     formData.transaction_id = props.record.transaction.id;
 }
+
+formData.contact_id =
+    props.record?.contact_id
+    ?? props.record?.customer?.contact_id
+    ?? props.record?.customer?.contact?.id
+    ?? null;
 
 const form = useForm(formData);
 
@@ -918,8 +1032,22 @@ const clearServiceAssetSelection = () => {
     serviceAssetForm.value = emptyServiceAssetForm();
 };
 
-watch(() => form.customer_id, (newValue, oldValue) => {
+watch(() => form.contact_id, async (newValue, oldValue) => {
     if (formInitialized.value && oldValue !== undefined && newValue !== oldValue) {
+        clearServiceAssetSelection();
+    }
+    if (props.mode === 'show' || isLocked.value) {
+        return;
+    }
+    if (newValue) {
+        await resolveCustomerFromContact(newValue);
+    } else {
+        form.customer_id = null;
+    }
+});
+
+watch(() => form.customer_id, (newValue, oldValue) => {
+    if (formInitialized.value && oldValue !== undefined && newValue !== oldValue && !form.contact_id) {
         clearServiceAssetSelection();
     }
 });
@@ -1158,21 +1286,28 @@ const handleCancel = () => {
                                         </h3>
 
                                         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
-                                        <!-- Customer Selection -->
+                                        <!-- Contact / lead / customer (stored as customer_id on service ticket) -->
                                         <div>
                                             <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.customer_id?.label || 'Customer' }} {{ isFieldRequired('customer_id') ? '*' : '' }}
+                                                {{ contactPartyField.label }} {{ isFieldRequired('customer_id') ? '*' : '' }}
                                             </label>
                                             <RecordSelect
                                                 v-if="mode !== 'show'"
-                                                :id="'customer_id'"
-                                                :field="fieldsSchema.customer_id"
-                                                v-model="form.customer_id"
-                                                :disabled="isFieldReadonly('customer_id')"
-                                                :enum-options="getEnumOptions('customer_id')"
-                                                :record="record"
-                                                field-key="customer_id"
+                                                id="contact_id"
+                                                :field="contactPartyField"
+                                                v-model="form.contact_id"
+                                                :disabled="isFieldReadonly('customer_id') || resolvingContact"
+                                                :enum-options="getEnumOptions('contact_id')"
+                                                :record="pseudoRecord"
+                                                field-key="contact_id"
                                             />
+                                            <Link
+                                                v-else-if="record?.customer?.contact_id"
+                                                :href="route('contacts.show', record.customer.contact_id)"
+                                                :class="recordLinkClass"
+                                            >
+                                                {{ record.customer?.display_name || relatedRecordLabel('customer_id') }}
+                                            </Link>
                                             <Link
                                                 v-else-if="relatedRecordShowUrl('customer_id')"
                                                 :href="relatedRecordShowUrl('customer_id')"
@@ -1183,7 +1318,12 @@ const handleCancel = () => {
                                             <p v-else :class="recordTextClass">
                                                 {{ relatedRecordLabel('customer_id') }}
                                             </p>
-                                            <p v-if="form.errors.customer_id" class="mt-1 text-md text-red-600 dark:text-red-400">{{ form.errors.customer_id }}</p>
+                                            <p v-if="resolvingContact" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                Preparing customer profile…
+                                            </p>
+                                            <p v-if="form.errors.contact_id || form.errors.customer_id" class="mt-1 text-md text-red-600 dark:text-red-400">
+                                                {{ form.errors.contact_id || form.errors.customer_id }}
+                                            </p>
                                         </div>
 
                                         <!-- Subsidiary Selection -->
@@ -1263,7 +1403,7 @@ const handleCancel = () => {
                                             </label>
                                             <template v-if="mode !== 'show'">
                                                 <p v-if="!form.customer_id" class="text-md text-amber-700 dark:text-amber-300">
-                                                    Select a customer first.
+                                                    Select a contact first.
                                                 </p>
                                                 <div v-else class="space-y-3">
                                                     <div class="flex flex-wrap items-center gap-2">

@@ -67,9 +67,10 @@ const breadcrumbItems = computed(() => {
 const currentStep = ref(1);
 const totalSteps = 3;
 
-// Step 1: Customer selection (RecordSelect + same nested customer/contact shape as ServiceTicketForm)
+// Step 1: Contact / lead / customer selection (contact-first; resolves to customer profile for assets)
 const selectedCustomer = ref(null);
-const customerId = ref(null);
+const contactId = ref(null);
+const contactResolveError = ref('');
 const showCreateCustomerForm = ref(false);
 const customerIsLoading = ref(false);
 const customerCreateError = ref('');
@@ -77,8 +78,8 @@ const customerCreateError = ref('');
 const newPersonSaveAs = ref('customer');
 const pendingContactId = ref(null);
 const pendingContactName = ref('');
-/** Suppresses auto-advance when re-syncing customerId after navigating back to step 1 */
-const skipCustomerIdAdvance = ref(false);
+/** Suppresses auto-advance when re-syncing contactId after navigating back to step 1 */
+const skipContactIdAdvance = ref(false);
 
 // New customer form
 const newCustomerForm = ref({
@@ -95,6 +96,40 @@ const selectedAssetUnit = ref(null);
 const assetSearchQuery = ref('');
 const assetRecords = ref([]);
 const assetIsLoading = ref(false);
+/** UnitStatus id; 1 = Available (default). Empty string = all statuses. */
+const assetStatusFilter = ref(1);
+
+const assetStatusOptions = computed(() => {
+    const opts = props.enumOptions?.asset_unit_status ?? [];
+    return [{ id: '', name: 'All statuses' }, ...opts];
+});
+
+const assetStatusLabel = (statusId) => {
+    const opt = assetStatusOptions.value.find(
+        (o) => o.id === statusId || String(o.id) === String(statusId) || o.value === statusId,
+    );
+    return opt?.name ?? null;
+};
+
+const buildAssetLookupFilters = () => {
+    const filters = [
+        {
+            field: 'customer_id',
+            operator: 'equals',
+            value: selectedCustomer.value.id,
+        },
+    ];
+
+    if (assetStatusFilter.value !== '' && assetStatusFilter.value != null) {
+        filters.push({
+            field: 'status',
+            operator: 'equals',
+            value: assetStatusFilter.value,
+        });
+    }
+
+    return filters;
+};
 
 // Final data to pass to the form
 const initialFormData = ref(null);
@@ -114,51 +149,112 @@ const stepProgress = computed(() => {
     return (currentStep.value / totalSteps) * 100;
 });
 
-// Parent `record` stub for RecordSelect (customer + contact for display_name resolution)
 const wizardRecord = computed(() => {
     const c = selectedCustomer.value;
-    if (!c?.id) {
+    const resolvedContactId = contactId.value ?? c?.contact_id ?? c?.contact?.id ?? null;
+    if (!resolvedContactId) {
         return {};
     }
-    const contact = c.contact;
+
     return {
-        customer: {
-            id: c.id,
-            display_name: c.display_name,
-            contact: contact
-                ? { id: contact.id, display_name: contact.display_name }
-                : null,
+        contact_id: resolvedContactId,
+        contact: c?.contact ?? {
+            id: resolvedContactId,
+            display_name: c?.display_name ?? '',
         },
+        customer: c?.id
+            ? {
+                id: c.id,
+                display_name: c.display_name,
+                contact_id: resolvedContactId,
+                contact: c.contact ?? { id: resolvedContactId, display_name: c.display_name ?? '' },
+            }
+            : null,
     };
 });
 
-const customerField = computed(
-    () => props.fieldsSchema?.customer_id || {
+const contactPartyField = computed(() => {
+    const fromSchema = props.fieldsSchema?.customer_id ?? {};
+
+    return {
         type: 'record',
-        typeDomain: 'Customer',
-        label: 'Customer',
+        typeDomain: 'Contact',
+        label: fromSchema.label || 'Contact / Lead / Customer',
         required: true,
         create: true,
-    },
-);
+        ...fromSchema,
+        typeDomain: 'Contact',
+        create: true,
+    };
+});
 
 const goToAssetStep = () => {
     currentStep.value = 2;
     assetSearchQuery.value = '';
     selectedAssetUnit.value = null;
-    if (prefetchedTransactionAssetUnits.value.length) {
-        assetRecords.value = prefetchedTransactionAssetUnits.value;
-    } else {
-        fetchAssets();
+    fetchAssets();
+};
+
+const resolveContactToCustomer = async (requestedContactId) => {
+    contactResolveError.value = '';
+    customerIsLoading.value = true;
+
+    try {
+        const response = await fetch(route('contacts.show', requestedContactId), {
+            method: 'GET',
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            },
+            credentials: 'same-origin',
+        });
+
+        if (!response.ok) {
+            contactResolveError.value = 'Could not load the selected contact.';
+            return null;
+        }
+
+        const data = await response.json();
+        const contact = data.record || data;
+
+        if (contact?.customer?.id) {
+            await fetchCustomerDetails(contact.customer.id);
+            return selectedCustomer.value;
+        }
+
+        const payload = { contact_id: requestedContactId };
+        if (props.defaultSubsidiaryId) {
+            payload.subsidiary_id = props.defaultSubsidiaryId;
+        }
+
+        const created = await postJson(route('customers.store'), payload);
+        if (!created.response.ok) {
+            contactResolveError.value = formatCreateError(
+                created.data,
+                'Could not create a customer profile for this contact. Add a subsidiary under Settings if none exists.',
+            );
+            return null;
+        }
+
+        const newCustomer = created.data.record || created.data;
+        selectedCustomer.value = newCustomer;
+
+        return newCustomer;
+    } catch (error) {
+        contactResolveError.value = 'Network error while resolving contact. Please try again.';
+        console.error('Error resolving contact to customer:', error);
+        return null;
+    } finally {
+        customerIsLoading.value = false;
     }
 };
 
 /**
- * When customer is chosen in RecordSelect (list pick or "create new" in the picker),
- * v-model updates. Load full customer (contact, etc.) like RecordController + step 2.
+ * When a contact is chosen in RecordSelect, resolve (or create) the customer profile, then advance.
  */
-watch(customerId, async (id) => {
-    if (skipCustomerIdAdvance.value) {
+watch(contactId, async (id) => {
+    if (skipContactIdAdvance.value) {
         return;
     }
     if (currentStep.value !== 1) {
@@ -168,12 +264,13 @@ watch(customerId, async (id) => {
         selectedCustomer.value = null;
         return;
     }
+
     const requested = id;
-    await fetchCustomerDetails(requested);
-    if (customerId.value !== requested || currentStep.value !== 1) {
+    const customer = await resolveContactToCustomer(requested);
+    if (contactId.value !== requested || currentStep.value !== 1) {
         return;
     }
-    if (selectedCustomer.value?.id == requested) {
+    if (customer?.id) {
         goToAssetStep();
     }
 });
@@ -219,8 +316,12 @@ const applyCreatedCustomer = (newCustomer) => {
     if (newCustomer?.id) {
         pendingContactId.value = null;
         pendingContactName.value = '';
-        customerId.value = newCustomer.id;
+        selectedCustomer.value = newCustomer;
+        contactId.value = newCustomer.contact_id ?? newCustomer.contact?.id ?? null;
         showCreateCustomerForm.value = false;
+        if (currentStep.value === 1) {
+            goToAssetStep();
+        }
         return true;
     }
 
@@ -352,13 +453,7 @@ const fetchAssets = async () => {
         const url = new URL(route('records.lookup'), window.location.origin);
         url.searchParams.append('type', 'assetunit');
         url.searchParams.append('per_page', '50');
-        url.searchParams.append('filters', JSON.stringify([
-            {
-                'field': 'customer_id',
-                'operator': 'equals',
-                'value': selectedCustomer.value.id
-            }
-        ]));
+        url.searchParams.append('filters', JSON.stringify(buildAssetLookupFilters()));
         if (assetSearchQuery.value.trim()) {
             url.searchParams.append('search', assetSearchQuery.value.trim());
         }
@@ -395,6 +490,10 @@ const debounce = (fn, delay) => {
 const searchAssets = debounce(() => {
     fetchAssets();
 }, 300);
+
+const onAssetStatusFilterChange = () => {
+    fetchAssets();
+};
 
 const variantLabel = (unit) => {
     const v = unit.asset_variant;
@@ -465,7 +564,8 @@ const fetchAssetDetails = async (assetId) => {
 const proceedToTicketForm = () => {
     const data = {
         customer_id: selectedCustomer.value.id,
-        customer: selectedCustomer.value, // Include full customer record
+        customer: selectedCustomer.value,
+        contact_id: selectedCustomer.value.contact_id ?? selectedCustomer.value.contact?.id ?? contactId.value ?? null,
     };
 
     if (selectedAssetUnit.value) {
@@ -499,24 +599,22 @@ const proceedToTicketForm = () => {
 // Navigation
 // ==============================
 const goBackToCustomerStep = async () => {
-    skipCustomerIdAdvance.value = true;
+    skipContactIdAdvance.value = true;
     currentStep.value = 1;
     initialFormData.value = null;
-    if (selectedCustomer.value?.id) {
-        customerId.value = selectedCustomer.value.id;
+    if (selectedCustomer.value) {
+        contactId.value = selectedCustomer.value.contact_id
+            ?? selectedCustomer.value.contact?.id
+            ?? contactId.value;
     }
     await nextTick();
-    skipCustomerIdAdvance.value = false;
+    skipContactIdAdvance.value = false;
 };
 
 const goBackToAssetStep = () => {
     currentStep.value = 2;
     initialFormData.value = null;
-    if (prefetchedTransactionAssetUnits.value.length) {
-        assetRecords.value = prefetchedTransactionAssetUnits.value;
-    } else {
-        fetchAssets();
-    }
+    fetchAssets();
 };
 
 const handleCancelled = () => {
@@ -539,11 +637,13 @@ const applyCreateBootstrap = async () => {
     wizardInitLoading.value = true;
     try {
         if (boot.customer_id) {
-            skipCustomerIdAdvance.value = true;
-            customerId.value = boot.customer_id;
+            skipContactIdAdvance.value = true;
             await fetchCustomerDetails(boot.customer_id);
+            contactId.value = selectedCustomer.value?.contact_id
+                ?? selectedCustomer.value?.contact?.id
+                ?? null;
             await nextTick();
-            skipCustomerIdAdvance.value = false;
+            skipContactIdAdvance.value = false;
 
             if (!selectedCustomer.value?.id) {
                 currentStep.value = 1;
@@ -551,12 +651,12 @@ const applyCreateBootstrap = async () => {
             }
         }
 
-        assetRecords.value = units;
-
         if (units.length > 0) {
-            const first = units[0];
-            selectedAssetUnit.value = first;
-            await fetchAssetDetails(first.id);
+            await fetchAssets();
+            const bootUnit = units[0];
+            const match = assetRecords.value.find((u) => u.id === bootUnit.id) ?? bootUnit;
+            selectedAssetUnit.value = match;
+            await fetchAssetDetails(match.id);
 
             if (selectedCustomer.value?.id) {
                 proceedToTicketForm();
@@ -631,9 +731,9 @@ onMounted(() => {
                             1
                         </div>
                         <div>
-                            <h1 class="text-xl font-bold text-white">Select a Customer</h1>
+                            <h1 class="text-xl font-bold text-white">Select contact</h1>
                             <p class="text-blue-100 text-sm mt-0.5">
-                                Service tickets use a customer profile (contact + customer record). Search existing customers or create new.
+                                Search contacts, leads, or customers. A customer profile is created automatically when needed for this ticket.
                             </p>
                         </div>
                     </div>
@@ -676,21 +776,27 @@ onMounted(() => {
                         </button>
                     </div>
 
-                    <!-- Same customer picker as ServiceTicketForm (records.lookup + contact display) -->
                     <div v-if="!showCreateCustomerForm" class="space-y-2">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {{ fieldsSchema?.customer_id?.label || 'Customer' }} <span class="text-red-500">*</span>
+                            {{ contactPartyField.label }} <span class="text-red-500">*</span>
                         </label>
                         <RecordSelect
-                            id="serviceticket_wizard_customer_id"
-                            :field="customerField"
-                            v-model="customerId"
+                            id="serviceticket_wizard_contact_id"
+                            :field="contactPartyField"
+                            v-model="contactId"
                             :record="wizardRecord"
-                            :enum-options="enumOptions?.customer_id || []"
-                            field-key="customer_id"
+                            :enum-options="enumOptions?.contact_id || []"
+                            field-key="contact_id"
+                            :disabled="customerIsLoading"
                         />
-                        <p class="text-xs text-gray-500 dark:text-gray-400">
-                            After you select a customer, the next step opens automatically.
+                        <p v-if="customerIsLoading" class="text-xs text-gray-500 dark:text-gray-400">
+                            Preparing customer profile…
+                        </p>
+                        <p v-else class="text-xs text-gray-500 dark:text-gray-400">
+                            After you select a contact, the next step opens automatically.
+                        </p>
+                        <p v-if="contactResolveError" class="text-sm text-red-600 dark:text-red-400">
+                            {{ contactResolveError }}
                         </p>
                     </div>
 
@@ -907,19 +1013,45 @@ onMounted(() => {
                         </button>
                     </div>
 
-                    <!-- Search Input -->
-                    <div class="relative mb-4">
-                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            <span class="material-icons text-gray-400">search</span>
+                    <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[12rem_minmax(0,1fr)] sm:items-end">
+                        <div>
+                            <label for="asset-status-filter" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Status
+                            </label>
+                            <select
+                                id="asset-status-filter"
+                                v-model="assetStatusFilter"
+                                class="w-full rounded-xl border border-gray-300 bg-white px-3 py-3 text-sm text-gray-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                                @change="onAssetStatusFilterChange"
+                            >
+                                <option
+                                    v-for="opt in assetStatusOptions"
+                                    :key="`status-${opt.id}-${opt.name}`"
+                                    :value="opt.id"
+                                >
+                                    {{ opt.name }}
+                                </option>
+                            </select>
                         </div>
-                        <input
-                            v-model="assetSearchQuery"
-                            @input="searchAssets"
-                            @keyup.enter="searchAssets"
-                            type="text"
-                            placeholder="Search by hull ID, serial, or variant name..."
-                            class="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        />
+                        <div>
+                            <label for="asset-search" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Search
+                            </label>
+                            <div class="relative">
+                                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                    <span class="material-icons text-gray-400">search</span>
+                                </div>
+                                <input
+                                    id="asset-search"
+                                    v-model="assetSearchQuery"
+                                    type="text"
+                                    placeholder="Hull ID, serial, variant…"
+                                    class="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+                                    @input="searchAssets"
+                                    @keyup.enter="searchAssets"
+                                >
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Loading -->
@@ -958,6 +1090,10 @@ onMounted(() => {
                                             <span class="material-icons text-xs">inventory_2</span>
                                             SKU: {{ asset.sku }}
                                         </span>
+                                        <span v-if="assetStatusLabel(asset.status)" class="flex items-center gap-1">
+                                            <span class="material-icons text-xs">info</span>
+                                            {{ assetStatusLabel(asset.status) }}
+                                        </span>
                                     </div>
                                 </div>
                                 <span class="material-icons text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all">
@@ -971,7 +1107,13 @@ onMounted(() => {
                     <div v-else class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
                         <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">directions_boat</span>
                         <p class="text-gray-500 dark:text-gray-400 mb-1">
-                            {{ assetSearchQuery.trim() ? 'No assets found matching your search' : 'No assets found for this customer' }}
+                            {{
+                                assetSearchQuery.trim()
+                                    ? 'No assets found matching your search'
+                                    : assetStatusFilter !== ''
+                                        ? `No ${assetStatusLabel(assetStatusFilter)?.toLowerCase() ?? 'matching'} assets for this customer`
+                                        : 'No assets found for this customer'
+                            }}
                         </p>
                         <p class="text-sm text-gray-400 dark:text-gray-500">
                             You can skip this step and add an asset later, or select one from the ticket form.

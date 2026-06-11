@@ -9,6 +9,7 @@ use App\Domain\ServiceItem\Models\ServiceItem;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
 use App\Domain\ServiceTicket\Support\SyncServiceTicketCompletionToWorkOrders;
 use App\Domain\Transaction\Models\Transaction;
+use App\Enums\Inventory\UnitStatus;
 use App\Enums\ServiceItem\BillingType;
 use App\Enums\ServiceTicket\Status as ServiceTicketStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
@@ -183,6 +184,7 @@ class ServiceTicketController extends BaseController
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
+        $enumOptions['asset_unit_status'] = UnitStatus::options();
 
         $account = AccountSettings::getCurrent();
 

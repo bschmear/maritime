@@ -1,5 +1,6 @@
 <script setup>
 import InvoiceDocumentBody from '@/Components/Tenant/InvoiceDocumentBody.vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 
@@ -241,55 +242,39 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
 </script>
 
 <template>
-    <div class="bg-white shadow-lg print:shadow-none">
-        <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2">
-            <div class="flex items-start justify-between">
-                <div class="flex items-start gap-6">
-                    <div v-if="logoUrl" class="flex-shrink-0">
-                        <img :src="logoUrl" alt="Company Logo" class="h-20 w-auto max-w-[180px] object-contain">
-                    </div>
-                    <div v-else class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded bg-gray-200">
-                        <span class="material-icons text-4xl text-gray-400">business</span>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">
-                            {{ headerSubsidiary?.display_name || accountDisplayName }}
-                        </h1>
-                        <div class="mt-2 space-y-1 text-sm text-gray-600">
-                            <p v-if="headerLocation && (headerLocation.address_line1 || headerLocation.address_line_1)">
-                                {{ headerLocation.address_line1 || headerLocation.address_line_1 }}<span
-                                    v-if="headerLocation.address_line2 || headerLocation.address_line_2"
-                                >, {{ headerLocation.address_line2 || headerLocation.address_line_2 }}</span>
-                            </p>
-                            <p v-if="headerLocation?.city">
-                                {{ headerLocation.city }}<span v-if="headerLocation.state">, {{ headerLocation.state }}</span> {{ headerLocation.postal_code }}
-                            </p>
-                            <p v-if="companyPhone" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">phone</span>
-                                {{ formatPhoneNumber(companyPhone) }}
-                            </p>
-                            <p v-if="companyEmail" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">email</span>
-                                {{ companyEmail }}
-                            </p>
-                        </div>
-                    </div>
+    <div class="overflow-x-hidden bg-white shadow-lg print:shadow-none">
+        <PublicDocumentHeader
+            :logo-url="logoUrl"
+            document-label="Invoice"
+            :document-number="invoiceHeaderTitle"
+            :document-date="formatDate(record.created_at)"
+        >
+            <template #company>
+                <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
+                    {{ headerSubsidiary?.display_name || accountDisplayName }}
+                </h1>
+                <div class="mt-2 space-y-1 text-sm text-gray-600">
+                    <p v-if="headerLocation && (headerLocation.address_line1 || headerLocation.address_line_1)">
+                        {{ headerLocation.address_line1 || headerLocation.address_line_1 }}<span
+                            v-if="headerLocation.address_line2 || headerLocation.address_line_2"
+                        >, {{ headerLocation.address_line2 || headerLocation.address_line_2 }}</span>
+                    </p>
+                    <p v-if="headerLocation?.city">
+                        {{ headerLocation.city }}<span v-if="headerLocation.state">, {{ headerLocation.state }}</span> {{ headerLocation.postal_code }}
+                    </p>
+                    <p v-if="companyPhone" class="flex items-center gap-1 break-all">
+                        <span class="material-icons shrink-0 text-sm">phone</span>
+                        {{ formatPhoneNumber(companyPhone) }}
+                    </p>
+                    <p v-if="companyEmail" class="flex items-center gap-1 break-all">
+                        <span class="material-icons shrink-0 text-sm">email</span>
+                        {{ companyEmail }}
+                    </p>
                 </div>
-                <div class="text-right">
-                    <div class="text-sm font-medium uppercase text-gray-600">
-                        Invoice
-                    </div>
-                    <div class="font-mono text-3xl font-bold text-gray-900">
-                        {{ invoiceHeaderTitle }}
-                    </div>
-                    <div class="mt-1 text-sm text-gray-600">
-                        {{ formatDate(record.created_at) }}
-                    </div>
-                </div>
-            </div>
-        </div>
+            </template>
+        </PublicDocumentHeader>
 
-        <div class="bg-gray-50 px-8 py-6">
+        <div class="bg-gray-50 px-4 py-6 sm:px-8">
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div>
                     <h2 class="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -392,7 +377,7 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
             :enum-options="enumOptions"
         />
 
-        <div class="border-t-2 border-gray-900 px-8 py-8 print:hidden">
+        <div class="border-t-2 border-gray-900 px-4 py-8 sm:px-8 print:hidden">
             <div
                 v-if="showPortalPromotion && (hasPortalLogin || hasPortalRegister)"
                 class="mb-8 rounded-lg border border-gray-200 bg-gray-50 p-5 sm:p-6"
@@ -571,7 +556,7 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
             </p>
         </div>
 
-        <div class="bg-gray-900 px-8 py-4 text-center text-xs text-white">
+        <div class="bg-gray-900 px-4 py-4 text-center text-xs text-white sm:px-8">
             <p>Thank you for your business!</p>
             <p v-if="companyPhone" class="mt-1">
                 Questions? Call us at {{ formatPhoneNumber(companyPhone) }}

@@ -5,15 +5,10 @@ import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
-    /** Import destination when `allowTypeChoice` is false (e.g. Contacts index → customers). */
+    /** Import destination: `customer` (default) or `lead` (e.g. Leads index). */
     recordType: {
         type: String,
         default: 'customer',
-    },
-    /** When true, user picks customer vs lead in the modal (e.g. Integrations → QuickBooks page). */
-    allowTypeChoice: {
-        type: Boolean,
-        default: false,
     },
     /** Inertia route name to visit after a successful import (default: QuickBooks integration page). */
     successRedirectRoute: {
@@ -28,19 +23,15 @@ const showErrorModal = ref(false);
 const successMessage = ref('');
 const errorMessage = ref('');
 const submitting = ref(false);
-const importAs = ref('customer');
 
 const effectiveType = computed(() => {
-    const chosen = props.allowTypeChoice ? importAs.value : props.recordType;
+    const chosen = props.recordType;
     return chosen === 'contact' ? 'customer' : chosen;
 });
 
 const targetLabel = computed(() => (effectiveType.value === 'lead' ? 'leads' : 'customers'));
 
 function openImportModal() {
-    if (props.allowTypeChoice) {
-        importAs.value = 'customer';
-    }
     showSuccessModal.value = false;
     showErrorModal.value = false;
     showModal.value = true;
@@ -117,26 +108,8 @@ defineExpose({ openImportModal, closeImportModal });
                 <p>
                     We will read <strong class="text-gray-900 dark:text-gray-100">active customers</strong> from your connected QuickBooks Online company and create new
                     <strong class="text-gray-900 dark:text-gray-100">{{ targetLabel }}</strong>
-                    here. Each record is a contact with the matching profile (customer or lead). Billing and shipping addresses from QuickBooks are imported when present. Existing matches are skipped (same email when present, or the same QuickBooks customer id).
+                    here. Each record is a contact with the matching profile. Billing and shipping addresses from QuickBooks are imported when present. Existing matches are skipped (same email when present, or the same QuickBooks customer id).
                 </p>
-                <div v-if="allowTypeChoice" class="space-y-2">
-                    <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                        Import as
-                    </p>
-                    <div class="flex flex-wrap gap-4">
-                        <label class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200">
-                            <input v-model="importAs" type="radio" value="customer" class="text-primary-600" :disabled="submitting">
-                            <span>Customers</span>
-                        </label>
-                        <label class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200">
-                            <input v-model="importAs" type="radio" value="lead" class="text-primary-600" :disabled="submitting">
-                            <span>Leads</span>
-                        </label>
-                    </div>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Customers create a contact plus a customer profile. Leads create a contact plus a lead profile.
-                    </p>
-                </div>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     Connect QuickBooks under Integrations if you have not already. Large companies may take a few minutes.
                 </p>

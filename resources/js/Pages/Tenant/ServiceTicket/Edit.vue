@@ -33,13 +33,16 @@ const props = defineProps({
     },
 });
 
-const breadcrumbItems = computed(() => {
-    return [
-        { label: 'Home', href: route('dashboard') },
-        { label: 'Service Tickets', href: route('servicetickets.index') },
-        { label: props.record?.display_name || props.record?.uuid?.substring(0, 8) || 'Edit' },
-    ];
-});
+const ticketLabel = computed(
+    () => props.record?.service_ticket_number || props.record?.display_name || `Ticket #${props.record?.id}`,
+);
+
+const breadcrumbItems = computed(() => [
+    { label: 'Home', href: route('dashboard') },
+    { label: 'Service Tickets', href: route('servicetickets.index') },
+    { label: ticketLabel.value, href: route('servicetickets.show', props.record.id) },
+    { label: 'Edit' },
+]);
 
 const isSublistVisible = (sub) => {
     if (!sub?.conditional || typeof sub.conditional !== 'object') {

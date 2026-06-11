@@ -294,7 +294,6 @@ function saveSyncSettings() {
             <QuickBooksImport
                 v-if="hasQuickbooksToken"
                 ref="quickBooksImportRef"
-                :allow-type-choice="true"
             />
         </div>
     </TenantLayout>
