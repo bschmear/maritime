@@ -812,6 +812,7 @@ Route::middleware([
                 Route::delete('/', [QuickbooksController::class, 'destroy'])->name('quickbooks.destroy');
                 Route::get('/connect', [QuickbooksController::class, 'connect'])->name('quickbooks.connect');
                 Route::post('/import-customers', [QuickbooksController::class, 'importCustomers'])->name('quickbooks.import-customers');
+                Route::post('/import-service-items', [QuickbooksController::class, 'importServiceItems'])->name('quickbooks.import-service-items');
             });
         });
 

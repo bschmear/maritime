@@ -167,7 +167,7 @@ class TransactionController extends BaseController
         }
 
         $query->orderBy('created_at', 'desc');
-        $perPage = (int) $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {

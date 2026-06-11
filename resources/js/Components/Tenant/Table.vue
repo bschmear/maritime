@@ -8,6 +8,7 @@ import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
+import { DEFAULT_TABLE_PER_PAGE } from '@/Utils/tablePagination.js';
 
 const emit = defineEmits(['selection-change']);
 
@@ -777,7 +778,7 @@ async function fetchRecordQuickLookup() {
         const domain = fd.typeDomain.toLowerCase();
         const url = new URL(route('records.lookup'), window.location.origin);
         url.searchParams.set('page', String(recordQuickPage.value));
-        url.searchParams.set('per_page', '15');
+        url.searchParams.set('per_page', String(DEFAULT_TABLE_PER_PAGE));
         url.searchParams.set('type', domain);
         if (q) {
             url.searchParams.set('search', q);

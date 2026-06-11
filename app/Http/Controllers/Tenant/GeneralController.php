@@ -429,8 +429,7 @@ class GeneralController extends BaseController
             $query->orderBy('created_at', 'desc');
         }
 
-        // Get per_page from request, default to 15
-        $perPage = $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         // Ensure display_name is included in the response for all records

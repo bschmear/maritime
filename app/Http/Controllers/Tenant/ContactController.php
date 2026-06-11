@@ -224,7 +224,7 @@ class ContactController extends Controller
 
         $query->orderByRaw('LOWER(contacts.display_name) ASC');
 
-        $perPage = (int) $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         $records->getCollection()->transform(function (Contact $contact) {

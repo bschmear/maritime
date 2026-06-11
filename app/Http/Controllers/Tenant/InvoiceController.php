@@ -88,7 +88,7 @@ class InvoiceController extends RecordController
             $query->orderBy($table.'.created_at', 'desc');
         }
 
-        $perPage = (int) $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage)->withQueryString();
         $stats = $this->indexTableStats($request, clone $query, $schema);
 

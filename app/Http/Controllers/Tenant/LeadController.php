@@ -172,7 +172,7 @@ class LeadController extends BaseController
             $query->orderByRaw('LOWER(contacts.display_name) ASC');
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         if ($request->ajax() && ! $request->header('X-Inertia')) {

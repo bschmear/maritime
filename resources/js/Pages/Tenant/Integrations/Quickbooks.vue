@@ -42,6 +42,7 @@ const props = defineProps({
 
 const page = usePage();
 const quickBooksImportRef = ref(null);
+const quickBooksServiceImportRef = ref(null);
 
 onMounted(() => {
     const url = new URL(window.location.href);
@@ -212,6 +213,19 @@ function saveSyncSettings() {
                         <button
                             type="button"
                             class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            @click="quickBooksServiceImportRef?.openImportModal?.()"
+                        >
+                            Import services
+                        </button>
+                        <Link
+                            :href="route('serviceitems.index')"
+                            class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                            Service items
+                        </Link>
+                        <button
+                            type="button"
+                            class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                             @click="disconnect"
                         >
                             Disconnect
@@ -294,6 +308,12 @@ function saveSyncSettings() {
             <QuickBooksImport
                 v-if="hasQuickbooksToken"
                 ref="quickBooksImportRef"
+            />
+            <QuickBooksImport
+                v-if="hasQuickbooksToken"
+                ref="quickBooksServiceImportRef"
+                record-type="serviceitem"
+                success-redirect-route="serviceitems.index"
             />
         </div>
     </TenantLayout>

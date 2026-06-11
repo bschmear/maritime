@@ -617,7 +617,7 @@ class RecordController extends BaseController
             }
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         $tableStats = $this->indexTableStats($request, $statsBaseQuery, $schema);
@@ -1389,8 +1389,7 @@ class RecordController extends BaseController
             $query->whereRaw('LOWER(display_name) LIKE ?', ['%'.strtolower(trim($searchQuery)).'%']);
         }
 
-        // Get per_page from request, default to 15
-        $perPage = $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         return response()->json([

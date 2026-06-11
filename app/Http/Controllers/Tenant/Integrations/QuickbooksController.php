@@ -7,9 +7,11 @@ namespace App\Http\Controllers\Tenant\Integrations;
 use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Enums\Integration\IntegrationType;
+use App\Enums\ServiceItem\BillingType;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\QuickBooksOAuthController;
 use App\Jobs\PullContactsFromQuickBooks;
+use App\Jobs\PullServiceItemsFromQuickBooks;
 use App\Services\Payments\QuickBooksOAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -263,6 +265,62 @@ class QuickbooksController extends Controller
 
         return response()->json([
             'message' => 'QuickBooks customer import queued. Records may take a few minutes to appear.',
+        ]);
+    }
+
+    public function importServiceItems(Request $request): JsonResponse
+    {
+        if (! $request->expectsJson()) {
+            abort(405, 'This endpoint must be accessed via AJAX or JSON.');
+        }
+
+        $validated = $request->validate([
+            'billing_type' => ['required', 'integer', Rule::in([
+                BillingType::Hourly->value,
+                BillingType::Flat->value,
+            ])],
+        ]);
+
+        $profile = current_tenant_profile();
+        if (! $profile) {
+            return response()->json(['error' => 'Tenant user profile not found.'], 403);
+        }
+
+        $integration = Integration::query()
+            ->where('integration_type', IntegrationType::QuickBooks)
+            ->first();
+
+        if (! $integration?->access_token || ! $integration->refresh_token) {
+            return response()->json([
+                'error' => 'QuickBooks is not connected. Open Integrations → QuickBooks Online and connect first.',
+            ], 422);
+        }
+
+        $profileId = (int) $profile->getKey();
+        $billingType = (int) $validated['billing_type'];
+
+        Log::info('QuickBooks service import: dispatch requested', [
+            'profile_id' => $profileId,
+            'billing_type' => $billingType,
+            'tenant_id' => tenancy()->initialized ? tenancy()->tenant?->getTenantKey() : null,
+            'queue_connection' => config('queue.default'),
+        ]);
+
+        try {
+            PullServiceItemsFromQuickBooks::dispatch($profileId, $billingType);
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks service import: dispatch failed', [
+                'profile_id' => $profileId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'error' => 'Could not queue the import job. Check that the central jobs table exists and queue workers are running.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' => 'QuickBooks service import queued. Service items may take a few minutes to appear.',
         ]);
     }
 }

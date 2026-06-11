@@ -159,6 +159,7 @@ const secondaryNavItems = ref([
                     { name: 'Overview', href: 'serviceyard.index' },
                     { name: 'Service Tickets', href: 'servicetickets.index' },
                     { name: 'Work Orders', href: 'workorders.index' },
+                    { name: 'Service Items', href: 'serviceitems.index' },
                     { name: 'Scheduler', href: 'serviceyard.scheduling' },
                 ],
             },
@@ -197,8 +198,7 @@ const secondaryNavItems = ref([
                 ] 
             },
             { name: 'Add-Ons', href: 'addons.index' },
-            { name: 'Parts & Accessories', href: 'inventoryitems.index' },
-            { name: 'Service Items', href: 'serviceitems.index' }
+            { name: 'Parts & Accessories', href: 'inventoryitems.index' }
         ]
     },
 

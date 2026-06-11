@@ -196,7 +196,7 @@ class ConsignmentAgreementController extends BaseController
             $query->orderBy($tableName.'.created_at', 'desc');
         }
 
-        $perPage = (int) $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage > 0 ? $perPage : 15)->withQueryString();
 
         if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {

@@ -83,7 +83,7 @@ class QuickBooksAccountingService
             return $this->updateInvoice($invoice);
         }
 
-        $invoice->loadMissing(['contact', 'items', 'transaction:id,tax_rate,tax_jurisdiction,tax_jurisdiction_code']);
+        $invoice->loadMissing(['contact', 'items.serviceItem', 'transaction:id,tax_rate,tax_jurisdiction,tax_jurisdiction_code']);
 
         $contact = $invoice->contact;
         if ($contact === null) {
@@ -305,7 +305,7 @@ class QuickBooksAccountingService
             return $this->pushInvoice($invoice);
         }
 
-        $invoice->loadMissing(['contact', 'items', 'transaction:id,tax_rate,tax_jurisdiction,tax_jurisdiction_code']);
+        $invoice->loadMissing(['contact', 'items.serviceItem', 'transaction:id,tax_rate,tax_jurisdiction,tax_jurisdiction_code']);
 
         $contact = $invoice->contact;
         if ($contact === null) {
@@ -766,10 +766,11 @@ class QuickBooksAccountingService
                 if ($item->description) {
                     $description .= ' — '.$item->description;
                 }
+                $lineItemId = $this->resolveLineItemId($item, $itemId);
                 $lines[] = $this->salesLine(
                     $amount,
                     $description,
-                    $itemId,
+                    $lineItemId,
                     $qty,
                     $this->resolveLineTaxableFlag($item),
                 );
@@ -860,6 +861,23 @@ class QuickBooksAccountingService
         }
 
         return null;
+    }
+
+    protected function resolveLineItemId(InvoiceItem $item, string $fallbackItemId): string
+    {
+        if ($item->relationLoaded('serviceItem')) {
+            $qboId = $item->serviceItem?->quickbooks_item_id;
+        } elseif ($item->service_item_id) {
+            $qboId = $item->serviceItem()->value('quickbooks_item_id');
+        } else {
+            return $fallbackItemId;
+        }
+
+        if (is_string($qboId) && trim($qboId) !== '') {
+            return trim($qboId);
+        }
+
+        return $fallbackItemId;
     }
 
     protected function resolveLineTaxableFlag(InvoiceItem $item): ?bool

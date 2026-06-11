@@ -127,6 +127,7 @@ class BuildInvoicePrefillFromWorkOrder
             }
 
             return [
+                'service_item_id' => $item->service_item_id ? (int) $item->service_item_id : null,
                 'name' => $item->display_name ?? '',
                 'description' => $item->description ?? '',
                 'quantity' => $quantity,

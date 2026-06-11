@@ -99,7 +99,7 @@ class WarrantyClaimController extends BaseController
 
         if ($tab === 'work-orders') {
             if (! Schema::hasColumn((new WorkOrder)->getTable(), 'has_warranty')) {
-                $workOrderQueue = WorkOrder::query()->whereRaw('0 = 1')->paginate(max(1, (int) $request->get('per_page', 15)))->withQueryString();
+                $workOrderQueue = WorkOrder::query()->whereRaw('0 = 1')->paginate(table_per_page($request))->withQueryString();
             } else {
                 $workOrderQueue = $this->paginateWorkOrderWarrantyQueue($request);
             }
@@ -196,8 +196,8 @@ class WarrantyClaimController extends BaseController
             $query->orderBy($tableName.'.updated_at', 'desc');
         }
 
-        $perPage = (int) $request->get('per_page', 15);
-        $records = $query->paginate($perPage > 0 ? $perPage : 15)->withQueryString();
+        $perPage = table_per_page($request);
+        $records = $query->paginate($perPage)->withQueryString();
 
         if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
@@ -289,9 +289,9 @@ class WarrantyClaimController extends BaseController
             $query->orderBy($table.'.due_at', 'asc');
         }
 
-        $perPage = (int) $request->get('per_page', 15);
+        $perPage = table_per_page($request);
 
-        return $query->paginate($perPage > 0 ? $perPage : 15)->withQueryString();
+        return $query->paginate($perPage)->withQueryString();
     }
 
     /**

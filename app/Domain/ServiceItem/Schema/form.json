@@ -53,6 +53,9 @@
         },
         {
           "key": "inactive"
+        },
+        {
+          "key": "quickbooks_item_id"
         }
       ]
     },

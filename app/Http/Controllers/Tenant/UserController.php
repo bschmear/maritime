@@ -176,7 +176,7 @@ class UserController extends RecordController
             $query->orderBy('created_at', 'desc');
         }
 
-        $perPage = $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
         // Return JSON for AJAX requests (needed for sublists to get schema)

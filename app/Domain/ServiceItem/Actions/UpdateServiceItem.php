@@ -54,7 +54,7 @@ class UpdateServiceItem
             }
 
             // Add any additional non-validated fields that should be saved
-            $additionalFields = ['subsidiary_id', 'attributes'];
+            $additionalFields = ['subsidiary_id', 'attributes', 'quickbooks_item_id'];
             foreach ($additionalFields as $field) {
                 if (array_key_exists($field, $data)) {
                     $recordData[$field] = $data[$field];

@@ -97,3 +97,20 @@ if (! function_exists('format_phone_number')) {
         );
     }
 }
+
+if (! function_exists('table_per_page')) {
+    /**
+     * Resolve per-page size for tenant table/index views.
+     */
+    function table_per_page(\Illuminate\Http\Request $request, ?int $max = null): int
+    {
+        $default = (int) config('table.per_page', 30);
+        $perPage = max(1, (int) $request->get('per_page', $default));
+
+        if ($max !== null) {
+            return min($max, $perPage);
+        }
+
+        return $perPage;
+    }
+}

@@ -13,6 +13,13 @@
     "help": "Optional internal reference code"
   },
 
+  "quickbooks_item_id": {
+    "label": "QuickBooks Item ID",
+    "type": "text",
+    "disabled": true,
+    "help": "QuickBooks Online product/service id used when syncing invoices"
+  },
+
   "description": {
     "label": "Description",
     "type": "textarea",

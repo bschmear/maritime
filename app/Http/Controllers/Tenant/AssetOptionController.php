@@ -91,7 +91,7 @@ class AssetOptionController extends RecordController
             $query->orderBy($tableName.'.name');
         }
 
-        $perPage = (int) $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
         $tableStats = $this->indexTableStats($request, $statsBaseQuery, $schema);
 

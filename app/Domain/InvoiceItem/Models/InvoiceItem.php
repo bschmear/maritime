@@ -16,6 +16,7 @@ class InvoiceItem extends Model
     protected $fillable = [
         'invoice_id',
         'transaction_line_item_id',
+        'service_item_id',
 
         'name',
         'description',
@@ -69,6 +70,14 @@ class InvoiceItem extends Model
     {
         return $this->belongsTo(
             \App\Domain\Invoice\Models\Invoice::class
+        );
+    }
+
+    public function serviceItem(): BelongsTo
+    {
+        return $this->belongsTo(
+            \App\Domain\ServiceItem\Models\ServiceItem::class,
+            'service_item_id'
         );
     }
 

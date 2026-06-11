@@ -96,7 +96,7 @@ class PaymentController extends Controller
             $query->orderByDesc('paid_at')->orderByDesc('id');
         }
 
-        $perPage = min(100, max(1, (int) $request->get('per_page', 15)));
+        $perPage = table_per_page($request, 100);
         $dashboardQuery = clone $query;
         /** @var LengthAwarePaginator<int, Payment> $records */
         $records = $query->paginate($perPage)->withQueryString();

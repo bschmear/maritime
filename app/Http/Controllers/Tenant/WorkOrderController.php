@@ -230,7 +230,7 @@ class WorkOrderController extends RecordController
         }
 
         $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
-        $perPage = $request->get('per_page', 15);
+        $perPage = table_per_page($request);
         $records = $query->paginate($perPage)->appends($request->query());
 
         if ($json = $this->indexAjaxJsonResponse($request, $records, $schema, $fieldsSchema)) {

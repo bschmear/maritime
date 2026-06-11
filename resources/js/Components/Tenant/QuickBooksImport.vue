@@ -5,7 +5,7 @@ import { router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
-    /** Import destination: `customer` (default) or `lead` (e.g. Leads index). */
+    /** Import destination: `customer` (default), `lead`, or `serviceitem`. */
     recordType: {
         type: String,
         default: 'customer',
@@ -24,16 +24,54 @@ const successMessage = ref('');
 const errorMessage = ref('');
 const submitting = ref(false);
 
+/** Default billing type for service imports: 1 = hourly, 2 = flat rate. */
+const serviceBillingType = ref(2);
+
 const effectiveType = computed(() => {
     const chosen = props.recordType;
     return chosen === 'contact' ? 'customer' : chosen;
 });
 
-const targetLabel = computed(() => (effectiveType.value === 'lead' ? 'leads' : 'customers'));
+const isServiceImport = computed(() => effectiveType.value === 'serviceitem');
+
+const targetLabel = computed(() => {
+    if (isServiceImport.value) {
+        return 'service items';
+    }
+
+    return effectiveType.value === 'lead' ? 'leads' : 'customers';
+});
+
+const importRoute = computed(() => {
+    if (isServiceImport.value) {
+        return route('quickbooks.import-service-items');
+    }
+
+    return route('quickbooks.import-customers');
+});
+
+const importPayload = computed(() => {
+    if (isServiceImport.value) {
+        return { billing_type: serviceBillingType.value };
+    }
+
+    return { type: effectiveType.value };
+});
+
+const modalDescription = computed(() => {
+    if (isServiceImport.value) {
+        return 'We will read active Service items from your connected QuickBooks Online company and create or update matching service items here. Each record stores the QuickBooks item id for invoice sync.';
+    }
+
+    return `We will read active customers from your connected QuickBooks Online company and create new ${targetLabel.value} here. Each record is a contact with the matching profile. Billing and shipping addresses from QuickBooks are imported when present. Existing matches are skipped (same email when present, or the same QuickBooks customer id).`;
+});
 
 function openImportModal() {
     showSuccessModal.value = false;
     showErrorModal.value = false;
+    if (isServiceImport.value) {
+        serviceBillingType.value = 2;
+    }
     showModal.value = true;
 }
 
@@ -44,7 +82,7 @@ function closeImportModal() {
     showModal.value = false;
 }
 
-function goToIntegrationPage() {
+function goToSuccessPage() {
     showSuccessModal.value = false;
     router.visit(route(props.successRedirectRoute));
 }
@@ -56,7 +94,7 @@ function closeErrorModal() {
 function submitImport() {
     submitting.value = true;
     axios
-        .post(route('quickbooks.import-customers'), { type: effectiveType.value })
+        .post(importRoute.value, importPayload.value)
         .then((res) => {
             successMessage.value = res.data.message || 'Import queued. Records may take a few minutes to appear.';
             showModal.value = false;
@@ -105,11 +143,50 @@ defineExpose({ openImportModal, closeImportModal });
                 </button>
             </div>
             <div class="space-y-4 px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
-                <p>
-                    We will read <strong class="text-gray-900 dark:text-gray-100">active customers</strong> from your connected QuickBooks Online company and create new
-                    <strong class="text-gray-900 dark:text-gray-100">{{ targetLabel }}</strong>
-                    here. Each record is a contact with the matching profile. Billing and shipping addresses from QuickBooks are imported when present. Existing matches are skipped (same email when present, or the same QuickBooks customer id).
-                </p>
+                <p>{{ modalDescription }}</p>
+
+                <div
+                    v-if="isServiceImport"
+                    class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40"
+                >
+                    <p class="mb-3 font-medium text-gray-900 dark:text-white">
+                        Default billing type for imported services
+                    </p>
+                    <div class="space-y-2">
+                        <label class="flex cursor-pointer items-start gap-3">
+                            <input
+                                v-model="serviceBillingType"
+                                type="radio"
+                                class="mt-0.5 border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                :value="2"
+                            >
+                            <span>
+                                <span class="block font-medium text-gray-900 dark:text-white">Flat rate</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                    Flat price per service (uses the QuickBooks sales price as the default rate).
+                                </span>
+                            </span>
+                        </label>
+                        <label class="flex cursor-pointer items-start gap-3">
+                            <input
+                                v-model="serviceBillingType"
+                                type="radio"
+                                class="mt-0.5 border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                :value="1"
+                            >
+                            <span>
+                                <span class="block font-medium text-gray-900 dark:text-white">Hourly</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">
+                                    Price per hour (uses the QuickBooks sales price as the hourly rate).
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        This applies as the default for every imported item. You can change billing type on each service item later.
+                    </p>
+                </div>
+
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     Connect QuickBooks under Integrations if you have not already. Large companies may take a few minutes.
                 </p>
@@ -136,7 +213,7 @@ defineExpose({ openImportModal, closeImportModal });
     </div>
 
     <!-- Success notification -->
-    <Modal :show="showSuccessModal" max-width="sm" :closeable="false" @close="goToIntegrationPage">
+    <Modal :show="showSuccessModal" max-width="sm" :closeable="false" @close="goToSuccessPage">
         <div class="p-8 text-center">
             <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
                 <span class="material-icons text-2xl text-green-600 dark:text-green-400">check_circle</span>
@@ -150,7 +227,7 @@ defineExpose({ openImportModal, closeImportModal });
             <button
                 type="button"
                 class="inline-flex items-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
-                @click="goToIntegrationPage"
+                @click="goToSuccessPage"
             >
                 Go
             </button>
