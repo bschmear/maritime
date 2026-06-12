@@ -41,9 +41,19 @@ const props = defineProps({
     account: { type: Object, default: null },
     /** When set, successful update (Inertia) navigates here instead of reloading the current page. */
     redirectAfterUpdate: { type: String, default: null },
+    /** Optional z-index for nested RecordSelect overlays (defaults from preventRedirect). */
+    recordSelectOverlayZIndex: { type: Number, default: null },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated']);
+
+const resolvedRecordSelectOverlayZIndex = computed(() => {
+    if (props.recordSelectOverlayZIndex != null) {
+        return props.recordSelectOverlayZIndex;
+    }
+
+    return props.preventRedirect ? 110 : 50;
+});
 
 const {
     form,
@@ -1077,6 +1087,7 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                                                             :field-key="field.key"
                                                             :filter-by="getFieldDefinition(field.key).record_filter_field || getFieldDefinition(field.key).filterby || null"
                                                             :filter-value="getFieldFilterValue(field.key)"
+                                                            :overlay-z-index="resolvedRecordSelectOverlayZIndex"
                                                             @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)"
                                                         />
                                                         <select

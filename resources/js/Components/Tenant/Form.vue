@@ -48,6 +48,8 @@ const props = defineProps({
     fieldRequiredWhen: { type: Object, default: () => ({}) },
     /** When set, successful update navigates here instead of reloading the current page. */
     redirectAfterUpdate: { type: String, default: null },
+    /** Optional z-index for nested RecordSelect overlays (defaults from preventRedirect). */
+    recordSelectOverlayZIndex: { type: Number, default: null },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated', 'record-selected']);
@@ -57,6 +59,15 @@ const { convertUTCToTimezone, convertTimezoneToUTC, accountTimezone, accountTime
 const isEditMode = computed(() => props.mode === 'edit' || props.mode === 'create');
 const isCreateMode = computed(() => props.mode === 'create');
 const updateRecordId = computed(() => props.recordIdentifier ?? props.record?.id);
+
+/** Record pickers inside modals must stack above the parent overlay. */
+const resolvedRecordSelectOverlayZIndex = computed(() => {
+    if (props.recordSelectOverlayZIndex != null) {
+        return props.recordSelectOverlayZIndex;
+    }
+
+    return props.preventRedirect ? 100 : 50;
+});
 
 // ── Spec values stored directly in form ──────────────────────────
 // form.specValues = { [spec_id]: { value_number, value_text, value_boolean, unit } }
@@ -1588,7 +1599,7 @@ defineExpose({
                                             />
                                             <input v-else-if="['text', 'email'].includes(getFieldType(field.key))" :id="getFieldId(field.key)" v-model="form[field.key]" :type="getFieldType(field.key)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" />
                                             <textarea v-else-if="getFieldType(field.key) === 'textarea'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" rows="4" class="block p-2.5 w-full input-style" />
-                                            <RecordSelect v-else-if="getFieldType(field.key) === 'record'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[field.key]" :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)" :enum-options="getEnumOptions(field.key)" :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)" :field-key="field.key" :filter-by="getFieldDefinition(field.key).record_filter_field || getFieldDefinition(field.key).filterby || null" :filter-value="getFieldFilterValue(field.key)" @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)" />
+                                            <RecordSelect v-else-if="getFieldType(field.key) === 'record'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[field.key]" :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)" :enum-options="getEnumOptions(field.key)" :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)" :field-key="field.key" :filter-by="getFieldDefinition(field.key).record_filter_field || getFieldDefinition(field.key).filterby || null" :filter-value="getFieldFilterValue(field.key)" :overlay-z-index="resolvedRecordSelectOverlayZIndex" @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)" />
                                             <select v-else-if="getFieldType(field.key) === 'select'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :class="['input-style', !form[field.key] ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900']">
                                                 <option v-if="!isFieldRequired(field)" value="" disabled>Select {{ getFieldLabel(field.key) }}</option>
                                                 <option v-for="option in getEnumOptions(field.key)" :key="option.id" :value="option.id">{{ option.name }}</option>

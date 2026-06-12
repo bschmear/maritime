@@ -24,7 +24,11 @@ const props = defineProps({
         validator: (v) => ['view', 'edit', 'create'].includes(v),
     },
     redirectAfterUpdate: { type: String, default: null },
+    /** When true, record pickers stack above a parent modal overlay. */
+    nestedInModal: { type: Boolean, default: false },
 });
+
+const recordSelectOverlayZIndex = computed(() => (props.nestedInModal ? 100 : 50));
 
 const emit = defineEmits(['saved', 'cancelled', 'created', 'cancel']);
 
@@ -660,6 +664,7 @@ const relatedRecordShowUrl = (fieldKey) => {
                                                         :filter-by="fieldDef(field.key).record_filter_field || fieldDef(field.key).filterby || null"
                                                         :filter-value="recordFilterValue(field.key)"
                                                         :disabled="isFieldDisabled(field)"
+                                                        :overlay-z-index="recordSelectOverlayZIndex"
                                                         @record-selected="field.key === 'asset_id' ? handleAssetSelected($event) : undefined"
                                                     />
                                                     <p

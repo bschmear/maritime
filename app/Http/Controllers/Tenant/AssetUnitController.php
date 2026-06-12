@@ -13,8 +13,10 @@ use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
+use Inertia\Response as InertiaResponse;
 
 class AssetUnitController extends RecordController
 {
@@ -31,6 +33,67 @@ class AssetUnitController extends RecordController
             new DeleteAction,
             $recordType->domainName()
         );
+    }
+
+    public function index(Request $request): JsonResponse|InertiaResponse
+    {
+        return $this->unitsIndex($request);
+    }
+
+    /**
+     * Global units list — dedicated entry point (Assets → Units tab) with through-filters on the parent Asset.
+     */
+    public function unitsIndex(Request $request): JsonResponse|InertiaResponse
+    {
+        return parent::index($request);
+    }
+
+    /**
+     * Brand (make_id) is stored on the related Asset, not on asset_units.
+     */
+    protected function applyFilters($query, array $filters, $fieldsSchema)
+    {
+        $remaining = [];
+
+        foreach ($filters as $filter) {
+            if (! is_array($filter) || ($filter['field'] ?? '') !== 'make_id') {
+                $remaining[] = $filter;
+
+                continue;
+            }
+
+            $makeIds = $this->resolveMakeIdsFromFilter($filter);
+            if ($makeIds === []) {
+                continue;
+            }
+
+            $query->whereHas('asset', fn ($q) => $q->whereIn('make_id', $makeIds));
+        }
+
+        return parent::applyFilters($query, $remaining, $fieldsSchema);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function resolveMakeIdsFromFilter(array $filter): array
+    {
+        $operator = $filter['operator'] ?? 'equals';
+        $value = $filter['value'] ?? null;
+
+        if ($operator === 'any_of' && is_array($value)) {
+            $ids = array_map(fn ($v) => (int) $v, $value);
+
+            return array_values(array_unique(array_filter($ids, fn (int $id) => $id > 0)));
+        }
+
+        if (($operator === 'equals' || $operator === 'any_of') && $value !== null && $value !== '') {
+            $id = (int) $value;
+
+            return $id > 0 ? [$id] : [];
+        }
+
+        return [];
     }
 
     /**

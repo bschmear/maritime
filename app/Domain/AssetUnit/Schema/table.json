@@ -85,10 +85,22 @@
   ],
   "filters": [
     {
+      "field": "status",
+      "operator": "any_of",
+      "label": "Status",
+      "default_value": [1]
+    },
+    {
       "field": "inactive",
       "operator": "is_false",
-      "label": "Inactive",
+      "label": "Active",
       "default_value": true
+    },
+    {
+      "field": "make_id",
+      "label": "Brand",
+      "type": "record",
+      "typeDomain": "BoatMake"
     }
   ]
 }

@@ -2,6 +2,7 @@
     import { ref, computed, watch, onMounted, onUnmounted, nextTick, defineExpose } from 'vue';
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
+    import AssetForm from '@/Components/Tenant/AssetForm.vue';
     import DeliveryLocationForm from '@/Components/Tenant/DeliveryLocationForm.vue';
     import FleetEmbeddedForm from '@/Components/Tenant/FleetEmbeddedForm.vue';
     
@@ -121,9 +122,15 @@
         () => props.field.typeDomain === 'Fleet',
     );
 
-    const usesEmbeddedCreateForm = computed(
-        () => usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value,
+    const usesAssetCreateForm = computed(
+        () => props.field.typeDomain === 'Asset',
     );
+
+    const usesEmbeddedCreateForm = computed(
+        () => usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value || usesAssetCreateForm.value,
+    );
+
+    const nestedCreateOverlayZIndex = computed(() => Math.max(props.overlayZIndex + 10, 110));
 
     const fleetCreateType = computed(() => {
         const fromExtras = props.extraLookupParams?.fleet_type;
@@ -401,7 +408,7 @@
     const openCreateNewTab = async () => {
         enhancedModalTab.value = 'create';
 
-        if (usesEmbeddedCreateForm.value) {
+        if (usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value) {
             return;
         }
 
@@ -1288,6 +1295,19 @@
                                 @created="handleRecordCreated"
                                 @cancelled="enhancedModalTab = 'existing'"
                             />
+                            <AssetForm
+                                v-else-if="usesAssetCreateForm && createFormData"
+                                :schema="createFormData.formSchema"
+                                :fields-schema="createFormData.fieldsSchema"
+                                :record-type="createFormData.recordType"
+                                :record-title="createFormData.recordTitle"
+                                :enum-options="createFormData.enumOptions"
+                                mode="create"
+                                :prevent-redirect="true"
+                                :record-select-overlay-z-index="nestedCreateOverlayZIndex"
+                                @created="handleRecordCreated"
+                                @cancel="enhancedModalTab = 'existing'"
+                            />
                             <template v-else>
                                 <div v-if="isLoadingForm" class="text-center py-12">
                                     <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
@@ -1309,6 +1329,7 @@
                                     :enum-options="createFormData.enumOptions"
                                     mode="create"
                                     :prevent-redirect="true"
+                                    :record-select-overlay-z-index="nestedCreateOverlayZIndex"
                                     @created="handleRecordCreated"
                                     @cancel="enhancedModalTab = 'existing'"
                                 />

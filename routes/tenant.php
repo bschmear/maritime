@@ -599,7 +599,7 @@ Route::middleware([
         });
 
         Route::prefix('assets')->name('assets.')->group(function () {
-            Route::get('units', [AssetUnitController::class, 'index'])->name('units.global-index');
+            Route::get('units', [AssetUnitController::class, 'unitsIndex'])->name('units.global-index');
             Route::get('/{asset}/spec-sheets/send-options', [AssetController::class, 'specSheetSendOptions'])->name('spec-sheets.send-options');
             Route::post('/{asset}/spec-sheets/send', [AssetController::class, 'sendSpecSheetsToCustomer'])->name('spec-sheets.send');
             Route::get('/{asset}/units', [AssetController::class, 'unitsIndex'])->name('units.index');
@@ -635,7 +635,7 @@ Route::middleware([
             Route::delete('/{specValue}', [AssetSpecValueController::class, 'destroy'])->name('destroy');
         });
 
-        Route::get('asset/units', [AssetUnitController::class, 'index'])->name('asset.units.index');
+        Route::get('asset/units', [AssetUnitController::class, 'unitsIndex'])->name('asset.units.index');
 
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
             Route::post('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'storeNested'])

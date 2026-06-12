@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 const props = defineProps({
     show: {
@@ -18,7 +18,6 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const dialog = ref();
 const showSlot = ref(props.show);
 
 /** Cancels a pending close timeout from a previous `show === false` run (avoids stale close after rapid open). */
@@ -33,19 +32,16 @@ const clearCloseTimer = () => {
 
 watch(
     () => props.show,
-    async (isOpen) => {
+    (isOpen) => {
         if (isOpen) {
             clearCloseTimer();
             document.body.style.overflow = 'hidden';
             showSlot.value = true;
-            await nextTick();
-            dialog.value?.showModal();
         } else {
             document.body.style.overflow = '';
             clearCloseTimer();
             closeTimer = window.setTimeout(() => {
                 closeTimer = null;
-                dialog.value?.close();
                 showSlot.value = false;
             }, 200);
         }
@@ -89,13 +85,12 @@ const maxWidthClass = computed(() => {
 </script>
 
 <template>
-    <dialog
-        class="z-50 m-0 min-h-full min-w-full overflow-y-auto bg-transparent backdrop:bg-transparent"
-        ref="dialog"
-    >
+    <Teleport to="body">
         <div
+            v-if="showSlot"
             class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden p-4"
-            scroll-region
+            role="dialog"
+            aria-modal="true"
         >
             <Transition
                 enter-active-class="ease-out duration-300"
@@ -124,10 +119,11 @@ const maxWidthClass = computed(() => {
                     v-show="show"
                     class="relative w-full max-h-[90vh] flex flex-col transform rounded-lg bg-white shadow-xl transition-all dark:bg-gray-800"
                     :class="maxWidthClass"
+                    @click.stop
                 >
-                    <slot v-if="showSlot" />
+                    <slot />
                 </div>
             </Transition>
         </div>
-    </dialog>
+    </Teleport>
 </template>

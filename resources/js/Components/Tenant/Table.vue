@@ -5,6 +5,7 @@ import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
 import Form from '@/Components/Tenant/Form.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
+import AssetUnitForm from '@/Components/Tenant/AssetUnitForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
@@ -53,7 +54,18 @@ const page = usePage();
 
 const { $formatCurrency } = getCurrentInstance().appContext.config.globalProperties;
 
-const recordFormComponent = computed(() => props.recordType === 'assets' ? AssetForm : Form);
+const recordFormComponent = computed(() => {
+    if (props.recordType === 'assets') {
+        return AssetForm;
+    }
+    if (props.recordType === 'assetunits') {
+        return AssetUnitForm;
+    }
+
+    return Form;
+});
+
+const createFormNestedInModal = computed(() => props.recordType === 'assetunits');
 const columns     = computed(() => props.schema?.columns ?? []);
 /** All stat defs (including `hidden: true` used only for subtitle_key / backend values). */
 const statCardDefsAll = computed(() => {
@@ -1129,7 +1141,7 @@ defineExpose({
 </script>
 
 <template>
-    <section class="flex w-full min-w-0 max-w-full flex-col space-y-4">
+    <section class="flex w-full min-w-0 max-w-full flex-col space-y-4 grow">
         <!-- Optional stat cards (defined in table.json schema.stats; values from page props stats) -->
         <div
             v-if="statCardDefs.length"
@@ -1157,7 +1169,7 @@ defineExpose({
         </div>
 
         <!-- overflow-hidden on the card clamps width (same pattern as Sublist + Payment/Index); inner div scrolls horizontally -->
-        <div class="flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        <div class="flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 grow">
 
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
@@ -1587,6 +1599,7 @@ defineExpose({
                            :schema="formSchema" :fields-schema="fieldsSchema" :record-type="recordType"
                            :record-title="recordTitle" :enum-options="enumOptions" :extra-route-params="extraRouteParams"
                            :initial-data="initialCreateData" :available-specs="createAvailableSpecs"
+                           :nested-in-modal="createFormNestedInModal"
                            mode="create" :prevent-redirect="true"
                            @created="handleRecordCreated" @submit="() => {}" @cancel="showCreateModal = false"/>
             </div>
