@@ -75,7 +75,7 @@
           "length_mm": 2900,
           "width_mm": 1440,
           "height_mm": null,
-          "weight_kg": 33.5,
+          "weight_kg": 34,
           "capacity_persons": 4,
           "max_hp": 8,
           "fuel_capacity_l": null
@@ -111,7 +111,7 @@
       "material": "Achilles CSM Fabric / Aluminum Floorboards"
     },
     "length_range_mm": {
-      "min": 2600,
+      "min": 2900,
       "max": 3100
     },
     "specifications": {
@@ -125,20 +125,6 @@
     },
     "variants": [
       {
-        "id": "lsr-260e",
-        "name": "LSR-260E",
-        "description": "A compact 8'6\" aluminum floor tender that balances portability with the stability of a rigid floor.",
-        "specifications": {
-          "length_mm": 2600,
-          "width_mm": 1580,
-          "height_mm": null,
-          "weight_kg": 35,
-          "capacity_persons": 4,
-          "max_hp": 6,
-          "fuel_capacity_l": null
-        }
-      },
-      {
         "id": "lsr-290e",
         "name": "LSR-290E",
         "description": "A versatile 9'6\" model offering increased interior volume and a higher weight capacity for gear and crew.",
@@ -146,7 +132,7 @@
           "length_mm": 2900,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 38,
+          "weight_kg": 44,
           "capacity_persons": 4,
           "max_hp": 8,
           "fuel_capacity_l": null
@@ -160,7 +146,7 @@
           "length_mm": 3100,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 41,
+          "weight_kg": 46,
           "capacity_persons": 4,
           "max_hp": 10,
           "fuel_capacity_l": null
@@ -196,7 +182,7 @@
     },
     "length_range_mm": {
       "min": 2900,
-      "max": 3300
+      "max": 3250
     },
     "specifications": {
       "length_mm": null,
@@ -216,9 +202,9 @@
           "length_mm": 2900,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 49,
+          "weight_kg": 48,
           "capacity_persons": 4,
-          "max_hp": 10,
+          "max_hp": 8,
           "fuel_capacity_l": null
         }
       },
@@ -230,9 +216,9 @@
           "length_mm": 3100,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 51,
+          "weight_kg": 50,
           "capacity_persons": 4,
-          "max_hp": 15,
+          "max_hp": 10,
           "fuel_capacity_l": null
         }
       },
@@ -241,7 +227,7 @@
         "name": "SPD-330E",
         "description": "The largest in the SPD-E line, offering a spacious interior and rated for a 20HP outboard.",
         "specifications": {
-          "length_mm": 3300,
+          "length_mm": 3250,
           "width_mm": 1680,
           "height_mm": null,
           "weight_kg": 54,
@@ -260,10 +246,10 @@
     "boat_type_key": "power-tender",
     "hull_type_key": "planing",
     "hull_material_key": "hypalon",
-    "description": "The LSI-E Series represents the pinnacle of inflatable tender convenience, featuring Achilles' unique high-pressure AirFirm™ drop-stitch floors. These floors are reinforced with CSM to provide a rock-solid platform when inflated, yet they allow the boat to be rolled up instantly once deflated. The LSI-E models incorporate 'Performax' tubes with a staggered design that helps the boat plane faster and stay on plane at lower speeds. Combining the performance of a rigid floor with the lightest weight in the Achilles lineup, the LSI-E is the ultimate yacht tender for easy handling.",
+    "description": "The LSI-E Series represents the pinnacle of inflatable tender convenience, featuring Achilles' unique high-pressure AirFirm\u2122 drop-stitch floors. These floors are reinforced with CSM to provide a rock-solid platform when inflated, yet they allow the boat to be rolled up instantly once deflated. The LSI-E models incorporate 'Performax' tubes with a staggered design that helps the boat plane faster and stay on plane at lower speeds. Combining the performance of a rigid floor with the lightest weight in the Achilles lineup, the LSI-E is the ultimate yacht tender for easy handling.",
     "features": [
       "Achilles CSM Reinforced Fabric",
-      "High-Pressure CSM-Reinforced AirFirm™ Drop-Stitch Floor",
+      "High-Pressure CSM-Reinforced AirFirm\u2122 Drop-Stitch Floor",
       "Performax Tube Design for faster planing",
       "Inflatable Air Keel",
       "Four-Layer Seam Construction",
@@ -423,9 +409,9 @@
         "description": "The smallest Achilles tender, designed for two passengers and easy one-person handling.",
         "specifications": {
           "length_mm": 2200,
-          "width_mm": 1340,
+          "width_mm": 1240,
           "height_mm": null,
-          "weight_kg": 21,
+          "weight_kg": 16,
           "capacity_persons": 2,
           "max_hp": 3,
           "fuel_capacity_l": null
@@ -437,11 +423,11 @@
         "description": "A slightly larger dinghy offering increased stability and a higher capacity for 3 passengers.",
         "specifications": {
           "length_mm": 2600,
-          "width_mm": 1400,
+          "width_mm": 1420,
           "height_mm": null,
           "weight_kg": 26,
-          "capacity_persons": 3,
-          "max_hp": 4,
+          "capacity_persons": 4,
+          "max_hp": 3,
           "fuel_capacity_l": null
         }
       }
@@ -473,8 +459,8 @@
       "material": "Achilles CSM Fabric / Wood Slatted Floor"
     },
     "length_range_mm": {
-      "min": 2250,
-      "max": 2600
+      "min": 2280,
+      "max": 2650
     },
     "specifications": {
       "length_mm": null,
@@ -487,29 +473,29 @@
     },
     "variants": [
       {
-        "id": "ls-2ru",
-        "name": "LS-2RU",
+        "id": "ls2-ru",
+        "name": "LS2-RU",
         "description": "Ultra-portable slatted floor model, perfect for quick trips from boat to beach.",
         "specifications": {
-          "length_mm": 2250,
-          "width_mm": 1420,
+          "length_mm": 2280,
+          "width_mm": 1320,
           "height_mm": null,
-          "weight_kg": 25,
+          "weight_kg": 26,
           "capacity_persons": 2,
           "max_hp": 4,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "ls-4ru",
-        "name": "LS-4RU",
+        "id": "ls4-ru",
+        "name": "LS4-RU",
         "description": "The 8'6\" roll-up variant offering increased passenger room and enhanced buoyancy.",
         "specifications": {
-          "length_mm": 2600,
+          "length_mm": 2650,
           "width_mm": 1420,
           "height_mm": null,
-          "weight_kg": 28.5,
-          "capacity_persons": 3,
+          "weight_kg": 30,
+          "capacity_persons": 4,
           "max_hp": 6,
           "fuel_capacity_l": null
         }
@@ -564,9 +550,9 @@
           "length_mm": 2400,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 37,
+          "weight_kg": 40,
           "capacity_persons": 3,
-          "max_hp": 4,
+          "max_hp": 6,
           "fuel_capacity_l": null
         }
       },
@@ -592,7 +578,7 @@
           "length_mm": 3100,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 50,
+          "weight_kg": 51,
           "capacity_persons": 4,
           "max_hp": 15,
           "fuel_capacity_l": null
@@ -628,7 +614,7 @@
     },
     "length_range_mm": {
       "min": 2700,
-      "max": 3100
+      "max": 3350
     },
     "specifications": {
       "length_mm": null,
@@ -648,9 +634,9 @@
           "length_mm": 2700,
           "width_mm": 1580,
           "height_mm": null,
-          "weight_kg": 60,
+          "weight_kg": 54,
           "capacity_persons": 4,
-          "max_hp": 8,
+          "max_hp": 10,
           "fuel_capacity_l": null
         }
       },
@@ -665,6 +651,34 @@
           "weight_kg": 67,
           "capacity_persons": 4,
           "max_hp": 20,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-335ax",
+        "name": "HB-335AX",
+        "description": "Official Achilles HB-335AX per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 3350,
+          "width_mm": 1700,
+          "height_mm": null,
+          "weight_kg": 79,
+          "capacity_persons": 5,
+          "max_hp": 25,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-335ax-pro",
+        "name": "HB-335AX-PRO",
+        "description": "Official Achilles HB-335AX-PRO per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 3350,
+          "width_mm": 1700,
+          "height_mm": null,
+          "weight_kg": 80,
+          "capacity_persons": 5,
+          "max_hp": 25,
           "fuel_capacity_l": null
         }
       }
@@ -697,8 +711,8 @@
       "material": "Fiberglass Hull / Achilles CSM Hypalon Tubes"
     },
     "length_range_mm": {
-      "min": 2400,
-      "max": 3100
+      "min": 2700,
+      "max": 3000
     },
     "specifications": {
       "length_mm": null,
@@ -711,28 +725,28 @@
     },
     "variants": [
       {
-        "id": "hb-240fx",
-        "name": "HB-240FX",
+        "id": "hb-270fx",
+        "name": "HB-270FX",
         "description": "An ultra-compact folding transom RIB, perfect for small cruisers and single-handed operation.",
         "specifications": {
-          "length_mm": 2400,
-          "width_mm": 1520,
+          "length_mm": 2700,
+          "width_mm": 1560,
           "height_mm": null,
-          "weight_kg": 44,
-          "capacity_persons": 3,
-          "max_hp": 4,
+          "weight_kg": 39,
+          "capacity_persons": 4,
+          "max_hp": 8,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "hb-310fx",
-        "name": "HB-310FX",
+        "id": "hb-300fx",
+        "name": "HB-300FX",
         "description": "A 10'2\" folding transom model that offers significant interior volume while maintaining a low-profile storage footprint.",
         "specifications": {
-          "length_mm": 3100,
-          "width_mm": 1580,
+          "length_mm": 3000,
+          "width_mm": 1620,
           "height_mm": null,
-          "weight_kg": 59,
+          "weight_kg": 42,
           "capacity_persons": 4,
           "max_hp": 10,
           "fuel_capacity_l": null
@@ -769,7 +783,7 @@
     },
     "length_range_mm": {
       "min": 2400,
-      "max": 3100
+      "max": 3500
     },
     "specifications": {
       "length_mm": null,
@@ -787,39 +801,53 @@
         "description": "A lightweight 7'11\" fiberglass RIB that is easy to maneuver and lift.",
         "specifications": {
           "length_mm": 2400,
-          "width_mm": 1520,
+          "width_mm": 1530,
           "height_mm": null,
-          "weight_kg": 43,
+          "weight_kg": 39,
           "capacity_persons": 3,
-          "max_hp": 4,
+          "max_hp": 5,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "hb-270lx",
-        "name": "HB-270LX",
+        "id": "hb-280lx",
+        "name": "HB-280LX",
         "description": "The popular 8'10\" model balancing weight and passenger carrying capacity.",
         "specifications": {
-          "length_mm": 2700,
-          "width_mm": 1580,
+          "length_mm": 2800,
+          "width_mm": 1660,
           "height_mm": null,
-          "weight_kg": 53,
+          "weight_kg": 54,
           "capacity_persons": 4,
-          "max_hp": 8,
+          "max_hp": 10,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "hb-310lx",
-        "name": "HB-310LX",
+        "id": "hb-315lx",
+        "name": "HB-315LX",
         "description": "The largest in the LX line, providing 10'2\" of stability and rated for a 15HP outboard.",
         "specifications": {
-          "length_mm": 3100,
-          "width_mm": 1580,
+          "length_mm": 3150,
+          "width_mm": 1660,
           "height_mm": null,
-          "weight_kg": 57,
-          "capacity_persons": 4,
+          "weight_kg": 58,
+          "capacity_persons": 5,
           "max_hp": 15,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "hb-350lx",
+        "name": "HB-350LX",
+        "description": "Official Achilles HB-350LX per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 3500,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 73,
+          "capacity_persons": 6,
+          "max_hp": 20,
           "fuel_capacity_l": null
         }
       }
@@ -914,9 +942,9 @@
         "description": "The flagship DX model, providing 12'8\" of length and rated for 40HP; includes wooden rowing seat.",
         "specifications": {
           "length_mm": 3850,
-          "width_mm": 1750,
+          "width_mm": 1800,
           "height_mm": null,
-          "weight_kg": 110,
+          "weight_kg": 116,
           "capacity_persons": 7,
           "max_hp": 40,
           "fuel_capacity_l": null
@@ -1115,7 +1143,7 @@
           "length_mm": 3750,
           "width_mm": 1610,
           "height_mm": null,
-          "weight_kg": 79.5,
+          "weight_kg": 80,
           "capacity_persons": 5,
           "max_hp": 35,
           "fuel_capacity_l": null
@@ -1129,7 +1157,7 @@
           "length_mm": 4250,
           "width_mm": 1750,
           "height_mm": null,
-          "weight_kg": 102.5,
+          "weight_kg": 102,
           "capacity_persons": 6,
           "max_hp": 50,
           "fuel_capacity_l": null
@@ -1143,7 +1171,7 @@
           "length_mm": 4250,
           "width_mm": 1750,
           "height_mm": null,
-          "weight_kg": 102.5,
+          "weight_kg": 102,
           "capacity_persons": 6,
           "max_hp": 50,
           "fuel_capacity_l": null
@@ -1157,7 +1185,7 @@
           "length_mm": 4730,
           "width_mm": 1900,
           "height_mm": null,
-          "weight_kg": 123.5,
+          "weight_kg": 124,
           "capacity_persons": 8,
           "max_hp": 55,
           "fuel_capacity_l": null
@@ -1194,7 +1222,7 @@
     },
     "length_range_mm": {
       "min": 4250,
-      "max": 5500
+      "max": 5490
     },
     "specifications": {
       "length_mm": null,
@@ -1212,11 +1240,11 @@
         "description": "A 14' heavy-duty utility boat with a 5-chamber design and 2,160 lb load capacity.",
         "specifications": {
           "length_mm": 4250,
-          "width_mm": 1850,
+          "width_mm": 1780,
           "height_mm": null,
-          "weight_kg": 115,
+          "weight_kg": 127,
           "capacity_persons": 6,
-          "max_hp": 50,
+          "max_hp": 55,
           "fuel_capacity_l": null
         }
       },
@@ -1226,10 +1254,10 @@
         "description": "The 16' model offering a massive 2,820 lb capacity and 6-chamber safety system.",
         "specifications": {
           "length_mm": 4880,
-          "width_mm": 2100,
+          "width_mm": 2060,
           "height_mm": null,
-          "weight_kg": 154,
-          "capacity_persons": 8,
+          "weight_kg": 168,
+          "capacity_persons": 9,
           "max_hp": 75,
           "fuel_capacity_l": null
         }
@@ -1239,11 +1267,11 @@
         "name": "SU-18",
         "description": "The flagship of the SU line at 18', designed for large crews and heavy equipment transport.",
         "specifications": {
-          "length_mm": 5500,
-          "width_mm": 2100,
+          "length_mm": 5490,
+          "width_mm": 2300,
           "height_mm": null,
-          "weight_kg": 182,
-          "capacity_persons": 10,
+          "weight_kg": 196,
+          "capacity_persons": 11,
           "max_hp": 90,
           "fuel_capacity_l": null
         }
@@ -1276,8 +1304,8 @@
       "material": "Achilles CSM Fabric"
     },
     "length_range_mm": {
-      "min": 2800,
-      "max": 4150
+      "min": 2870,
+      "max": 3505
     },
     "specifications": {
       "length_mm": null,
@@ -1290,28 +1318,28 @@
     },
     "variants": [
       {
-        "id": "ksb-9",
-        "name": "KSB-9 (Solo)",
+        "id": "ksb-94",
+        "name": "KSB-94",
         "description": "A compact 9'2\" solo kayak optimized for maneuverability and light weight.",
         "specifications": {
-          "length_mm": 2800,
-          "width_mm": 940,
+          "length_mm": 2870,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 14,
+          "weight_kg": 17,
           "capacity_persons": 1,
           "max_hp": null,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "ksb-14",
-        "name": "KSB-14 (Tandem)",
+        "id": "ksb-116",
+        "name": "KSB-116",
         "description": "A 13'8\" tandem model designed for two paddlers with extra room for gear.",
         "specifications": {
-          "length_mm": 4150,
-          "width_mm": 980,
+          "length_mm": 3505,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 20,
+          "weight_kg": 21,
           "capacity_persons": 2,
           "max_hp": null,
           "fuel_capacity_l": null
@@ -1345,8 +1373,8 @@
       "material": "Heavy-Duty Achilles CSM / Traditional Floor"
     },
     "length_range_mm": {
-      "min": 3650,
-      "max": 4880
+      "min": 3353,
+      "max": 5486
     },
     "specifications": {
       "length_mm": null,
@@ -1359,15 +1387,29 @@
     },
     "variants": [
       {
-        "id": "rv-120",
-        "name": "RV-120",
-        "description": "A nimble 12' raft perfect for technical R2 paddle teams or small gear frames.",
+        "id": "rv-110",
+        "name": "RV-110",
+        "description": "Official Achilles RV-110 per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 3650,
-          "width_mm": 1850,
+          "length_mm": 3353,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 42,
-          "capacity_persons": 6,
+          "weight_kg": 39,
+          "capacity_persons": 4,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-126",
+        "name": "RV-126",
+        "description": "Official Achilles RV-126 per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 3810,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 51,
+          "capacity_persons": 7,
           "max_hp": null,
           "fuel_capacity_l": null
         }
@@ -1377,25 +1419,39 @@
         "name": "RV-140",
         "description": "The industry-standard 14' workhorse, balancing capacity and maneuverability for commercial trips.",
         "specifications": {
-          "length_mm": 4250,
-          "width_mm": 2100,
+          "length_mm": 4267,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 54,
-          "capacity_persons": 8,
+          "weight_kg": 61,
+          "capacity_persons": 9,
           "max_hp": null,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "rv-160",
-        "name": "RV-160",
-        "description": "A high-volume 16' expedition raft designed for multi-day gear hauls and large paddle crews.",
+        "id": "rv-156",
+        "name": "RV-156",
+        "description": "Official Achilles RV-156 per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 4880,
-          "width_mm": 2300,
+          "length_mm": 4724,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 68,
-          "capacity_persons": 10,
+          "weight_kg": 75,
+          "capacity_persons": 12,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-180",
+        "name": "RV-180",
+        "description": "Official Achilles RV-180 per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 5486,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 92,
+          "capacity_persons": 18,
           "max_hp": null,
           "fuel_capacity_l": null
         }
@@ -1428,8 +1484,8 @@
       "material": "Heavy-Duty Achilles CSM / Inflatable I-Beam Floor"
     },
     "length_range_mm": {
-      "min": 3950,
-      "max": 4880
+      "min": 3353,
+      "max": 5486
     },
     "specifications": {
       "length_mm": null,
@@ -1442,14 +1498,28 @@
     },
     "variants": [
       {
-        "id": "rv-130sb",
-        "name": "RV-130SB",
-        "description": "A 13' performance self-bailer optimized for technical whitewater and paddle crews.",
+        "id": "rv-110sb",
+        "name": "RV-110SB",
+        "description": "Official Achilles RV-110SB per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 3950,
-          "width_mm": 1950,
+          "length_mm": 3353,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 58,
+          "weight_kg": 40,
+          "capacity_persons": 4,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-126sb",
+        "name": "RV-126SB",
+        "description": "Official Achilles RV-126SB per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 3810,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 59,
           "capacity_persons": 7,
           "max_hp": null,
           "fuel_capacity_l": null
@@ -1460,25 +1530,39 @@
         "name": "RV-140SB",
         "description": "The premier 14' self-bailing raft, favored for its versatility as a paddle boat or rowing rig.",
         "specifications": {
-          "length_mm": 4250,
-          "width_mm": 2100,
+          "length_mm": 4267,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 64,
-          "capacity_persons": 8,
+          "weight_kg": 69,
+          "capacity_persons": 9,
           "max_hp": null,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "rv-160sb",
-        "name": "RV-160SB",
-        "description": "A massive 16' self-bailer built for high-water expeditions and extreme payloads.",
+        "id": "rv-156sb",
+        "name": "RV-156SB",
+        "description": "Official Achilles RV-156SB per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 4880,
-          "width_mm": 2300,
+          "length_mm": 4724,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 78,
-          "capacity_persons": 10,
+          "weight_kg": 83,
+          "capacity_persons": 12,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-180sb",
+        "name": "RV-180SB",
+        "description": "Official Achilles RV-180SB per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 5486,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 105,
+          "capacity_persons": 18,
           "max_hp": null,
           "fuel_capacity_l": null
         }
@@ -1511,8 +1595,8 @@
       "material": "Heavy-Duty Achilles CSM / Inflatable I-Beam Floor"
     },
     "length_range_mm": {
-      "min": 3950,
-      "max": 4250
+      "min": 3810,
+      "max": 5486
     },
     "specifications": {
       "length_mm": null,
@@ -1525,12 +1609,12 @@
     },
     "variants": [
       {
-        "id": "rv-130sb-3t",
-        "name": "RV-130SB-3T",
-        "description": "A 13' performance raft with triple thwarts, ideal for technical paddle crews.",
+        "id": "rv-126sb-3t",
+        "name": "RV-126SB-3T",
+        "description": "Official Achilles RV-126SB-3T per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 3950,
-          "width_mm": 1950,
+          "length_mm": 3810,
+          "width_mm": null,
           "height_mm": null,
           "weight_kg": 61,
           "capacity_persons": 7,
@@ -1543,11 +1627,39 @@
         "name": "RV-140SB-3T",
         "description": "The 14' triple-thwart workhorse, offering maximum stability and crew support for commercial whitewater.",
         "specifications": {
-          "length_mm": 4250,
-          "width_mm": 2100,
+          "length_mm": 4267,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 68,
-          "capacity_persons": 8,
+          "weight_kg": 72,
+          "capacity_persons": 9,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-156sb-3t",
+        "name": "RV-156SB-3T",
+        "description": "Official Achilles RV-156SB-3T per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 4724,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 86,
+          "capacity_persons": 12,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "rv-180sb-3t",
+        "name": "RV-180SB-3T",
+        "description": "Official Achilles RV-180SB-3T per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 5486,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 108,
+          "capacity_persons": 18,
           "max_hp": null,
           "fuel_capacity_l": null
         }
@@ -1580,8 +1692,8 @@
       "material": "Achilles CSM Fabric / Expedition Grade Construction"
     },
     "length_range_mm": {
-      "min": 3950,
-      "max": 4250
+      "min": 2794,
+      "max": 4420
     },
     "specifications": {
       "length_mm": null,
@@ -1594,29 +1706,57 @@
     },
     "variants": [
       {
-        "id": "fr-130",
-        "name": "FR-130",
-        "description": "A nimble 13' fishing raft designed for technical rivers and technical rowing frames.",
+        "id": "fr-4",
+        "name": "FR-4",
+        "description": "Official Achilles FR-4 per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 3950,
-          "width_mm": 2000,
+          "length_mm": 2794,
+          "width_mm": null,
           "height_mm": null,
-          "weight_kg": 52,
+          "weight_kg": 27,
+          "capacity_persons": 4,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fr-6",
+        "name": "FR-6",
+        "description": "Official Achilles FR-6 per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 3404,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 32,
           "capacity_persons": 6,
           "max_hp": null,
           "fuel_capacity_l": null
         }
       },
       {
-        "id": "fr-140",
-        "name": "FR-140",
-        "description": "The 14' expedition fishing platform, offering a large footprint for casting decks and multi-day gear.",
+        "id": "fr-10",
+        "name": "FR-10",
+        "description": "Official Achilles FR-10 per current manufacturer specifications.",
         "specifications": {
-          "length_mm": 4250,
-          "width_mm": 2150,
+          "length_mm": 4242,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": 50,
+          "capacity_persons": 10,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fr-12",
+        "name": "FR-12",
+        "description": "Official Achilles FR-12 per current manufacturer specifications.",
+        "specifications": {
+          "length_mm": 4420,
+          "width_mm": null,
           "height_mm": null,
           "weight_kg": 59,
-          "capacity_persons": 8,
+          "capacity_persons": 12,
           "max_hp": null,
           "fuel_capacity_l": null
         }

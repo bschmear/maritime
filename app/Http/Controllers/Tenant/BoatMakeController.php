@@ -8,6 +8,7 @@ use App\Domain\BoatMake\Actions\DeleteBoatMake as DeleteAction;
 use App\Domain\BoatMake\Actions\UpdateBoatMake as UpdateAction;
 use App\Domain\BoatMake\Models\BoatMake as RecordModel;
 use App\Domain\BoatMake\Models\BoatMakeModelImport;
+use App\Domain\InventoryCatalog\Enums\CatalogImportDuplicateStrategy;
 use App\Domain\InventoryCatalog\Services\CatalogImportService;
 use App\Jobs\ProcessBoatMakeModelImportJob;
 use App\Services\BoatMetaAIService;
@@ -102,6 +103,7 @@ class BoatMakeController extends RecordController
             $out[] = [
                 'slug' => $modelSlug,
                 'label' => (string) ($row['display_name'] ?? $row['model'] ?? $modelSlug),
+                'already_imported' => (bool) ($row['already_imported'] ?? false),
             ];
         }
 
@@ -213,12 +215,16 @@ class BoatMakeController extends RecordController
         $data = Validator::make($request->all(), [
             'catalog_asset_keys' => ['nullable', 'array'],
             'catalog_asset_keys.*' => ['string', 'max:255'],
+            'duplicate_strategy' => ['sometimes', 'string', 'in:skip,overwrite'],
         ])->validate();
 
         $keys = $data['catalog_asset_keys'] ?? null;
-        $result = app(CatalogImportService::class)->import($record, $keys);
+        $duplicateStrategy = CatalogImportDuplicateStrategy::fromRequest($data['duplicate_strategy'] ?? null);
+        $result = app(CatalogImportService::class)->import($record, $keys, $duplicateStrategy);
 
-        return back()->with('success', "Imported {$result['imported']} catalog row(s).");
+        $verb = $duplicateStrategy->overwritesDuplicates() ? 'Imported or updated' : 'Imported';
+
+        return back()->with('success', "{$verb} {$result['imported']} catalog row(s).");
     }
 
     public function catalogGenerateModel(Request $request, string $id, BoatMetaAIService $ai)
@@ -276,8 +282,10 @@ class BoatMakeController extends RecordController
             'models' => ['required', 'array', 'min:1', 'max:40'],
             'models.*.model_slug' => ['required', 'string', 'max:120'],
             'models.*.model_label' => ['required', 'string', 'max:255'],
+            'duplicate_strategy' => ['sometimes', 'string', 'in:skip,overwrite'],
         ])->validate();
 
+        $duplicateStrategy = CatalogImportDuplicateStrategy::fromRequest($data['duplicate_strategy'] ?? null);
         $brandKey = $record->brand_key;
         $skippedAlreadyList = 0;
         $queuedIds = [];
@@ -291,7 +299,10 @@ class BoatMakeController extends RecordController
 
             $catalogKey = $brandKey.'--'.$slug;
 
-            if (Asset::query()->where('make_id', $record->id)->where('catalog_asset_key', $catalogKey)->exists()) {
+            if (
+                ! $duplicateStrategy->overwritesDuplicates()
+                && Asset::query()->where('make_id', $record->id)->where('catalog_asset_key', $catalogKey)->exists()
+            ) {
                 $skippedAlreadyList++;
 
                 continue;
@@ -331,7 +342,10 @@ class BoatMakeController extends RecordController
 
         try {
             Bus::chain(
-                array_map(static fn (int $id) => new ProcessBoatMakeModelImportJob($id), $queuedIds)
+                array_map(
+                    static fn (int $id) => new ProcessBoatMakeModelImportJob($id, $duplicateStrategy),
+                    $queuedIds
+                )
             )->dispatch();
         } catch (\Throwable $e) {
             report($e);
@@ -346,9 +360,12 @@ class BoatMakeController extends RecordController
         }
 
         $n = count($queuedIds);
+        $overwriteNote = $duplicateStrategy->overwritesDuplicates()
+            ? ' Existing models will be updated with catalog data.'
+            : '';
         $msg = $n === 1
-            ? '1 model is importing in the background. It will appear on your list when ready.'
-            : $n.' models are importing in the background one at a time. They will appear on your list as each finishes.';
+            ? '1 model is importing in the background. It will appear on your list when ready.'.$overwriteNote
+            : $n.' models are importing in the background one at a time. They will appear on your list as each finishes.'.$overwriteNote;
 
         if ($skippedAlreadyList > 0) {
             $msg .= ' '.$skippedAlreadyList.' '.($skippedAlreadyList === 1 ? 'was' : 'were').' already on your list (skipped).';

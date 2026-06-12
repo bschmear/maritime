@@ -169,14 +169,21 @@ const selectedLibraryCount = computed(() => selectedLibrarySlugs.value.size);
 
 const importDiscoveredForm = useForm({
     models: [],
+    duplicate_strategy: 'skip',
 });
 
 const showImportModelsModal = ref(false);
 
 function openImportModelsModal() {
     selectedLibrarySlugs.value = new Set();
+    importDiscoveredForm.duplicate_strategy = 'skip';
     showImportModelsModal.value = true;
 }
+
+const selectedAlreadyImportedCount = computed(() => {
+    const selected = selectedLibrarySlugs.value;
+    return libraryModels.value.filter((m) => selected.has(m.slug) && m.already_imported).length;
+});
 
 function closeImportModelsModal() {
     showImportModelsModal.value = false;
@@ -374,6 +381,55 @@ function importSelectedLibraryModels() {
 
             <div class="min-h-0 flex-1 overflow-y-auto p-4">
                 <div v-if="libraryModels.length > 0">
+                    <fieldset class="mb-4 rounded-md border border-gray-200 bg-gray-50/80 p-3 dark:border-gray-600 dark:bg-gray-800/40">
+                        <legend class="px-1 text-sm font-medium text-gray-900 dark:text-gray-100">If a model is already on your list</legend>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex cursor-pointer items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+                                <input
+                                    v-model="importDiscoveredForm.duplicate_strategy"
+                                    type="radio"
+                                    class="mt-0.5 border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
+                                    value="skip"
+                                />
+                                <span>
+                                    <span class="font-medium">Skip duplicates</span>
+                                    <span class="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">
+                                        Leave existing models unchanged.
+                                    </span>
+                                </span>
+                            </label>
+                            <label class="flex cursor-pointer items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
+                                <input
+                                    v-model="importDiscoveredForm.duplicate_strategy"
+                                    type="radio"
+                                    class="mt-0.5 border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
+                                    value="overwrite"
+                                />
+                                <span>
+                                    <span class="font-medium">Overwrite with catalog data</span>
+                                    <span class="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">
+                                        Update weight, capacity, horsepower, dimensions, and variants from the catalog.
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                        <p
+                            v-if="selectedAlreadyImportedCount > 0 && importDiscoveredForm.duplicate_strategy === 'skip'"
+                            class="mt-3 text-xs text-amber-800 dark:text-amber-200"
+                        >
+                            {{ selectedAlreadyImportedCount }} selected
+                            {{ selectedAlreadyImportedCount === 1 ? 'model is' : 'models are' }}
+                            already on your list and will be skipped.
+                        </p>
+                        <p
+                            v-else-if="selectedAlreadyImportedCount > 0 && importDiscoveredForm.duplicate_strategy === 'overwrite'"
+                            class="mt-3 text-xs text-primary-800 dark:text-primary-200"
+                        >
+                            {{ selectedAlreadyImportedCount }} selected
+                            {{ selectedAlreadyImportedCount === 1 ? 'model' : 'models' }}
+                            will be refreshed from the catalog.
+                        </p>
+                    </fieldset>
                     <div class="flex flex-wrap items-center gap-3 text-sm">
                         <button
                             type="button"
@@ -408,7 +464,15 @@ function importSelectedLibraryModels() {
                                     @change="setLibrarySelected(m.slug, $event.target.checked)"
                                 />
                                 <span class="min-w-0 flex-1">
-                                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ m.label }}</span>
+                                    <span class="flex flex-wrap items-center gap-2">
+                                        <span class="font-medium text-gray-800 dark:text-gray-200">{{ m.label }}</span>
+                                        <span
+                                            v-if="m.already_imported"
+                                            class="rounded bg-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+                                        >
+                                            On your list
+                                        </span>
+                                    </span>
                                     <span class="mt-0.5 block font-mono text-xs text-gray-500 dark:text-gray-400">{{ m.slug }}</span>
                                 </span>
                             </label>

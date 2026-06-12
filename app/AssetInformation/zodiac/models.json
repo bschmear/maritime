@@ -24,9 +24,21 @@
     "type": "listing_page"
   },
   {
-    "id": "zodiac-tenders",
-    "name": "Tenders (Cadet & Nomad)",
-    "url": "https://www.zodiac-nautic.com/en/boats/tenders/",
+    "id": "zodiac-cadet-aero",
+    "name": "Cadet Aero",
+    "url": "https://www.zodiac-nautic.com/en/tenders/cadet-aero/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-cadet-alu",
+    "name": "Cadet ALU",
+    "url": "https://www.zodiac-nautic.com/en/tenders/cadet-alu/",
+    "type": "listing_page"
+  },
+  {
+    "id": "zodiac-nomad-rib-alu",
+    "name": "Nomad RIB ALU",
+    "url": "https://www.zodiac-nautic.com/en/tenders/nomad-rib-alu/",
     "type": "listing_page"
   },
   {
@@ -43,13 +55,13 @@
   },
   {
     "id": "zodiac-milpro-mark",
-    "name": "MARK Series",
+    "name": "MARK Series (Grand Raid)",
     "url": "https://milpro.zodiac-nautic.com/en/mark/",
     "type": "listing_page"
   },
   {
     "id": "zodiac-milpro-futura",
-    "name": "Futura Commando Series",
+    "name": "Futura Commando Series (FC)",
     "url": "https://milpro.zodiac-nautic.com/en/futura-commando/",
     "type": "listing_page"
   },

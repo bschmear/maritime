@@ -2,7 +2,7 @@
   {
     "id": "walker-bay-22",
     "name": "Walker Bay 22",
-    "url": "https://walkerbay.com/model/generation-12/",
+    "url": "https://walkerbay.com/model/walker-bay-22/",
     "type": "listing_page"
   },
   {
@@ -19,17 +19,16 @@
   },
   {
     "id": "generation-dlx",
-    "name": "Generation DLX",
+    "name": "Generation DLX Series",
     "url": "https://walkerbay.com/generation-dlx/",
     "type": "listing_page"
   },
   {
     "id": "generation-lte",
-    "name": "Generation LTE",
+    "name": "Generation LTE Series",
     "url": "https://walkerbay.com/generationlte/",
     "type": "listing_page"
   },
-
   {
     "id": "venture",
     "name": "Venture Series",

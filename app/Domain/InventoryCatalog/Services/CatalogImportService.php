@@ -7,11 +7,13 @@ namespace App\Domain\InventoryCatalog\Services;
 use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Domain\InventoryCatalog\Enums\CatalogImportDuplicateStrategy;
 use App\Domain\InventoryCatalog\Models\InventoryBoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAsset;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAssetVariant;
 use App\Domain\InventoryCatalog\Support\CatalogImportSpecSync;
 use App\Domain\InventoryCatalog\Support\InventoryCatalogSpecificationReader;
+use App\Enums\Inventory\AssetType;
 use App\Enums\Inventory\BoatType;
 use App\Enums\Inventory\HullMaterial;
 use App\Enums\Inventory\HullType;
@@ -99,11 +101,14 @@ class CatalogImportService
     }
 
     /**
-     * @param  list<string>|null  $catalogAssetKeys  null = all not yet imported
+     * @param  list<string>|null  $catalogAssetKeys  null = all catalog rows for the make
      * @return array{imported: int, skipped: int}
      */
-    public function import(BoatMake $tenantMake, ?array $catalogAssetKeys = null): array
-    {
+    public function import(
+        BoatMake $tenantMake,
+        ?array $catalogAssetKeys = null,
+        CatalogImportDuplicateStrategy $duplicateStrategy = CatalogImportDuplicateStrategy::Skip,
+    ): array {
         if ($tenantMake->brand_key === null || $tenantMake->brand_key === '') {
             return ['imported' => 0, 'skipped' => 0];
         }
@@ -134,7 +139,7 @@ class CatalogImportService
             if ($catalogAssetKeys !== null && ! in_array($k, $catalogAssetKeys, true)) {
                 continue;
             }
-            if ($row['already_imported']) {
+            if ($row['already_imported'] && ! $duplicateStrategy->overwritesDuplicates()) {
                 continue;
             }
             $toImport[] = $k;
@@ -330,7 +335,7 @@ class CatalogImportService
     }
 
     /**
-     * Tenant {@see Asset} `type` must be a valid {@see \App\Enums\Inventory\AssetType} value (1–4); invalid or missing values default to 1 (boat).
+     * Tenant {@see Asset} `type` must be a valid {@see AssetType} value (1–4); invalid or missing values default to 1 (boat).
      */
     private function normalizedTenantAssetType(mixed $type): int
     {

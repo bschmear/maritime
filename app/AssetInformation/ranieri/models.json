@@ -1,30 +1,32 @@
 [
   {
-    "id": "cayman-tender",
-    "name": "Cayman Tender Line",
-    "url": "https://ranieri-international.com/en/cayman-19-sport/",
-    "type": "listing_page",
-    "category": "Tender"
+    "id": "cayman-one-luxury-tender",
+    "name": "Cayman ONE Luxury Tender",
+    "url": "https://ranieri-international.com/cayman-one-luxury-tender/",
+    "type": "listing_page"
   },
   {
     "id": "cayman-sport",
     "name": "Cayman Sport Line",
-    "url": "https://ranieri-international.com/en/cayman-21-sport/",
-    "type": "listing_page",
-    "category": "Sport"
+    "url": "https://ranieri-international.com/cayman-19-sport/",
+    "type": "listing_page"
   },
   {
     "id": "cayman-sport-touring",
     "name": "Cayman Sport Touring Line",
-    "url": "https://ranieri-international.com/en/cayman-23-0-sport-touring/",
-    "type": "listing_page",
-    "category": "Sport Touring"
+    "url": "https://ranieri-international.com/cayman-23-sport-touring/",
+    "type": "listing_page"
   },
   {
     "id": "cayman-executive",
     "name": "Cayman Executive Line",
-    "url": "https://ranieri-international.com/en/cayman-35-0-executive/",
-    "type": "listing_page",
-    "category": "Executive"
+    "url": "https://ranieri-international.com/cayman-28-0-executive/",
+    "type": "listing_page"
+  },
+  {
+    "id": "cayman-cruiser",
+    "name": "Cayman Cruiser Line",
+    "url": "https://ranieri-international.com/cayman-45-0-cruiser/",
+    "type": "listing_page"
   }
 ]

@@ -4,6 +4,7 @@ namespace App\Domain\BoatMake\Actions;
 
 use App\Domain\Asset\Models\Asset;
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Domain\InventoryCatalog\Enums\CatalogImportDuplicateStrategy;
 use App\Domain\InventoryCatalog\Models\InventoryBoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAsset;
 use App\Domain\InventoryCatalog\Services\CatalogImportService;
@@ -18,8 +19,12 @@ class ImportDiscoveredBoatModels
      *
      * @return 'imported'|'skipped_already_list'|'failed'
      */
-    public function importOne(BoatMake $make, string $slug, string $label): string
-    {
+    public function importOne(
+        BoatMake $make,
+        string $slug,
+        string $label,
+        CatalogImportDuplicateStrategy $duplicateStrategy = CatalogImportDuplicateStrategy::Skip,
+    ): string {
         if ($make->brand_key === null || $make->brand_key === '') {
             Log::warning('ImportDiscoveredBoatModels: missing brand_key', ['boat_make_id' => $make->id]);
 
@@ -29,7 +34,12 @@ class ImportDiscoveredBoatModels
         $brandKey = $make->brand_key;
         $catalogKey = $brandKey.'--'.$slug;
 
-        if (Asset::query()->where('make_id', $make->id)->where('catalog_asset_key', $catalogKey)->exists()) {
+        $alreadyOnList = Asset::query()
+            ->where('make_id', $make->id)
+            ->where('catalog_asset_key', $catalogKey)
+            ->exists();
+
+        if ($alreadyOnList && ! $duplicateStrategy->overwritesDuplicates()) {
             return 'skipped_already_list';
         }
 
@@ -57,7 +67,7 @@ class ImportDiscoveredBoatModels
         }
 
         try {
-            $result = $catalog->import($make, [$catalogKey]);
+            $result = $catalog->import($make, [$catalogKey], $duplicateStrategy);
             if (($result['imported'] ?? 0) > 0) {
                 return 'imported';
             }

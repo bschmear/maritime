@@ -19,6 +19,11 @@
       "sortable": false
     },
     {
+      "key": "location_id",
+      "label": "Location",
+      "sortable": false
+    },
+    {
       "key": "serial_number",
       "label": "Serial Number",
       "sortable": true
@@ -56,11 +61,6 @@
     {
       "key": "customer_id",
       "label": "Owner",
-      "sortable": false
-    },
-    {
-      "key": "location_id",
-      "label": "Location",
       "sortable": false
     },
     {
