@@ -279,6 +279,12 @@ class ConsignmentAgreementController extends BaseController
 
             $data = $request->all();
             $data['asset_unit_id'] = $unit->id;
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return back()->withInput()->withErrors($schemaFailure['errors']);
+            }
 
             $result = ($this->createConsignmentAgreement)($data);
 
@@ -289,7 +295,7 @@ class ConsignmentAgreementController extends BaseController
                     ->with('recordId', $result['record']->id);
             }
 
-            return back()->withInput()->with('error', $result['message'] ?? 'Failed to create agreement.');
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }

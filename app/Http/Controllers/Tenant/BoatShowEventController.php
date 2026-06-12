@@ -243,6 +243,12 @@ class BoatShowEventController extends RecordController
                 $data['boat_show_id'] = $this->resolveBoatShow($request->route('boatShow'))->id;
             }
 
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return $this->actionFailureResponse($request, $schemaFailure, $fieldsSchema);
+            }
+
             $result = ($this->createAction)($data);
 
             if (! is_array($result)) {
@@ -264,17 +270,7 @@ class BoatShowEventController extends RecordController
                 return $this->redirectAfterEventStore($request, $result['record']);
             }
 
-            if ($request->ajax() && ! $request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => $result['errors'] ?? [],
-                    'message' => $result['message'] ?? 'Failed to create '.$this->recordTitle,
-                ], 422);
-            }
-
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         } catch (ValidationException $e) {
             if ($request->ajax() && ! $request->header('X-Inertia')) {
                 return response()->json([

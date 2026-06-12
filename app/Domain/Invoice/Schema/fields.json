@@ -43,7 +43,8 @@
     "type": "record",
     "typeDomain": "Location",
     "relationship": "location",
-    "nullable": true
+    "nullable": true,
+    "filterby": "subsidiary_id"
   },
   
     "status": {

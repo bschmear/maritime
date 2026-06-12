@@ -5,6 +5,7 @@ namespace App\Domain\AssetUnit\Actions;
 use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
 use App\Domain\AssetVariant\Models\AssetVariant;
+use App\Support\Validation\FriendlyDatabaseErrors;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -19,8 +20,8 @@ class UpdateAssetUnit
             'serial_number' => 'nullable|string|max:255',
             'hin' => 'nullable|string|max:255',
             'sku' => 'nullable|string|max:255',
-            'condition' => 'nullable|integer|in:1,2,3',
-            'status' => 'nullable|integer|in:1,2,3,4,5,6,7',
+            'condition' => 'required|integer|in:1,2,3',
+            'status' => 'required|integer|in:1,2,3,4,5,6,7',
             'inactive' => 'nullable|boolean',
             'is_customer_owned' => 'nullable|boolean',
             'is_consignment' => 'nullable|boolean',
@@ -109,9 +110,18 @@ class UpdateAssetUnit
                 'data' => $data,
             ]);
 
+            $friendly = FriendlyDatabaseErrors::fromMessage($e->getMessage(), [
+                'asset_id' => ['label' => 'Asset', 'type' => 'record'],
+                'asset_variant_id' => ['label' => 'Variant', 'type' => 'record'],
+                'condition' => ['label' => 'Condition', 'type' => 'select'],
+                'status' => ['label' => 'Status', 'type' => 'select'],
+                'hin' => ['label' => 'Hull ID (HIN)', 'type' => 'text'],
+            ]);
+
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $friendly['message'],
+                'errors' => $friendly['errors'],
                 'record' => null,
             ];
         } catch (Throwable $e) {

@@ -52,7 +52,8 @@
             "type": "record",
             "typeDomain": "Location",
             "relationship": "location",
-            "required": false
+            "required": false,
+            "filterby": "subsidiary_id"
         },
         "customer_name": {
             "label": "Customer name (snapshot)",

@@ -301,15 +301,21 @@ class TransactionController extends BaseController
     public function store(Request $request)
     {
         try {
-            $result = ($this->createTransaction)($request->all());
+            $data = $request->all();
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return $this->actionFailureResponse($request, $schemaFailure, $fieldsSchema);
+            }
+
+            $result = ($this->createTransaction)($data);
         } catch (ValidationException $e) {
             throw $e;
         }
 
         if (! ($result['success'] ?? false) || ! isset($result['record'])) {
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to create transaction.');
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         }
 
         return redirect()

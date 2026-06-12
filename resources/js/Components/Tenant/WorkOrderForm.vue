@@ -5,6 +5,8 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import ChecklistTemplatePicker from '@/Components/Tenant/ChecklistTemplatePicker.vue';
 import axios from 'axios';
 import { computed, nextTick, ref, watch } from 'vue';
+import { buildFormErrorMessages, useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const props = defineProps({
     record: {
@@ -632,6 +634,9 @@ if (props.serviceTicket && props.mode === 'create') {
 
 const form = useForm(formData);
 
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
+const formErrorMessages = computed(() => buildFormErrorMessages(form.errors, props.fieldsSchema));
+
 /** Prefill date completed when moving to Completed/Closed in edit mode (user can change before save). */
 watch(
     () => form.status,
@@ -773,12 +778,9 @@ setTimeout(() => {
     formInitialized.value = true;
 }, 100);
 
-// Watch for subsidiary changes to clear dependent fields
-watch(() => form.subsidiary_id, (newValue, oldValue) => {
-    if (formInitialized.value && oldValue !== undefined && newValue !== oldValue) {
-        // Clear location when subsidiary changes
-        form.location_id = null;
-    }
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => props.mode !== 'show',
+    guard: () => formInitialized.value,
 });
 
 // Watch for customer changes to clear dependent fields
@@ -924,28 +926,20 @@ const submit = () => {
     });
 
     if (props.mode === 'edit') {
-        form.put(route('workorders.update', props.record.id), {
-            onSuccess: (page) => {
-                // Redirect to show page after successful update
+        form.put(route('workorders.update', props.record.id), validationSubmitOptions({
+            onSuccess: () => {
                 window.location.href = route('workorders.show', props.record.id);
             },
-            onError: (errors) => {
-                console.error('Update failed with errors:', errors);
-            }
-        });
+        }));
     } else {
-        form.post(route('workorders.store'), {
+        form.post(route('workorders.store'), validationSubmitOptions({
             onSuccess: (page) => {
-                // Inertia redirects to show page; ensure we're on the right URL
                 const recordId = page.props.record?.id ?? page.props.workorder?.id;
                 if (recordId) {
                     window.location.href = route('workorders.show', recordId);
                 }
             },
-            onError: (errors) => {
-                console.error('Create failed with errors:', errors);
-            }
-        });
+        }));
     }
 };
 
@@ -988,6 +982,19 @@ const clearChecklistTemplate = () => {
 
         <div class="">
             <form @submit.prevent="submit">
+                <div
+                    v-if="formErrorMessages.length"
+                    data-form-validation-error
+                    class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+                    role="alert"
+                >
+                    <p class="font-medium">Please fix the following:</p>
+                    <ul class="mt-1 list-inside list-disc space-y-0.5">
+                        <li v-for="(message, index) in formErrorMessages" :key="index">
+                            {{ message }}
+                        </li>
+                    </ul>
+                </div>
                 <div class="grid min-w-0 gap-4 lg:grid-cols-12 lg:gap-6">
             <!-- Main Work Order Form -->
             <div
@@ -1943,6 +1950,22 @@ const clearChecklistTemplate = () => {
                                 <p class="text-sm text-red-700 dark:text-red-300">
                                     WO total exceeds estimate threshold. Create a revision on the service ticket first.
                                 </p>
+                            </div>
+
+                            <div
+                                v-if="formErrorMessages.length"
+                                data-form-validation-error
+                                class="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20"
+                            >
+                                <div class="mb-2 flex items-center gap-2">
+                                    <span class="material-icons text-md text-red-600 dark:text-red-400">error</span>
+                                    <span class="text-sm font-medium text-red-800 dark:text-red-200">Please fix the following:</span>
+                                </div>
+                                <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
+                                    <li v-for="(message, index) in formErrorMessages" :key="index">
+                                        {{ message }}
+                                    </li>
+                                </ul>
                             </div>
 
                             <!-- Save Actions -->

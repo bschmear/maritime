@@ -2,6 +2,7 @@
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -74,13 +75,17 @@ const avatarInitials = computed(() => {
     return (f + l).toUpperCase() || '?';
 });
 
+const { validationSubmitOptions } = useFormValidationToast();
+
 const submit = () => {
     const url = props.mode === 'create'
         ? route('users.store')
         : route('users.update', props.record.id);
 
-    const opts = { preserveScroll: true, onSuccess: () => emit('saved') };
-    const submitOpts = form.avatar instanceof File ? { ...opts, forceFormData: true } : opts;
+    const submitOpts = validationSubmitOptions({
+        onSuccess: () => emit('saved'),
+        ...(form.avatar instanceof File ? { forceFormData: true } : {}),
+    });
 
     if (props.mode === 'create') {
         form.post(url, submitOpts);

@@ -598,22 +598,40 @@ class DeliveryController extends RecordController
     public function store(Request $request, PublicStorage $publicStorage)
     {
         $payload = $request->all();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
 
-        $result = (new CreateAction)($payload);
+        $schemaFailure = $this->validateSchemaFormInput($payload, $this->getFormSchema(), $fieldsSchema);
+        if ($schemaFailure !== null) {
+            $conflicts = [];
 
-        if (! ($result['success'] ?? true)) {
-            $errorMsg = $result['message'] ?? 'Failed to create delivery';
-            $conflicts = $result['conflicts'] ?? [];
             if ($request->wantsJson() || $request->header('X-Modal-Request')) {
                 return response()->json([
-                    'message' => $errorMsg,
-                    'errors' => ['general' => [$errorMsg]],
+                    'message' => $schemaFailure['message'],
+                    'errors' => $schemaFailure['errors'],
                     'conflicts' => $conflicts,
                 ], 422);
             }
 
             return back()
-                ->withErrors(['general' => $errorMsg])
+                ->withInput()
+                ->withErrors($schemaFailure['errors']);
+        }
+
+        $result = (new CreateAction)($payload);
+
+        if (! ($result['success'] ?? true)) {
+            $normalized = $this->normalizeActionFailure($result, $fieldsSchema);
+            $conflicts = $result['conflicts'] ?? [];
+            if ($request->wantsJson() || $request->header('X-Modal-Request')) {
+                return response()->json([
+                    'message' => $normalized['message'],
+                    'errors' => $normalized['errors'],
+                    'conflicts' => $conflicts,
+                ], 422);
+            }
+
+            return back()
+                ->withErrors($normalized['errors'])
                 ->with('delivery_fleet_conflicts', $conflicts)
                 ->withInput();
         }
@@ -678,18 +696,18 @@ class DeliveryController extends RecordController
         $result = (new UpdateAction)($delivery->id, $request->all());
 
         if (! ($result['success'] ?? true)) {
-            $errorMsg = $result['message'] ?? 'Failed to update delivery';
+            $normalized = $this->normalizeActionFailure($result, $this->getUnwrappedFieldsSchema());
             $conflicts = $result['conflicts'] ?? [];
             if ($request->wantsJson() || $request->header('X-Modal-Request')) {
                 return response()->json([
-                    'message' => $errorMsg,
-                    'errors' => ['general' => [$errorMsg]],
+                    'message' => $normalized['message'],
+                    'errors' => $normalized['errors'],
                     'conflicts' => $conflicts,
                 ], 422);
             }
 
             return back()
-                ->withErrors(['general' => $errorMsg])
+                ->withErrors($normalized['errors'])
                 ->with('delivery_fleet_conflicts', $conflicts)
                 ->withInput();
         }

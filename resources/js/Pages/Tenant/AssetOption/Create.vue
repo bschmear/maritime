@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetOptionForm from '@/Components/Tenant/AssetOptionForm.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const INPUT_TYPE_ENUM = 'App\\Enums\\AssetOption\\AssetOptionInputType';
 
@@ -112,6 +113,8 @@ function buildValuesPayload(inputType, rows, mode) {
         });
 }
 
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
+
 const form = useForm({
     name: '',
     input_type: 'select',
@@ -142,9 +145,7 @@ const submit = () => {
 
             return out;
         })
-        .post(route('asset-options.store'), {
-            preserveScroll: true,
-        });
+        .post(route('asset-options.store'), validationSubmitOptions());
 };
 
 const cancel = () => router.visit(route('asset-options.index'));

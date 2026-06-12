@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Domain\Transaction\Models\Transaction;
+use App\Support\Validation\ActionResultErrors;
+use App\Support\Validation\SchemaFormValidator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 trait HasSchemaSupport
 {
@@ -292,8 +296,9 @@ trait HasSchemaSupport
                         strtolower($fieldDef['typeDomain']), // Domain name lowercase
                     ];
 
-                    // created_by / updated_by -> createdBy, updatedBy (not creator/updater)
+                    // created_by / technician_submitted_by -> createdBy, technicianSubmittedBy
                     if (str_ends_with($fieldKey, '_by')) {
+                        $alternatives[] = Str::camel($fieldKey);
                         $baseName = str_replace('_by', '', $fieldKey);
                         $alternatives[] = $baseName.'By';
                     }
@@ -756,5 +761,51 @@ trait HasSchemaSupport
                 'total' => $paginator->total(),
             ],
         ], $extra));
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{success: false, message: string, errors: array<string, array<int, string>>}|null
+     */
+    protected function validateSchemaFormInput(array $data, ?array $formSchema = null, ?array $fieldsSchema = null): ?array
+    {
+        $fieldsSchema ??= $this->getUnwrappedFieldsSchema();
+        $formSchema ??= $this->getFormSchema();
+
+        return SchemaFormValidator::validate($data, $formSchema, $fieldsSchema);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array{errors: array<string, string|array<int, string>>, message: string}
+     */
+    protected function normalizeActionFailure(array $result, ?array $fieldsSchema = null): array
+    {
+        $fieldsSchema ??= $this->getUnwrappedFieldsSchema();
+        $title = $this->recordTitle ?? $this->domainName ?? 'record';
+
+        return ActionResultErrors::normalize($result, $fieldsSchema, $title);
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    protected function actionFailureResponse(Request $request, array $result, ?array $fieldsSchema = null, string $action = 'create'): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $normalized = $this->normalizeActionFailure($result, $fieldsSchema);
+        $errors = $normalized['errors'];
+        $message = $normalized['message'];
+
+        if ($request->ajax() && ! $request->header('X-Inertia')) {
+            return response()->json([
+                'success' => false,
+                'errors' => $errors,
+                'message' => $message,
+            ], 422);
+        }
+
+        return back()
+            ->withInput()
+            ->withErrors($errors);
     }
 }

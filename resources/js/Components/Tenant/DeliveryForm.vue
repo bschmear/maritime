@@ -6,6 +6,8 @@ import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { useForm, router, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -100,6 +102,8 @@ const mapRecordItem = (it) => ({
 
 /** Snapshot for initial form state (Inertia first paint). */
 const initialRecord = props.record ?? {};
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const form = useForm({
     customer_id: initialRecord.customer_id ?? null,
@@ -598,6 +602,8 @@ watch(
     },
 );
 
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, { assumeFiltered: true });
+
 const pickSwapOnCreate = (otherDeliveryId) => {
     if (form.processing) {
         return;
@@ -641,8 +647,7 @@ const submit = () => {
         ? route('deliveries.update', props.record.id)
         : route('deliveries.store');
     const method = isEdit.value ? 'put' : 'post';
-    form.submit(method, url, {
-        preserveScroll: true,
+    form.submit(method, url, validationSubmitOptions({
         onSuccess: () => {
             form.swap_with_delivery_id = null;
             emit('saved');
@@ -654,7 +659,7 @@ const submit = () => {
                 fleetConflicts.value = c;
             }
         },
-    });
+    }));
 };
 
 /* ─── Field configs for RecordSelect ─── */
@@ -680,7 +685,12 @@ const addressSummary = computed(() => {
 });
 
 const subsidiaryField = computed(() => ({ type: 'record', typeDomain: 'Subsidiary', label: 'Subsidiary' }));
-const locationField = computed(() => ({ type: 'record', typeDomain: 'Location', label: 'Depart from (location)' }));
+const locationField = computed(() => ({
+    type: 'record',
+    typeDomain: 'Location',
+    label: 'Depart from (location)',
+    filterby: 'subsidiary_id',
+}));
 const fleetTruckField = computed(() => ({
     type: 'record',
     typeDomain: 'Fleet',
@@ -1097,9 +1107,14 @@ const onScheduledAtCommittedChange = async () => {
                                             :field="locationField"
                                             :record="record"
                                             v-model="form.location_id"
-                                            :disabled="sourcePrefillLocked"
+                                            :disabled="sourcePrefillLocked || !form.subsidiary_id"
                                             field-key="location_id"
+                                            filter-by="subsidiary_id"
+                                            :filter-value="form.subsidiary_id"
                                         />
+                                        <p v-if="!sourcePrefillLocked && !form.subsidiary_id" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Select a subsidiary to choose a location.
+                                        </p>
                                     </div>
 
                                     <div>

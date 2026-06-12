@@ -198,17 +198,7 @@ class WorkOrder extends Model
         return $this->belongsTo(User::class, 'technician_submitted_by');
     }
 
-    public function technician_submitted_by(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'technician_submitted_by');
-    }
-
     public function managerSignedOffBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'manager_signed_off_by');
-    }
-
-    public function manager_signed_off_by(): BelongsTo
     {
         return $this->belongsTo(User::class, 'manager_signed_off_by');
     }

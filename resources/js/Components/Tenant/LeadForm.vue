@@ -4,6 +4,7 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 import { useSchemaFormGroups } from '@/composables/useSchemaFormGroups.js';
 
 const props = defineProps({
@@ -224,6 +225,7 @@ function initialValuesFromProps() {
 }
 
 const form = useForm(initialValuesFromProps());
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const fieldIsVisible = (field) => {
     if (!field?.conditional) {
@@ -323,18 +325,16 @@ const submit = () => {
     });
 
     if (props.mode === 'edit') {
-        form.put(url, {
-            preserveScroll: true,
+        form.put(url, validationSubmitOptions({
             onSuccess: () => emit('saved', {}),
-        });
+        }));
     } else {
-        form.post(url, {
-            preserveScroll: true,
+        form.post(url, validationSubmitOptions({
             onSuccess: (page) =>
                 emit('saved', {
                     recordId: page.props.flash?.recordId ?? page.props.flash?.record_id,
                 }),
-        });
+        }));
     }
 };
 

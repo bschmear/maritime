@@ -7,6 +7,7 @@ import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import axios from 'axios';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const mapOppAddonsFromApi = (rows) =>
     (rows || []).map((a) => ({
@@ -660,6 +661,7 @@ const buildInitialFormData = () => {
 };
 
 const form = useForm(buildInitialFormData());
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 // Initialize line items when editing
 watch(() => props.record?.inventory_items ?? props.record?.inventoryItems, (items) => {
@@ -752,14 +754,13 @@ const submit = () => {
     }));
 
     if (props.mode === 'edit') {
-        form.put(route('opportunities.update', buildResourceRouteParams('opportunities', props.record.id)), {
+        form.put(route('opportunities.update', buildResourceRouteParams('opportunities', props.record.id)), validationSubmitOptions({
             onSuccess: () => {
                 window.location.href = route('opportunities.show', buildResourceRouteParams('opportunities', props.record.id));
             },
-        });
+        }));
     } else {
-        // Server returns redirect to opportunities.show; Inertia follows it (no client-side URL needed).
-        form.post(route('opportunities.store'));
+        form.post(route('opportunities.store'), validationSubmitOptions());
     }
 };
 

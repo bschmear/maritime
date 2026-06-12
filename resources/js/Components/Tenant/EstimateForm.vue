@@ -8,6 +8,8 @@ import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import axios from 'axios';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const debounce = (fn, delay) => {
     let timer;
@@ -89,6 +91,12 @@ const form = useForm({
     billing_country:       props.record?.billing_country       || props.initialData?.billing_country       || '',
     billing_latitude:      props.record?.billing_latitude      ?? props.initialData?.billing_latitude      ?? null,
     billing_longitude:     props.record?.billing_longitude     ?? props.initialData?.billing_longitude     ?? null,
+});
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
+
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => props.mode !== 'view',
 });
 
 // ── Billing Address & tax lookup ─────────────────────────────────────────────
@@ -899,25 +907,17 @@ const submit = () => {
     });
 
     if (props.mode === 'edit') {
-        form.put(route('estimates.update', props.record.id), {
-            onSuccess: (response) => {
+        form.put(route('estimates.update', props.record.id), validationSubmitOptions({
+            onSuccess: () => {
                 emit('saved');
             },
-            onError: (errors) => {
-                console.error('Update failed:', errors);
-                console.error('Form errors:', form.errors);
-            },
-        });
+        }));
     } else {
-        form.post(route('estimates.store'), {
-            onSuccess: (response) => {
+        form.post(route('estimates.store'), validationSubmitOptions({
+            onSuccess: () => {
                 emit('saved');
             },
-            onError: (errors) => {
-                console.error('Create failed:', errors);
-                console.error('Form errors:', form.errors);
-            },
-        });
+        }));
     }
 };
 
@@ -1069,13 +1069,18 @@ const handleCancel = () => emit('cancelled');
                                         </label>
                                         <RecordSelect
                                             id="location_id"
-                                            :field="fieldsSchema?.location_id || { typeDomain: 'Location', label: 'Location' }"
+                                            :field="fieldsSchema?.location_id || { typeDomain: 'Location', label: 'Location', filterby: 'subsidiary_id' }"
                                             v-model="form.location_id"
                                             :record="pseudoRecord"
                                             field-key="location_id"
-                                            :disabled="mode === 'view'"
+                                            filter-by="subsidiary_id"
+                                            :filter-value="form.subsidiary_id"
+                                            :disabled="mode === 'view' || !form.subsidiary_id"
                                         />
                                         <p v-if="form.errors.location_id" class="mt-1 text-sm text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
+                                        <p v-if="mode !== 'view' && !form.subsidiary_id" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Select a subsidiary to choose a location.
+                                        </p>
                                     </div>
 
                                     <!-- Tax -->

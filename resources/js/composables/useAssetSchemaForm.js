@@ -3,6 +3,8 @@ import { useForm, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { useTimezone } from '@/composables/useTimezone';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { buildFormErrorMessages, useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 /**
  * Form state + submit pipeline mirrored from Form.vue, scoped for AssetForm (no Form component).
@@ -360,6 +362,12 @@ export function useAssetSchemaForm(props, emit) {
     };
 
     const form = useForm(initializeFormData());
+    const { validationSubmitOptions, handleSubmitErrors } = useFormValidationToast(() => resolvedFieldsSchema.value);
+    const formErrorMessages = computed(() => buildFormErrorMessages(form.errors, resolvedFieldsSchema.value));
+
+    useSubsidiaryLocationAutofill(form, () => resolvedFieldsSchema.value, {
+        enabled: () => props.mode !== 'view',
+    });
     const isProcessing = ref(false);
     const imagePreviews = ref({});
 
@@ -1077,25 +1085,30 @@ export function useAssetSchemaForm(props, emit) {
                         } else emit('submit');
                     })
                     .catch((error) => {
-                        if (error.response?.status === 422) form.errors = error.response.data.errors || {};
-                        else form.errors = { general: [error.response?.data?.message || 'An error occurred'] };
+                        const errors = error.response?.status === 422
+                            ? (error.response.data.errors || {})
+                            : { general: [error.response?.data?.message || 'An error occurred'] };
+                        form.errors = errors;
+                        handleSubmitErrors(errors);
                     })
                     .finally(() => {
                         isProcessing.value = false;
                     });
             } else {
-                form.transform(() => rawData).post(route(`${props.recordType}.store`, resolvedExtraRouteParams.value), {
-                    preserveScroll: true,
-                    onSuccess: (page) => {
-                        let recordId = page?.props?.flash?.recordId;
-                        if (!recordId) {
-                            const urlMatch = page?.url?.match(/\/(\d+)$/);
-                            if (urlMatch) recordId = urlMatch[1];
-                        }
-                        if (recordId) emit('created', recordId);
-                        emit('submit');
-                    },
-                });
+                form.transform(() => rawData).post(
+                    route(`${props.recordType}.store`, resolvedExtraRouteParams.value),
+                    validationSubmitOptions({
+                        onSuccess: (page) => {
+                            let recordId = page?.props?.flash?.recordId;
+                            if (!recordId) {
+                                const urlMatch = page?.url?.match(/\/(\d+)$/);
+                                if (urlMatch) recordId = urlMatch[1];
+                            }
+                            if (recordId) emit('created', recordId);
+                            emit('submit');
+                        },
+                    }),
+                );
             }
         } else if (isEditMode.value) {
             if (props.preventRedirect) {
@@ -1124,8 +1137,11 @@ export function useAssetSchemaForm(props, emit) {
                         else emit('submit');
                     })
                     .catch((error) => {
-                        if (error.response?.status === 422) form.errors = error.response.data.errors || {};
-                        else form.errors = { general: [error.response?.data?.message || 'An error occurred'] };
+                        const errors = error.response?.status === 422
+                            ? (error.response.data.errors || {})
+                            : { general: [error.response?.data?.message || 'An error occurred'] };
+                        form.errors = errors;
+                        handleSubmitErrors(errors);
                     })
                     .finally(() => {
                         isProcessing.value = false;
@@ -1136,8 +1152,7 @@ export function useAssetSchemaForm(props, emit) {
                         `${props.recordType}.update`,
                         buildResourceRouteParams(props.recordType, updateRecordId.value, resolvedExtraRouteParams.value),
                     ),
-                    {
-                        preserveScroll: true,
+                    validationSubmitOptions({
                         onSuccess: () => {
                             emit('submit');
                             if (props.redirectAfterUpdate) {
@@ -1146,7 +1161,7 @@ export function useAssetSchemaForm(props, emit) {
                                 router.reload({ only: ['record', 'imageUrls'] });
                             }
                         },
-                    },
+                    }),
                 );
             }
         }
@@ -1209,6 +1224,7 @@ export function useAssetSchemaForm(props, emit) {
         submitForm,
         cancelForm,
         isProcessing: isFormProcessing,
+        formErrorMessages,
         imagePreviews,
         applyCopiedVariantRecord,
     };

@@ -41,13 +41,15 @@
   "condition": {
     "label": "Condition",
     "type": "select",
-    "enum": "App\\Enums\\Inventory\\UnitCondition"
+    "enum": "App\\Enums\\Inventory\\UnitCondition",
+    "required": true
   },
 
   "status": {
     "label": "Status",
     "type": "select",
-    "enum": "App\\Enums\\Inventory\\UnitStatus"
+    "enum": "App\\Enums\\Inventory\\UnitStatus",
+    "required": true
   },
 
   "inactive": {
@@ -134,7 +136,8 @@
     "typeDomain": "Location",
     "relationship": "location",
     "addNew": true,
-    "displayField": "display_name"
+    "displayField": "display_name",
+    "filterby": "subsidiary_id"
   },
 
   "subsidiary_id": {

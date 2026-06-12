@@ -216,28 +216,28 @@ const eventUrl = (event) =>
             </div>
 
             <!-- ── Calendar Sidebar ── -->
-            <aside class="w-96 shrink-0 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <aside class="w-96 shrink-0 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden dark:border-gray-700 dark:bg-gray-800">
 
                 <!-- Header -->
-                <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-700">
+                <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-700 dark:bg-gray-900">
                     <h2 class="text-sm font-semibold text-white tracking-wide uppercase">Upcoming Shows</h2>
-                    <span class="text-xs text-white font-medium">Next 90 days</span>
+                    <span class="text-xs text-gray-300 dark:text-gray-400 font-medium">Next 90 days</span>
                 </div>
 
                 <!-- Mini Calendar -->
                 <div class="px-4 pt-4 pb-3">
                     <div class="flex items-center justify-between mb-3">
                         <button @click="prevMonth"
-                                class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                                class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                                 aria-label="Previous month">
                             <span class="material-icons text-base leading-none">chevron_left</span>
                         </button>
                         <button @click="resetToday"
-                                class="text-xs font-semibold text-gray-700 hover:text-blue-600 transition-colors px-1">
+                                class="text-xs font-semibold text-gray-700 hover:text-blue-600 dark:text-gray-200 dark:hover:text-blue-400 transition-colors px-1">
                             {{ monthLabel }}
                         </button>
                         <button @click="nextMonth"
-                                class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                                class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                                 aria-label="Next month">
                             <span class="material-icons text-base leading-none">chevron_right</span>
                         </button>
@@ -245,7 +245,7 @@ const eventUrl = (event) =>
 
                     <div class="grid grid-cols-7 mb-1">
                         <div v-for="dow in ['Su','Mo','Tu','We','Th','Fr','Sa']" :key="dow"
-                             class="text-center text-[10px] font-semibold text-gray-400 uppercase py-0.5">
+                             class="text-center text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase py-0.5">
                             {{ dow }}
                         </div>
                     </div>
@@ -262,41 +262,41 @@ const eventUrl = (event) =>
                                         isToday(day)
                                             ? 'bg-blue-600 text-white font-bold'
                                             : eventDaysInView.has(day)
-                                                ? 'bg-blue-100 text-blue-700 font-semibold cursor-pointer hover:bg-blue-200'
-                                                : 'text-gray-600 cursor-default',
+                                                ? 'bg-blue-100 text-blue-700 font-semibold cursor-pointer hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60'
+                                                : 'text-gray-600 dark:text-gray-400 cursor-default',
                                     ]"
                                 >{{ day }}</button>
                                 <span v-if="eventDaysInView.has(day) && !isToday(day)"
-                                      class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-400 pointer-events-none" />
+                                      class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-400 dark:bg-blue-500 pointer-events-none" />
                             </template>
                         </div>
                     </div>
                 </div>
 
                 <!-- Event List -->
-                <div class="border-t border-gray-100">
-                    <div v-if="eventsInViewMonth.length" class="divide-y divide-gray-50">
+                <div class="border-t border-gray-100 dark:border-gray-700">
+                    <div v-if="eventsInViewMonth.length" class="divide-y divide-gray-50 dark:divide-gray-700">
                         <button
                             v-for="event in eventsInViewMonth"
                             :key="event.id"
                             @click="openEvent(event)"
-                            class="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors group"
+                            class="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                         >
                             <div class="flex items-start gap-2.5">
                                 <div class="mt-0.5 w-0.5 self-stretch rounded-full bg-blue-500 shrink-0" />
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-xs font-semibold text-gray-800 truncate group-hover:text-blue-700 transition-colors leading-snug">
+                                    <p class="text-xs font-semibold text-gray-800 dark:text-white truncate group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors leading-snug">
                                         {{ event.name }}
                                     </p>
-                                    <p class="text-[11px] text-gray-500 mt-0.5">
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                                         {{ formatRange(event.start_date, event.end_date) }}
                                     </p>
-                                    <p v-if="event.location" class="text-[11px] text-gray-400 truncate mt-0.5 flex items-center gap-0.5">
+                                    <p v-if="event.location" class="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5 flex items-center gap-0.5">
                                         <span class="material-icons text-[11px]">place</span>
                                         {{ event.location }}
                                     </p>
                                 </div>
-                                <span class="shrink-0 text-[10px] font-semibold text-blue-500 bg-blue-50 rounded px-1.5 py-0.5 whitespace-nowrap mt-0.5">
+                                <span class="shrink-0 text-[10px] font-semibold text-blue-500 bg-blue-50 dark:text-blue-300 dark:bg-blue-900/40 rounded px-1.5 py-0.5 whitespace-nowrap mt-0.5">
                                     {{ daysUntil(event.start_date) }}
                                 </span>
                             </div>
@@ -304,13 +304,13 @@ const eventUrl = (event) =>
                     </div>
 
                     <div v-else class="px-4 py-6 text-center">
-                        <span class="material-icons text-3xl text-gray-200 block mb-1">event_busy</span>
-                        <p class="text-xs text-gray-400">No upcoming shows this month</p>
+                        <span class="material-icons text-3xl text-gray-200 dark:text-gray-600 block mb-1">event_busy</span>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">No upcoming shows this month</p>
                     </div>
 
-                    <div class="px-4 py-2.5 border-t border-gray-100 bg-gray-50">
-                        <p class="text-[11px] text-gray-400 text-center">
-                            <span class="font-semibold text-gray-600">{{ upcomingEvents.length }}</span>
+                    <div class="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <p class="text-[11px] text-gray-400 dark:text-gray-500 text-center">
+                            <span class="font-semibold text-gray-600 dark:text-gray-300">{{ upcomingEvents.length }}</span>
                             upcoming show{{ upcomingEvents.length !== 1 ? 's' : '' }} in the next 90 days
                         </p>
                     </div>
@@ -342,34 +342,34 @@ const eventUrl = (event) =>
                         appear
                     >
                         <div v-if="showDayPicker"
-                             class="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
-                            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                             class="relative z-10 w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+                            <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-gray-700">
                                 <div class="flex items-center gap-2">
-                                    <span class="material-icons text-blue-500 text-xl">event</span>
-                                    <h3 class="font-semibold text-gray-800 text-sm">Multiple Shows This Day</h3>
+                                    <span class="material-icons text-blue-500 dark:text-blue-400 text-xl">event</span>
+                                    <h3 class="font-semibold text-gray-800 dark:text-white text-sm">Multiple Shows This Day</h3>
                                 </div>
                                 <button @click="closeModal"
-                                        class="text-gray-400 hover:text-gray-600 transition-colors -mr-1 p-0.5 rounded hover:bg-gray-100">
+                                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors -mr-1 p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
                                     <span class="material-icons text-xl">close</span>
                                 </button>
                             </div>
-                            <div class="divide-y divide-gray-50">
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700">
                                 <button
                                     v-for="event in modalDayEvents"
                                     :key="event.id"
                                     @click="openEvent(event)"
-                                    class="w-full text-left px-5 py-3.5 hover:bg-blue-50 transition-colors group flex items-center gap-3"
+                                    class="w-full text-left px-5 py-3.5 hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors group flex items-center gap-3"
                                 >
-                                    <span class="material-icons text-blue-300 text-xl group-hover:text-blue-500 transition-colors">sailing</span>
+                                    <span class="material-icons text-blue-300 dark:text-blue-500 text-xl group-hover:text-blue-500 dark:group-hover:text-blue-400 transition-colors">sailing</span>
                                     <div class="min-w-0 flex-1">
-                                        <p class="text-sm font-medium text-gray-800 group-hover:text-blue-700 transition-colors truncate">
+                                        <p class="text-sm font-medium text-gray-800 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400 transition-colors truncate">
                                             {{ event.name }}
                                         </p>
-                                        <p class="text-xs text-gray-400 mt-0.5">
+                                        <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                                             {{ formatRange(event.start_date, event.end_date) }}
                                         </p>
                                     </div>
-                                    <span class="material-icons text-gray-300 group-hover:text-blue-400 transition-colors text-base">chevron_right</span>
+                                    <span class="material-icons text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors text-base">chevron_right</span>
                                 </button>
                             </div>
                         </div>
@@ -383,7 +383,7 @@ const eventUrl = (event) =>
                         appear
                     >
                         <div v-if="selectedEvent"
-                             class="relative z-10 w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden">
+                             class="relative z-10 w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
 
                             <!-- Colored header -->
                             <div class="bg-gradient-to-br from-blue-600 to-blue-500 px-5 py-5 relative">
@@ -410,14 +410,14 @@ const eventUrl = (event) =>
                             <div class="px-5 py-4 space-y-4">
 
                                 <div class="flex items-start gap-3.5">
-                                    <span class="material-icons text-blue-400 text-xl mt-0.5 shrink-0">calendar_month</span>
+                                    <span class="material-icons text-blue-400 dark:text-blue-500 text-xl mt-0.5 shrink-0">calendar_month</span>
                                     <div>
-                                        <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Date</p>
-                                        <p class="text-sm text-gray-800 font-medium mt-0.5">
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wide">Date</p>
+                                        <p class="text-sm text-gray-800 dark:text-white font-medium mt-0.5">
                                             {{ formatRangeLong(selectedEvent.start_date, selectedEvent.end_date) }}
                                         </p>
                                         <p v-if="durationDays(selectedEvent.start_date, selectedEvent.end_date) > 1"
-                                           class="text-xs text-gray-400 mt-0.5 flex items-center gap-0.5">
+                                           class="text-xs text-gray-400 dark:text-gray-500 mt-0.5 flex items-center gap-0.5">
                                             <span class="material-icons text-[12px]">info_outline</span>
                                             {{ durationDays(selectedEvent.start_date, selectedEvent.end_date) }}-day event
                                         </p>
@@ -425,18 +425,18 @@ const eventUrl = (event) =>
                                 </div>
 
                                 <div v-if="selectedEvent.location" class="flex items-start gap-3.5">
-                                    <span class="material-icons text-blue-400 text-xl mt-0.5 shrink-0">place</span>
+                                    <span class="material-icons text-blue-400 dark:text-blue-500 text-xl mt-0.5 shrink-0">place</span>
                                     <div>
-                                        <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Location</p>
-                                        <p class="text-sm text-gray-800 font-medium mt-0.5">{{ selectedEvent.location }}</p>
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wide">Location</p>
+                                        <p class="text-sm text-gray-800 dark:text-white font-medium mt-0.5">{{ selectedEvent.location }}</p>
                                     </div>
                                 </div>
 
                                 <div v-if="selectedEvent.description" class="flex items-start gap-3.5">
-                                    <span class="material-icons text-blue-400 text-xl mt-0.5 shrink-0">notes</span>
+                                    <span class="material-icons text-blue-400 dark:text-blue-500 text-xl mt-0.5 shrink-0">notes</span>
                                     <div>
-                                        <p class="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Notes</p>
-                                        <p class="text-sm text-gray-600 mt-0.5 leading-relaxed">{{ selectedEvent.description }}</p>
+                                        <p class="text-[11px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wide">Notes</p>
+                                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">{{ selectedEvent.description }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -449,7 +449,7 @@ const eventUrl = (event) =>
                                     View Event
                                 </a>
                                 <button @click="closeModal"
-                                        class="inline-flex items-center justify-center gap-1.5 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
+                                        class="inline-flex items-center justify-center gap-1.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium px-4 py-2.5 rounded-lg transition-colors">
                                     <span class="material-icons text-[18px]">close</span>
                                     Close
                                 </button>

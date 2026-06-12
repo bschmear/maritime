@@ -4,6 +4,7 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -45,6 +46,8 @@ const resolveEnumId = (enumKey, value) => {
 const pseudoRecord = computed(() =>
     props.record ?? (Object.keys(props.initialData).length > 0 ? props.initialData : null)
 );
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const form = useForm({
     customer_id:            props.record?.customer_id            ?? props.initialData?.customer_id            ?? null,
@@ -144,13 +147,13 @@ const submit = () => {
     if (isView.value) return;
 
     if (props.mode === 'edit') {
-        form.put(route('contracts.update', props.record.id), {
+        form.put(route('contracts.update', props.record.id), validationSubmitOptions({
             onSuccess: () => emit('saved'),
-        });
+        }));
     } else {
-        form.post(route('contracts.store'), {
+        form.post(route('contracts.store'), validationSubmitOptions({
             onSuccess: () => emit('saved'),
-        });
+        }));
     }
 };
 

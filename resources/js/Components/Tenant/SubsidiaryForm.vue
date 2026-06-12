@@ -2,6 +2,7 @@
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -31,6 +32,8 @@ const timezoneEnumKey = 'App\\Enums\\Timezone';
 const locationTypeEnumKey = 'App\\Enums\\Locations\\LocationType';
 
 const initial = computed(() => props.record ?? {});
+
+const { validationSubmitOptions, showToast } = useFormValidationToast(() => props.fieldsSchema);
 
 const form = useForm({
     display_name: initial.value.display_name ?? '',
@@ -190,6 +193,9 @@ const validateLocations = () => {
 
 const submit = () => {
     if (!validateLocations()) {
+        if (locationValidationError.value) {
+            showToast('error', locationValidationError.value);
+        }
         return;
     }
 
@@ -199,8 +205,7 @@ const submit = () => {
 
     form.clearErrors();
 
-    const options = {
-        preserveScroll: true,
+    const options = validationSubmitOptions({
         onSuccess: (page) => {
             if (isEdit.value) {
                 emit('saved', {});
@@ -210,7 +215,7 @@ const submit = () => {
                 recordId: page.props.flash?.recordId ?? page.props.flash?.record_id,
             });
         },
-    };
+    });
 
     if (isEdit.value && hasLogoUpload.value) {
         form.transform((data) => ({

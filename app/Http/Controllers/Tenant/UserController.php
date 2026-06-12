@@ -367,10 +367,15 @@ class UserController extends RecordController
             }
         }
 
+        $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+        if ($schemaFailure !== null) {
+            return back()->withInput()->withErrors($schemaFailure['errors']);
+        }
+
         $result = ($this->createAction)($data);
 
         if (! ($result['success'] ?? false)) {
-            return back()->withErrors(['email' => $result['message'] ?? 'Could not create user.'])->withInput();
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         }
 
         return redirect()
@@ -461,10 +466,15 @@ class UserController extends RecordController
             }
         }
 
+        $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+        if ($schemaFailure !== null) {
+            return back()->withInput()->withErrors($schemaFailure['errors']);
+        }
+
         $result = ($this->updateAction)($userId, $data);
 
         if (! ($result['success'] ?? false)) {
-            return back()->withErrors(['email' => $result['message'] ?? 'Could not update user.'])->withInput();
+            return $this->actionFailureResponse($request, $result, $fieldsSchema, 'update');
         }
 
         return redirect()

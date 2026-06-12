@@ -8,6 +8,8 @@ import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import axios from 'axios';
 import { computed, ref, watch } from 'vue';
 import { buildRecordShowUrl, buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { buildFormErrorMessages, useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const props = defineProps({
     schema: { type: Object, default: null },
@@ -31,6 +33,8 @@ const props = defineProps({
 const recordSelectOverlayZIndex = computed(() => (props.nestedInModal ? 100 : 50));
 
 const emit = defineEmits(['saved', 'cancelled', 'created', 'cancel']);
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const truthyFlag = (value) => value === true || value === 1 || value === '1';
 
@@ -169,6 +173,10 @@ const isFieldDisabled = (field) => {
     if (field.key === 'asset_variant_id' && !form.asset_id) {
         return true;
     }
+    const filterKey = fieldDef(field.key).record_filter_field || fieldDef(field.key).filterby;
+    if (filterKey && !form[filterKey]) {
+        return true;
+    }
     return false;
 };
 
@@ -292,6 +300,10 @@ watch(
     },
 );
 
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => !isView.value,
+});
+
 const handleAssetSelected = (selected) => {
     if (!selected) {
         return;
@@ -355,6 +367,8 @@ const formatCurrency = (value) => {
     return `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+const formErrorMessages = computed(() => buildFormErrorMessages(form.errors, props.fieldsSchema));
+
 const normalizeFormBeforeSubmit = () => {
     for (const key of ['vendor_id', 'customer_id', 'location_id', 'subsidiary_id', 'asset_variant_id']) {
         if (form[key] === '' || form[key] === undefined) {
@@ -403,33 +417,25 @@ const submit = () => {
               )
             : route(`${props.recordType}.store`);
 
-    const inertiaOptions = {
-        preserveScroll: true,
-        onError: () => {
-            const el = document.querySelector('[data-asset-unit-form-error]');
-            el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        },
-    };
-
     if (isEdit.value) {
-        form.put(url, {
-            ...inertiaOptions,
+        form.put(url, validationSubmitOptions({
+            errorSelector: '[data-asset-unit-form-error]',
             onSuccess: () => {
                 emit('saved', {});
                 if (props.redirectAfterUpdate) {
                     router.visit(props.redirectAfterUpdate);
                 }
             },
-        });
+        }));
     } else {
-        form.post(url, {
-            ...inertiaOptions,
+        form.post(url, validationSubmitOptions({
+            errorSelector: '[data-asset-unit-form-error]',
             onSuccess: (page) => {
                 const recordId = page.props.flash?.recordId ?? page.props.flash?.record_id;
                 emit('saved', { recordId });
                 emit('created', recordId);
             },
-        });
+        }));
     }
 };
 
@@ -510,12 +516,17 @@ const relatedRecordShowUrl = (fieldKey) => {
     <div class="w-full flex flex-col space-y-6">
         <form novalidate @submit.prevent="submit">
             <div
-                v-if="form.errors.general"
+                v-if="formErrorMessages.length"
                 data-asset-unit-form-error
                 class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
                 role="alert"
             >
-                {{ form.errors.general }}
+                <p class="font-medium">Please fix the following:</p>
+                <ul class="mt-1 list-inside list-disc space-y-0.5">
+                    <li v-for="(message, index) in formErrorMessages" :key="index">
+                        {{ message }}
+                    </li>
+                </ul>
             </div>
             <div class="grid gap-6 lg:grid-cols-12">
                 <div :class="showActionSidebar ? 'lg:col-span-8' : 'lg:col-span-12'" class="space-y-6">

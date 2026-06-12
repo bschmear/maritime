@@ -122,6 +122,7 @@
     "label": "Submitted By",
     "type": "record",
     "typeDomain": "User",
+    "relationship": "technicianSubmittedBy",
     "disabled": true,
     "hidden": true
   },
@@ -137,6 +138,7 @@
     "label": "Signed Off By",
     "type": "record",
     "typeDomain": "User",
+    "relationship": "managerSignedOffBy",
     "disabled": true,
     "hidden": true
   },

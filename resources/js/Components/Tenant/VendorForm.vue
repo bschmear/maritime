@@ -5,6 +5,7 @@ import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -245,6 +246,7 @@ function initialValuesFromProps() {
 }
 
 const form = useForm(initialValuesFromProps());
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const vendorLabel = computed(() => {
     const r = props.record;
@@ -332,18 +334,16 @@ const submit = () => {
     });
 
     if (props.mode === 'edit') {
-        form.put(url, {
-            preserveScroll: true,
+        form.put(url, validationSubmitOptions({
             onSuccess: () => emit('saved', {}),
-        });
+        }));
     } else {
-        form.post(url, {
-            preserveScroll: true,
+        form.post(url, validationSubmitOptions({
             onSuccess: (page) =>
                 emit('saved', {
                     recordId: page.props.flash?.recordId ?? page.props.flash?.record_id,
                 }),
-        });
+        }));
     }
 };
 

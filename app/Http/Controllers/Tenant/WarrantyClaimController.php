@@ -534,6 +534,13 @@ class WarrantyClaimController extends BaseController
             }
 
             $data = $this->collectStoreUpdatePayload($request, $publicStorage);
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return back()->withInput()->withErrors($schemaFailure['errors']);
+            }
+
             $result = ($this->createWarrantyClaim)($data, current_tenant_user_id());
 
             if (! is_array($result)) {
@@ -556,9 +563,7 @@ class WarrantyClaimController extends BaseController
                     ->with('recordId', $result['record']->id);
             }
 
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to create warranty claim.');
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }
@@ -642,6 +647,13 @@ class WarrantyClaimController extends BaseController
     {
         try {
             $data = $this->collectStoreUpdatePayload($request, $publicStorage);
+            $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return back()->withInput()->withErrors($schemaFailure['errors']);
+            }
+
             $result = ($this->updateWarrantyClaim)((int) $warrantyclaim->getKey(), $data);
 
             if ($result['success'] ?? false) {
@@ -650,9 +662,7 @@ class WarrantyClaimController extends BaseController
                     ->with('success', 'Warranty claim updated successfully.');
             }
 
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to update warranty claim.');
+            return $this->actionFailureResponse($request, $result, $fieldsSchema, 'update');
         } catch (ValidationException $e) {
             return back()->withInput()->withErrors($e->errors());
         }

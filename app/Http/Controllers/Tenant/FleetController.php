@@ -15,6 +15,7 @@ use App\Enums\Fleet\FleetType;
 use App\Enums\Fleet\FuelType;
 use App\Enums\Fleet\WeightUnit;
 use App\Http\Controllers\Controller;
+use App\Support\Validation\ActionResultErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -137,17 +138,24 @@ class FleetController extends Controller
         }
 
         if (! $result['success']) {
+            $normalized = ActionResultErrors::normalize($result, [
+                'display_name' => ['label' => 'Name', 'type' => 'text'],
+                'fleet_type' => ['label' => 'Type', 'type' => 'select'],
+                'status' => ['label' => 'Status', 'type' => 'select'],
+            ], 'fleet item');
+
             if ($request->wantsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $result['message'] ?? 'Could not create fleet item.',
+                    'message' => $normalized['message'],
+                    'errors' => $normalized['errors'],
                 ], 422);
             }
 
             return redirect()
                 ->back()
                 ->withInput()
-                ->withErrors(['fleet' => $result['message'] ?? 'Could not create fleet item.']);
+                ->withErrors($normalized['errors']);
         }
 
         $fleet = $result['record'];
@@ -225,10 +233,16 @@ class FleetController extends Controller
         $result = ($this->updateFleet)($fleet->id, $request->all());
 
         if (! $result['success']) {
+            $normalized = ActionResultErrors::normalize($result, [
+                'display_name' => ['label' => 'Name', 'type' => 'text'],
+                'fleet_type' => ['label' => 'Type', 'type' => 'select'],
+                'status' => ['label' => 'Status', 'type' => 'select'],
+            ], 'fleet item');
+
             return redirect()
                 ->back()
                 ->withInput()
-                ->withErrors(['fleet' => $result['message'] ?? 'Could not update fleet item.']);
+                ->withErrors($normalized['errors']);
         }
 
         $updated = $result['record'];

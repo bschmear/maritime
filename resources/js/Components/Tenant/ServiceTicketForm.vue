@@ -7,6 +7,8 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import { buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
 import { computed, nextTick, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const props = defineProps({
     record: {
@@ -772,6 +774,7 @@ formData.contact_id =
     ?? null;
 
 const form = useForm(formData);
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 // Initialize line items from record.service_items when editing
 watch(() => props.record?.service_items, (items) => {
@@ -798,11 +801,9 @@ setTimeout(() => {
     formInitialized.value = true;
 }, 100);
 
-// Watch for subsidiary changes to clear dependent fields
-watch(() => form.subsidiary_id, (newValue, oldValue) => {
-    if (formInitialized.value && oldValue !== undefined && newValue !== oldValue) {
-        form.location_id = null;
-    }
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => props.mode !== 'show',
+    guard: () => formInitialized.value,
 });
 
 // Equipment: catalog asset → variant → serialized unit (same flow as estimates)
@@ -1163,26 +1164,20 @@ const submit = () => {
     });
 
     if (props.mode === 'edit') {
-        form.put(route('servicetickets.update', props.record.id), {
-            onSuccess: (page) => {
+        form.put(route('servicetickets.update', props.record.id), validationSubmitOptions({
+            onSuccess: () => {
                 window.location.href = route('servicetickets.show', props.record.id);
             },
-            onError: (errors) => {
-                console.error('Update failed with errors:', errors);
-            }
-        });
+        }));
     } else {
-        form.post(route('servicetickets.store'), {
+        form.post(route('servicetickets.store'), validationSubmitOptions({
             onSuccess: (page) => {
                 const recordId = page.props.record?.id ?? page.props.serviceticket?.id;
                 if (recordId) {
                     window.location.href = route('servicetickets.show', recordId);
                 }
             },
-            onError: (errors) => {
-                console.error('Create failed with errors:', errors);
-            }
-        });
+        }));
     }
 };
 

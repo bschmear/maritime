@@ -304,11 +304,21 @@ class ContractController extends BaseController
 
     public function store(Request $request)
     {
-        $result = (new CreateContract)($request->all());
+        $data = $request->all();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+        $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+        if ($schemaFailure !== null) {
+            return back()->withInput()->withErrors($schemaFailure['errors']);
+        }
+
+        $result = (new CreateContract)($data);
 
         if (! $result['success'] || empty($result['record'])) {
+            $normalized = $this->normalizeActionFailure($result, $fieldsSchema);
+
             return back()
-                ->withErrors(['message' => $result['message'] ?? 'Could not create contract.'])
+                ->withErrors($normalized['errors'])
                 ->withInput();
         }
 
@@ -460,11 +470,21 @@ class ContractController extends BaseController
                 ->with('error', 'This contract cannot be updated because it has been signed.');
         }
 
-        $result = (new UpdateContract)($contract, $request->all());
+        $data = $request->all();
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+
+        $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+        if ($schemaFailure !== null) {
+            return back()->withInput()->withErrors($schemaFailure['errors']);
+        }
+
+        $result = (new UpdateContract)($contract, $data);
 
         if (! $result['success'] || empty($result['record'])) {
+            $normalized = $this->normalizeActionFailure($result, $fieldsSchema);
+
             return back()
-                ->withErrors(['message' => $result['message'] ?? 'Could not update contract.'])
+                ->withErrors($normalized['errors'])
                 ->withInput();
         }
 

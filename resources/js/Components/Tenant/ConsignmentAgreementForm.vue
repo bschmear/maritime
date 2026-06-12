@@ -7,6 +7,7 @@ import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.
 import Modal from '@/Components/Modal.vue';
 import { useForm, router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -125,6 +126,7 @@ const buildDefaults = () => {
 };
 
 const form = useForm(buildDefaults());
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const truthyFlag = (value) => value === true || value === 1 || value === '1';
 
@@ -281,7 +283,7 @@ const buildCreatePayload = (data) => {
 
 const performSubmit = () => {
     if (isCreate.value) {
-        form.transform(buildCreatePayload).post(route('consignmentagreements.store'), {
+        form.transform(buildCreatePayload).post(route('consignmentagreements.store'), validationSubmitOptions({
             onSuccess: () => {
                 markAsConsignmentOnSubmit.value = false;
             },
@@ -290,7 +292,7 @@ const performSubmit = () => {
                     showMarkConsignmentModal.value = true;
                 }
             },
-        });
+        }));
     } else if (props.record?.id != null) {
         form.transform(transformPayload).put(route('consignmentagreements.update', props.record.id));
     }

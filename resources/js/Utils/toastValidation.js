@@ -21,18 +21,19 @@ export function validationErrorsToMessage(errors, fieldsSchema = null) {
         return 'Please fix the highlighted fields and try again.';
     }
 
-    const [key, raw] = entries[0];
-    const firstMessage = Array.isArray(raw) ? (raw[0] ?? '') : String(raw);
-    const label = fieldsSchema?.[key]?.label ?? humanizeFieldKey(key);
-    const primary = firstMessage || `The ${label} field is required.`;
+    const labels = entries.map(([key]) => fieldsSchema?.[key]?.label ?? humanizeFieldKey(key));
+    const messages = entries.map(([key, raw]) => {
+        const firstMessage = Array.isArray(raw) ? (raw[0] ?? '') : String(raw);
+        const label = fieldsSchema?.[key]?.label ?? humanizeFieldKey(key);
+
+        return firstMessage || `The ${label} field is required.`;
+    });
 
     if (entries.length === 1) {
-        return primary;
+        return messages[0];
     }
 
-    const extra = entries.length - 1;
-
-    return `${primary} (${extra} more field${extra === 1 ? '' : 's'} need attention)`;
+    return `Please fix: ${labels.join(', ')}. ${messages.join(' · ')}`;
 }
 
 const FIELD_LABEL_OVERRIDES = {

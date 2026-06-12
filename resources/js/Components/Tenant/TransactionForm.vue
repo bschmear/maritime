@@ -16,6 +16,8 @@ import {
     isTerminalTransactionStatus,
 } from '@/Utils/transactionAssetUnits';
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const debounce = (fn, delay) => {
     let timer;
@@ -127,6 +129,8 @@ const form = useForm({
         merged.needs_delivery === '1' ||
         merged.needs_delivery === 'true',
 });
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 /** Expand when multi-currency is supported. */
 const supportedCurrencies = [{ code: 'USD', label: 'US Dollar (USD)' }];
@@ -322,11 +326,8 @@ const findTaxRateFromLocation = async () => {
     applyTaxLookupToForm(form, lookup);
 };
 
-watch(() => form.subsidiary_id, (newVal, oldVal) => {
-    if (oldVal === undefined) return;
-    if (newVal !== oldVal) {
-        form.location_id = null;
-    }
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => props.mode !== 'show',
 });
 
 // ─── Line items (assets + parts only in UI; legacy generic lines load into inventoryItems) ─
@@ -1020,15 +1021,15 @@ const performSubmit = (updateLinkedInvoices) => {
     }));
 
     if (props.mode === 'edit') {
-        form.put(route('transactions.update', props.record.id), {
+        form.put(route('transactions.update', props.record.id), validationSubmitOptions({
             headers: { ...csrfHeader() },
             onSuccess: () => {
                 pendingAssetUnitStatuses.value = null;
                 window.location.href = route('transactions.show', props.record.id);
             },
-        });
+        }));
     } else {
-        form.post(route('transactions.store'));
+        form.post(route('transactions.store'), validationSubmitOptions());
     }
 };
 

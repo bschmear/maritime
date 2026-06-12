@@ -18,7 +18,8 @@
             "type": "record",
             "typeDomain": "Location",
             "relationship": "location",
-            "required": true
+            "required": true,
+            "filterby": "subsidiary_id"
         },
         "contact_id": {
             "label": "Contact",

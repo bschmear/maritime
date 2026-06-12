@@ -3,6 +3,8 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, reactive, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -42,6 +44,8 @@ const serviceLineDisplayName = (line) =>
     || line?.work_order_service_item?.display_name
     || line?.workOrderServiceItem?.display_name
     || (line?.work_order_service_item_id ? `Work order line #${line.work_order_service_item_id}` : 'Line item');
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const form = useForm({
     vendor_id: merged.vendor_id ?? null,
@@ -209,6 +213,10 @@ const createSubmitBlockedByWarrantyLines = computed(
         selectedWarrantyServiceItemIds.value.length === 0,
 );
 
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    guard: () => !subsidiaryLocationLockedFromWorkOrder.value,
+});
+
 watch(selectedWorkOrderId, (id) => {
     selectedReuseIds.value = [];
     if (props.mode === 'create') {
@@ -307,7 +315,7 @@ const submit = () => {
         } else {
             form.items = [];
         }
-        form.post(route('warrantyclaims.store'), { forceFormData: true });
+        form.post(route('warrantyclaims.store'), validationSubmitOptions({ forceFormData: true }));
     } else if (props.record?.id != null) {
         form
             .transform((data) => {
@@ -438,12 +446,18 @@ const fieldOr = (key, fallback) => props.fieldsSchema[key] ?? fallback;
                                                 v-model="form.location_id"
                                                 field-key="location_id"
                                                 :record="record"
-                                                :disabled="subsidiaryLocationLockedFromWorkOrder"
-                                                :field="fieldOr('location_id', { type: 'record', typeDomain: 'Location', label: 'Location' })"
+                                                :disabled="subsidiaryLocationLockedFromWorkOrder || !form.subsidiary_id"
+                                                :field="fieldOr('location_id', { type: 'record', typeDomain: 'Location', label: 'Location', filterby: 'subsidiary_id' })"
                                                 :enum-options="enumOptions.location_id ?? []"
                                                 filter-by="subsidiary_id"
                                                 :filter-value="form.subsidiary_id"
                                             />
+                                            <p
+                                                v-if="!subsidiaryLocationLockedFromWorkOrder && !form.subsidiary_id"
+                                                class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+                                            >
+                                                Select a subsidiary to choose a location.
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

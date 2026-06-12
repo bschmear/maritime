@@ -3,6 +3,7 @@ import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     record: { type: Object, default: null },
@@ -131,6 +132,8 @@ const form = useForm({
     note_body: primaryNoteBody(),
 });
 
+const { validationSubmitOptions } = useFormValidationToast(() => resolvedFieldsSchema.value);
+
 /** Catalog asset id for the model picker; persisted value is `form.desired_model` (display name). */
 const desiredModelAssetId = ref(null);
 
@@ -254,15 +257,13 @@ watch(
 
 const submit = () => {
     if (props.mode === 'edit') {
-        form.put(route('qualifications.update', props.record.id), {
+        form.put(route('qualifications.update', props.record.id), validationSubmitOptions({
             onSuccess: () => emit('saved'),
-            onError: (errors) => console.error('Update failed:', errors),
-        });
+        }));
     } else {
-        form.post(route('qualifications.store'), {
+        form.post(route('qualifications.store'), validationSubmitOptions({
             onSuccess: () => emit('saved'),
-            onError: (errors) => console.error('Create failed:', errors),
-        });
+        }));
     }
 };
 

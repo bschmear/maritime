@@ -318,6 +318,19 @@ class ContactController extends Controller
                 }
             }
 
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                if ($this->wantsEmbedJson($request)) {
+                    return response()->json([
+                        'success' => false,
+                        'errors' => $schemaFailure['errors'],
+                        'message' => $schemaFailure['message'],
+                    ], 422);
+                }
+
+                return back()->withInput()->withErrors($schemaFailure['errors']);
+            }
+
             $result = ($this->createContact)($data);
 
             if (! is_array($result)) {
@@ -344,16 +357,16 @@ class ContactController extends Controller
             }
 
             if ($this->wantsEmbedJson($request)) {
+                $normalized = $this->normalizeActionFailure($result, $fieldsSchema);
+
                 return response()->json([
                     'success' => false,
-                    'errors' => $result['errors'] ?? [],
-                    'message' => $result['message'] ?? 'Failed to create '.$this->recordTitle,
+                    'errors' => $normalized['errors'],
+                    'message' => $normalized['message'],
                 ], 422);
             }
 
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         } catch (ValidationException $e) {
             if ($this->wantsEmbedJson($request)) {
                 return response()->json([

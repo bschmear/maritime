@@ -17,6 +17,8 @@ import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { sanitizeHtml } from '@/Utils/sanitizeHtml.js';
+import { buildFormErrorMessages, useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const props = defineProps({
     schema: { type: Object, default: null },
@@ -385,6 +387,13 @@ const initializeFormData = () => {
 
 const form = useForm(initializeFormData());
 const isProcessing = ref(false);
+
+const { validationSubmitOptions, handleSubmitErrors } = useFormValidationToast(() => props.fieldsSchema);
+const formErrorMessages = computed(() => buildFormErrorMessages(form.errors, props.fieldsSchema));
+
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => props.mode !== 'view',
+});
 
 watch(
     [
@@ -1152,7 +1161,9 @@ const handleSubmit = () => {
                 }
 
                 if (data.success === false) {
-                    form.errors = data.errors || { general: [data.message || 'Validation failed'] };
+                    const errors = data.errors || { general: [data.message || 'Validation failed'] };
+                    form.errors = errors;
+                    handleSubmitErrors(errors);
 
                     return;
                 }
@@ -1167,24 +1178,29 @@ const handleSubmit = () => {
                 }
             })
             .catch((error) => {
-                if (error.response?.status === 422) form.errors = error.response.data.errors || {};
-                else form.errors = { general: [error.response?.data?.message || 'An error occurred'] };
+                const errors = error.response?.status === 422
+                    ? (error.response.data.errors || {})
+                    : { general: [error.response?.data?.message || 'An error occurred'] };
+                form.errors = errors;
+                handleSubmitErrors(errors);
             })
             .finally(() => { isProcessing.value = false; });
 
         } else {
-            form.transform(() => rawData).post(route(`${props.recordType}.store`, props.extraRouteParams), {
-                preserveScroll: true,
-                onSuccess: (page) => {
-                    let recordId = page?.props?.flash?.recordId;
-                    if (!recordId) {
-                        const urlMatch = page?.url?.match(/\/(\d+)$/);
-                        if (urlMatch) recordId = urlMatch[1];
+            form.transform(() => rawData).post(
+                route(`${props.recordType}.store`, props.extraRouteParams),
+                validationSubmitOptions({
+                    onSuccess: (page) => {
+                        let recordId = page?.props?.flash?.recordId;
+                        if (!recordId) {
+                            const urlMatch = page?.url?.match(/\/(\d+)$/);
+                            if (urlMatch) recordId = urlMatch[1];
                         }
-                    if (recordId) emit('created', recordId);
-                    emit('submit');
-                },
-            });
+                        if (recordId) emit('created', recordId);
+                        emit('submit');
+                    },
+                }),
+            );
         }
 
     } else {
@@ -1214,8 +1230,11 @@ const handleSubmit = () => {
                 else emit('submit');
             })
             .catch((error) => {
-                if (error.response?.status === 422) form.errors = error.response.data.errors || {};
-                else form.errors = { general: [error.response?.data?.message || 'An error occurred'] };
+                const errors = error.response?.status === 422
+                    ? (error.response.data.errors || {})
+                    : { general: [error.response?.data?.message || 'An error occurred'] };
+                form.errors = errors;
+                handleSubmitErrors(errors);
             })
             .finally(() => { isProcessing.value = false; });
 
@@ -1225,17 +1244,16 @@ const handleSubmit = () => {
                     `${props.recordType}.update`,
                     buildResourceRouteParams(props.recordType, updateRecordId.value, props.extraRouteParams)
                 ),
-                {
-                preserveScroll: true,
+                validationSubmitOptions({
                     onSuccess: () => {
-                    emit('submit');
-                    if (props.redirectAfterUpdate) {
-                        router.visit(props.redirectAfterUpdate);
-                    } else {
-                        router.reload({ only: ['record', 'imageUrls'] });
-                    }
-                },
-                }
+                        emit('submit');
+                        if (props.redirectAfterUpdate) {
+                            router.visit(props.redirectAfterUpdate);
+                        } else {
+                            router.reload({ only: ['record', 'imageUrls'] });
+                        }
+                    },
+                }),
             );
         }
     }
@@ -1262,6 +1280,19 @@ defineExpose({
 
 <template>
     <form :id="formId || `form-${recordType}-${record?.id || 'new'}`" @submit.prevent="handleSubmit" v-if="normalizedSchema">
+        <div
+            v-if="formErrorMessages.length"
+            data-form-validation-error
+            class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+            role="alert"
+        >
+            <p class="font-medium">Please fix the following:</p>
+            <ul class="mt-1 list-inside list-disc space-y-0.5">
+                <li v-for="(message, index) in formErrorMessages" :key="index">
+                    {{ message }}
+                </li>
+            </ul>
+        </div>
         <div id="accordion-collapse">
             <div v-for="(group, groupIndex) in visibleFormGroups" :key="group.key">
                 <div>

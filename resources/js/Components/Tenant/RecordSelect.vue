@@ -196,6 +196,10 @@
         return rel;
     });
 
+    const resolvedFilterBy = computed(
+        () => props.filterBy || props.field?.record_filter_field || props.field?.filterby || null,
+    );
+
     /** JSON filters: coerce numeric strings so `vendor_id` matches integer columns. */
     const normalizedFilterValue = computed(() => {
         const v = props.filterValue;
@@ -557,9 +561,10 @@
                 url.searchParams.append('page', '1');
 
                 const fv = normalizedFilterValue.value;
-                if (props.filterBy && fv !== null && fv !== '') {
+                const filterBy = resolvedFilterBy.value;
+                if (filterBy && fv !== null && fv !== '') {
                     url.searchParams.append('filters', JSON.stringify([{
-                        field: props.filterBy,
+                        field: filterBy,
                         operator: 'equals',
                         value: fv,
                     }]));
@@ -752,9 +757,10 @@
             }
 
             const fv = normalizedFilterValue.value;
-            if (props.filterBy && fv !== null && fv !== '') {
+            const filterBy = resolvedFilterBy.value;
+            if (filterBy && fv !== null && fv !== '') {
                 const filterData = [{
-                    field: props.filterBy,
+                    field: filterBy,
                     operator: 'equals',
                     value: fv,
                 }];

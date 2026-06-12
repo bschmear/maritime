@@ -8,6 +8,7 @@ import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.
 import InvoiceLineItemsEditor from '@/Components/Tenant/InvoiceLineItemsEditor.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue';
+import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const inertiaApp = getCurrentInstance();
 
@@ -238,6 +239,10 @@ const form = useForm({
         props.record?.minimum_partial_amount != null && props.record?.minimum_partial_amount !== ''
             ? Number(props.record.minimum_partial_amount)
             : '',
+});
+
+useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
+    enabled: () => props.mode !== 'view',
 });
 
 const lineItemsRef = ref(null);
@@ -1056,13 +1061,18 @@ const handleCancel = () => {
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Location</label>
                                         <RecordSelect
                                             id="invoice_location_id"
-                                            :field="fieldsSchema?.location_id || { type: 'record', typeDomain: 'Location', label: 'Location' }"
+                                            :field="fieldsSchema?.location_id || { type: 'record', typeDomain: 'Location', label: 'Location', filterby: 'subsidiary_id' }"
                                             v-model="form.location_id"
                                             :record="pseudoRecord"
                                             field-key="location_id"
-                                            :disabled="isView || txLocked"
+                                            filter-by="subsidiary_id"
+                                            :filter-value="form.subsidiary_id"
+                                            :disabled="isView || txLocked || !form.subsidiary_id"
                                         />
                                         <p v-if="form.errors.location_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.location_id }}</p>
+                                        <p v-if="!isView && !txLocked && !form.subsidiary_id" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            Select a subsidiary to choose a location.
+                                        </p>
                                     </div>
                                 </div>
 

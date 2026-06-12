@@ -5,6 +5,7 @@ import FleetFormStatusPanel from '@/Components/Tenant/FleetFormStatusPanel.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     fleetType: { type: String, required: true },
@@ -13,6 +14,8 @@ const props = defineProps({
     fuelTypes: { type: Array, default: () => [] },
     weightUnits: { type: Array, default: () => [] },
 });
+
+const { validationSubmitOptions } = useFormValidationToast();
 
 const form = useForm({
     type: props.fleetType,
@@ -109,7 +112,7 @@ const submit = () => {
             }
             return n;
         })
-        .post(route('fleet.store'), { preserveScroll: true });
+        .post(route('fleet.store'), validationSubmitOptions());
 };
 
 const breadcrumbItems = computed(() => [

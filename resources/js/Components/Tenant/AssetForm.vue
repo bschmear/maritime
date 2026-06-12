@@ -101,6 +101,7 @@ const {
     submitForm,
     cancelForm,
     isProcessing,
+    formErrorMessages,
     imagePreviews,
 } = useAssetSchemaForm(props, emit);
 
@@ -523,9 +524,19 @@ defineExpose({ submitForm, cancelForm, isProcessing });
                         </div>
 
                         <form :id="formId || `form-${recordType}-${record?.id || 'new'}`" @submit.prevent="handleSubmit">
-                            <p v-if="form.errors?.general?.length" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">
-                                {{ form.errors.general[0] }}
-                            </p>
+                            <div
+                                v-if="formErrorMessages.length"
+                                data-form-validation-error
+                                class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200"
+                                role="alert"
+                            >
+                                <p class="font-medium">Please fix the following:</p>
+                                <ul class="mt-1 list-inside list-disc space-y-0.5">
+                                    <li v-for="(message, index) in formErrorMessages" :key="index">
+                                        {{ message }}
+                                    </li>
+                                </ul>
+                            </div>
 
                             <template v-for="group in visibleFormGroups" :key="group.key">
                                 <section class="mb-10 last:mb-0">

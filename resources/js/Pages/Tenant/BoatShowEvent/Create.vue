@@ -4,6 +4,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import BoatShowEventFormFields from '@/Components/Tenant/BoatShowEventFormFields.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     recordType: { type: String, required: true },
@@ -15,6 +16,8 @@ const props = defineProps({
 });
 
 const isNested = computed(() => props.parentBoatShow !== null);
+
+const { validationSubmitOptions, showToast } = useFormValidationToast();
 
 const form = useForm({
     boat_show_id: props.initialData.boat_show_id ?? null,
@@ -75,6 +78,7 @@ const storeUrl = computed(() => route(`${props.recordType}.store`, props.extraRo
 const submit = () => {
     if (!isNested.value && (form.boat_show_id === null || form.boat_show_id === '')) {
         form.setError('boat_show_id', 'Select a boat show.');
+        showToast('error', 'Select a boat show.');
         return;
     }
 
@@ -111,9 +115,7 @@ const submit = () => {
 
             return out;
         })
-        .post(storeUrl.value, {
-            preserveScroll: true,
-        });
+        .post(storeUrl.value, validationSubmitOptions());
 };
 
 const fieldError = (key) => {

@@ -755,6 +755,11 @@ class RecordController extends BaseController
                 }
             }
 
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return $this->actionFailureResponse($request, $schemaFailure, $fieldsSchema);
+            }
+
             $result = ($this->createAction)($data);
 
             // Handle case where action returns a model directly (for backward compatibility)
@@ -849,18 +854,7 @@ class RecordController extends BaseController
                     ->with('recordId', $result['record']->id);
             }
 
-            // Handle errors for AJAX requests
-            if ($request->ajax() && ! $request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => $result['errors'] ?? [],
-                    'message' => $result['message'] ?? 'Failed to create '.$this->recordTitle,
-                ], 422);
-            }
-
-            return back()
-                ->withInput()
-                ->with('error', $result['message'] ?? 'Failed to create '.$this->recordTitle);
+            return $this->actionFailureResponse($request, $result, $fieldsSchema);
         } catch (ValidationException $e) {
             // Handle validation errors
             if ($request->ajax() && ! $request->header('X-Inertia')) {
@@ -1240,6 +1234,12 @@ class RecordController extends BaseController
                     }
                 }
             }
+
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            if ($schemaFailure !== null) {
+                return $this->actionFailureResponse($request, $schemaFailure, $fieldsSchema, 'update');
+            }
+
             $result = ($this->updateAction)($id, $data);
 
             if ($result['success']) {
@@ -1325,26 +1325,7 @@ class RecordController extends BaseController
                 return $this->inertiaUpdateSuccessRedirect($request, $id);
             }
 
-            // Handle business logic errors
-            if ($request->ajax() && ! $request->header('X-Inertia')) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => $result['errors'] ?? [],
-                    'message' => $result['message'] ?? 'Failed to update '.$this->recordTitle,
-                ], 422);
-            }
-
-            // For Inertia requests, return back with field errors when available
-            $errors = $result['errors'] ?? [];
-            if (! is_array($errors) || $errors === []) {
-                $errors = ['general' => $result['message'] ?? 'Failed to update '.$this->recordTitle];
-            } elseif (! isset($errors['general']) && ! empty($result['message'])) {
-                $errors['general'] = $result['message'];
-            }
-
-            return back()
-                ->withInput()
-                ->withErrors($errors);
+            return $this->actionFailureResponse($request, $result, $fieldsSchema, 'update');
 
         } catch (ValidationException $e) {
             // Handle validation errors

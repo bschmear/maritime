@@ -6,6 +6,7 @@ import PaymentInvoicePicker from '@/Components/Tenant/PaymentInvoicePicker.vue';
 import PaymentCreateInvoiceSummary from '@/Components/Tenant/PaymentCreateInvoiceSummary.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, onMounted } from 'vue';
+import { useFormValidationToast } from '@/composables/useFormValidationToast';
 
 const props = defineProps({
     fieldsSchema: { type: Object, default: () => ({}) },
@@ -17,6 +18,8 @@ const props = defineProps({
 
 const step = ref(1);
 const selectedInvoice = ref(null);
+
+const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
 
 const form = useForm({
     invoice_id: null,
@@ -78,7 +81,7 @@ function stripEmptyPaidAt(data) {
 }
 
 function submit() {
-    form.transform(stripEmptyPaidAt).post(route('payments.store'));
+    form.transform(stripEmptyPaidAt).post(route('payments.store'), validationSubmitOptions());
 }
 </script>
 
