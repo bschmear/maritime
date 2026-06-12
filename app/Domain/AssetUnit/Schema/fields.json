@@ -5,7 +5,6 @@
     "typeDomain": "Asset",
     "relationship": "asset",
     "required": true,
-    "locked": true,
     "create": true
   },
 
@@ -17,7 +16,8 @@
     "filterby": "asset_id",
     "record_filter_field": "asset_id",
     "description": "Only required when the selected asset has variants",
-    "displayField": "display_name"
+    "displayField": "display_name",
+    "create": true
   },
 
   "serial_number": {

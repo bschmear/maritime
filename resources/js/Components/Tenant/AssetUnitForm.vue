@@ -163,7 +163,7 @@ const isFieldDisabled = (field) => {
     if (field.readOnly || fieldDef(field.key).readOnly) {
         return true;
     }
-    if (field.key === 'asset_id' && (fieldDef(field.key).locked || !isCreate.value)) {
+    if (field.key === 'asset_id' && (!isCreate.value || props.prefill?.asset_id)) {
         return true;
     }
     if (field.key === 'asset_variant_id' && !form.asset_id) {

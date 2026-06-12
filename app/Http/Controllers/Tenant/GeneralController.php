@@ -141,6 +141,7 @@ class GeneralController extends BaseController
         } elseif ($typeKey === 'assetvariant') {
             $columns[] = 'asset_id';
             $columns[] = 'name';
+            $columns[] = 'display_name';
         } elseif (strtolower($type) === 'addon') {
             $columns[] = 'name';
             $columns[] = 'default_price';

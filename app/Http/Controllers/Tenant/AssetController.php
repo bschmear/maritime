@@ -577,7 +577,12 @@ class AssetController extends RecordController
             $this->syncVariantSpecs($asset, $variant, $validated['specs']);
         }
 
-        return response()->json(['recordId' => $variant->id]);
+        $variant->refresh();
+
+        return response()->json([
+            'recordId' => $variant->id,
+            'record' => $variant->only(['id', 'name', 'display_name', 'asset_id']),
+        ]);
     }
 
     public function variantsUpdate(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse

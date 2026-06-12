@@ -2,7 +2,6 @@
     import { ref, computed, watch, onMounted, onUnmounted, nextTick, defineExpose } from 'vue';
     import axios from 'axios';
     import Form from '@/Components/Tenant/Form.vue';
-    import AssetForm from '@/Components/Tenant/AssetForm.vue';
     import DeliveryLocationForm from '@/Components/Tenant/DeliveryLocationForm.vue';
     import FleetEmbeddedForm from '@/Components/Tenant/FleetEmbeddedForm.vue';
     
@@ -122,13 +121,43 @@
         () => props.field.typeDomain === 'Fleet',
     );
 
-    const usesAssetCreateForm = computed(
-        () => props.field.typeDomain === 'Asset',
+    const usesAssetVariantCreateForm = computed(
+        () => props.field.typeDomain === 'AssetVariant',
     );
 
+    const assetVariantCreateAssetId = computed(() => {
+        if (!usesAssetVariantCreateForm.value) {
+            return null;
+        }
+
+        const filterKey = props.filterBy || props.field.record_filter_field || props.field.filterby;
+        if (filterKey === 'asset_id' && props.filterValue != null && props.filterValue !== '') {
+            const fromFilter = Number(props.filterValue);
+
+            return !Number.isNaN(fromFilter) && fromFilter > 0 ? fromFilter : null;
+        }
+
+        const fromRecord = props.record?.asset_id ?? props.record?.asset?.id ?? null;
+        if (fromRecord != null && fromRecord !== '') {
+            const fromRecordId = Number(fromRecord);
+
+            return !Number.isNaN(fromRecordId) && fromRecordId > 0 ? fromRecordId : null;
+        }
+
+        return null;
+    });
+
     const usesEmbeddedCreateForm = computed(
-        () => usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value || usesAssetCreateForm.value,
+        () => usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value,
     );
+
+    const createFormExtraRouteParams = computed(() => {
+        if (usesAssetVariantCreateForm.value && assetVariantCreateAssetId.value) {
+            return { asset: assetVariantCreateAssetId.value };
+        }
+
+        return createFormData.value?.extraRouteParams ?? {};
+    });
 
     const nestedCreateOverlayZIndex = computed(() => Math.max(props.overlayZIndex + 10, 110));
 
@@ -404,20 +433,28 @@
         closeEnhancedModal();
     };
 
-    // Open create new tab in enhanced modal
-    const openCreateNewTab = async () => {
-        enhancedModalTab.value = 'create';
-
+    const loadCreateFormData = async () => {
         if (usesDeliveryLocationCreateForm.value || usesFleetCreateForm.value) {
             return;
         }
 
-        // Load form data if not already loaded
-        if (!createFormData.value) {
+        if (usesAssetVariantCreateForm.value) {
+            const assetId = assetVariantCreateAssetId.value;
+            if (!assetId) {
+                createFormData.value = null;
+
+                return;
+            }
+
+            const cachedAssetId = Number(createFormData.value?.extraRouteParams?.asset ?? 0);
+            if (createFormData.value && cachedAssetId === Number(assetId)) {
+                return;
+            }
+
             isLoadingForm.value = true;
             try {
-                const type = props.field.typeDomain;
-                const response = await axios.get(route('records.select-form', { type: type }), {
+                const response = await axios.get(route('assets.variants.select-form', { asset: assetId }), {
+                    params: { enable_has_variants: 1 },
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest',
                         'Accept': 'application/json',
@@ -425,12 +462,41 @@
                 });
                 createFormData.value = response.data;
             } catch (error) {
-                console.error('Error loading form data:', error);
-                return;
+                console.error('Error loading variant form data:', error);
+                createFormData.value = null;
             } finally {
                 isLoadingForm.value = false;
             }
+
+            return;
         }
+
+        if (createFormData.value) {
+            return;
+        }
+
+        isLoadingForm.value = true;
+        try {
+            const type = props.field.typeDomain;
+            const response = await axios.get(route('records.select-form', { type: type }), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+            });
+            createFormData.value = response.data;
+        } catch (error) {
+            console.error('Error loading form data:', error);
+            createFormData.value = null;
+        } finally {
+            isLoadingForm.value = false;
+        }
+    };
+
+    // Open create new tab in enhanced modal
+    const openCreateNewTab = async () => {
+        enhancedModalTab.value = 'create';
+        await loadCreateFormData();
     };
 
     function resolveCreatedRecordPayload(recordId, createdRecord = null) {
@@ -450,6 +516,81 @@
         };
     }
 
+    async function resolveCreatedRecordLabel(id, partialRecord = null) {
+        if (partialRecord) {
+            const fromPartial = getRecordDisplayName(partialRecord);
+            if (fromPartial) {
+                return { label: fromPartial, record: partialRecord };
+            }
+        }
+
+        if (usesAssetVariantCreateForm.value && assetVariantCreateAssetId.value) {
+            try {
+                const { data } = await axios.get(
+                    route('assets.variants.show', {
+                        asset: assetVariantCreateAssetId.value,
+                        variant: id,
+                    }),
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                    },
+                );
+                if (data?.record) {
+                    const label = getRecordDisplayName(data.record);
+                    if (label) {
+                        return { label, record: data.record };
+                    }
+                }
+            } catch (error) {
+                console.error('RecordSelect: could not resolve variant label', error);
+            }
+        }
+
+        if (props.field.typeDomain) {
+            try {
+                const url = new URL(route('records.lookup'), window.location.origin);
+                url.searchParams.append('type', props.field.typeDomain.toLowerCase());
+                url.searchParams.append('per_page', '50');
+                url.searchParams.append('page', '1');
+
+                const fv = normalizedFilterValue.value;
+                if (props.filterBy && fv !== null && fv !== '') {
+                    url.searchParams.append('filters', JSON.stringify([{
+                        field: props.filterBy,
+                        operator: 'equals',
+                        value: fv,
+                    }]));
+                }
+
+                const response = await fetch(url.toString(), {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const match = (data.records ?? []).find((r) => Number(r.id) === Number(id));
+                    if (match) {
+                        const label = getRecordDisplayName(match);
+                        if (label) {
+                            return { label, record: match };
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('RecordSelect: lookup failed while resolving created record label', error);
+            }
+        }
+
+        return { label: '', record: null };
+    }
+
     async function applyCreatedRecordSelection(recordId, createdRecord = null) {
         const { id, record } = resolveCreatedRecordPayload(recordId, createdRecord);
         if (id == null) {
@@ -458,7 +599,14 @@
             return;
         }
 
-        const label = record ? getRecordDisplayName(record) : '';
+        let label = record ? getRecordDisplayName(record) : '';
+        let resolvedRecord = record;
+
+        if (!label) {
+            const resolved = await resolveCreatedRecordLabel(id, record);
+            label = resolved.label;
+            resolvedRecord = resolved.record ?? record;
+        }
 
         if (props.multiple) {
             const base = normalizeMultiIds(Array.isArray(props.modelValue) ? props.modelValue : []);
@@ -469,15 +617,15 @@
                 ...multiLabels.value,
                 [id]: label || multiLabels.value[id] || `#${id}`,
             };
-            if (record) {
+            if (resolvedRecord) {
                 const without = records.value.filter((r) => Number(r.id) !== id);
-                records.value = [record, ...without];
+                records.value = [resolvedRecord, ...without];
             }
             emit('update:modelValue', base);
             closeEnhancedModal();
             closeModal();
             showCreateModal.value = false;
-            if (!record) {
+            if (!resolvedRecord) {
                 fetchRecordsImmediate(true);
             }
 
@@ -487,13 +635,13 @@
         selectedRecordId.value = id;
         selectedRecordName.value = label || selectedRecordName.value || `#${id}`;
 
-        if (record) {
+        if (resolvedRecord) {
             const without = records.value.filter((r) => Number(r.id) !== id);
-            records.value = [record, ...without];
+            records.value = [resolvedRecord, ...without];
         }
 
         emit('update:modelValue', id);
-        emit('record-selected', record ?? { id, display_name: selectedRecordName.value });
+        emit('record-selected', resolvedRecord ?? { id, display_name: selectedRecordName.value });
 
         await nextTick();
 
@@ -501,7 +649,7 @@
         closeModal();
         showCreateModal.value = false;
 
-        if (!record) {
+        if (!resolvedRecord) {
             fetchRecordsImmediate(true);
         }
     }
@@ -551,6 +699,9 @@
 
     watch(() => props.filterValue, async (newValue, oldValue) => {
         if (newValue !== oldValue) {
+            if (usesAssetVariantCreateForm.value) {
+                createFormData.value = null;
+            }
             currentPage.value = 1;
             await fetchRecordsImmediate();
         }
@@ -1295,19 +1446,14 @@
                                 @created="handleRecordCreated"
                                 @cancelled="enhancedModalTab = 'existing'"
                             />
-                            <AssetForm
-                                v-else-if="usesAssetCreateForm && createFormData"
-                                :schema="createFormData.formSchema"
-                                :fields-schema="createFormData.fieldsSchema"
-                                :record-type="createFormData.recordType"
-                                :record-title="createFormData.recordTitle"
-                                :enum-options="createFormData.enumOptions"
-                                mode="create"
-                                :prevent-redirect="true"
-                                :record-select-overlay-z-index="nestedCreateOverlayZIndex"
-                                @created="handleRecordCreated"
-                                @cancel="enhancedModalTab = 'existing'"
-                            />
+                            <div
+                                v-else-if="usesAssetVariantCreateForm && !assetVariantCreateAssetId"
+                                class="py-12 text-center"
+                            >
+                                <p class="text-sm text-gray-600 dark:text-gray-400">
+                                    Select an asset before creating a variant.
+                                </p>
+                            </div>
                             <template v-else>
                                 <div v-if="isLoadingForm" class="text-center py-12">
                                     <span class="material-icons animate-spin text-primary-600 dark:text-primary-400 text-4xl">sync</span>
@@ -1327,6 +1473,10 @@
                                     :record-type="createFormData.recordType"
                                     :record-title="createFormData.recordTitle"
                                     :enum-options="createFormData.enumOptions"
+                                    :extra-route-params="createFormExtraRouteParams"
+                                    :available-specs="createFormData.availableSpecs || []"
+                                    :specs-context-asset-type="createFormData.specsContextAssetType ?? null"
+                                    :enable-has-variants-on-store="usesAssetVariantCreateForm"
                                     mode="create"
                                     :prevent-redirect="true"
                                     :record-select-overlay-z-index="nestedCreateOverlayZIndex"
