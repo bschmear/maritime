@@ -10,6 +10,7 @@ import { computed, ref, watch } from 'vue';
 import { buildRecordShowUrl, buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { buildFormErrorMessages, useFormValidationToast } from '@/composables/useFormValidationToast';
 import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
+import { defaultRequiredSelectValue } from '@/Utils/selectDefaults';
 
 const props = defineProps({
     schema: { type: Object, default: null },
@@ -106,17 +107,16 @@ const pseudoRecord = computed(() => {
     return null;
 });
 
-const syncAssetHasVariants = () => {
+/** Only hydrate from props when the nested asset object is present; never clear here. */
+const syncAssetHasVariantsFromProps = () => {
     const asset = props.record?.asset ?? props.prefill?.asset ?? null;
     const assetId = props.record?.asset_id ?? props.prefill?.asset_id ?? null;
     if (asset && assetId != null && Number(asset.id) === Number(assetId)) {
         assetHasVariants.value = truthyFlag(asset.has_variants);
-        return;
     }
-    assetHasVariants.value = false;
 };
 
-watch(() => [props.record, props.prefill], syncAssetHasVariants, { immediate: true, deep: true });
+watch(() => [props.record, props.prefill], syncAssetHasVariantsFromProps, { immediate: true, deep: true });
 
 const loadAssetHasVariants = async (assetId) => {
     if (!assetId) {
@@ -180,6 +180,17 @@ const isFieldDisabled = (field) => {
     return false;
 };
 
+const formFieldMeta = (key) => {
+    for (const group of formGroups.value) {
+        const hit = group.fields.find((f) => f.key === key);
+        if (hit) {
+            return hit;
+        }
+    }
+
+    return null;
+};
+
 const defaultValueForField = (key) => {
     const def = fieldDef(key);
     const t = def.type || 'text';
@@ -187,7 +198,18 @@ const defaultValueForField = (key) => {
         return !!def.default;
     }
     if (t === 'select') {
-        return '';
+        if (!isCreate.value) {
+            return '';
+        }
+        const meta = formFieldMeta(key);
+        const required = meta?.required === true || def.required === true;
+
+        return defaultRequiredSelectValue(
+            def,
+            enumOptionsFor(key),
+            (opt) => selectOptionValue(key, opt),
+            { required },
+        );
     }
     return '';
 };
@@ -290,14 +312,17 @@ const form = useForm(initialValuesFromProps());
 
 watch(
     () => form.asset_id,
-    (id) => {
+    (id, oldId) => {
         if (id) {
             loadAssetHasVariants(id);
-        } else {
+            return;
+        }
+        if (oldId !== undefined) {
             assetHasVariants.value = false;
             form.asset_variant_id = null;
         }
     },
+    { immediate: true },
 );
 
 useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
@@ -623,7 +648,7 @@ const relatedRecordShowUrl = (fieldKey) => {
                                                         class="input-style"
                                                         :disabled="isFieldDisabled(field)"
                                                     >
-                                                        <option value="">—</option>
+                                                        <option v-if="!isFieldRequired(field)" value="">—</option>
                                                         <option
                                                             v-for="opt in enumOptionsFor(field.key)"
                                                             :key="`${field.key}-${opt.id}`"
