@@ -34,11 +34,6 @@
       "sortable": true
     },
     {
-      "key": "engine_hours",
-      "label": "Engine Hours",
-      "sortable": true
-    },
-    {
       "key": "cost",
       "label": "Cost",
       "sortable": true

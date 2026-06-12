@@ -81,6 +81,7 @@ const assetLabel = computed(() =>
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
     { label: 'Assets', href: route('assets.index') },
+    { label: 'Asset Units', href: route('assets.units.global-index') },
     { label: assetLabel.value },
 ]);
 

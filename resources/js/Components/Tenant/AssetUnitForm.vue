@@ -150,6 +150,14 @@ const isFieldVisible = (field) => {
     return true;
 };
 
+const recordFieldGridClass = (fieldKey) => {
+    if (fieldKey !== 'asset_id' && fieldKey !== 'asset_variant_id') {
+        return '';
+    }
+    // Side-by-side on md+ when both asset and variant are shown; full width when variant is hidden.
+    return assetHasVariants.value ? '' : 'md:col-span-2';
+};
+
 const isFieldRequired = (field) => {
     if (field.key === 'asset_variant_id') {
         return assetHasVariants.value;
@@ -479,20 +487,29 @@ const recordFilterValue = (fieldKey) => {
     return form[filterKey] ?? null;
 };
 
+const camelToSnake = (value) => String(value).replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+
 const relatedRecordForField = (fieldKey) => {
     const def = fieldDef(fieldKey);
     const relName = def.relationship || fieldKey.replace(/_id$/, '');
-    const rel =
-        props.record?.[relName]
-        ?? props.record?.[relName.replace(/_([a-z])/g, (_, c) => c.toUpperCase())]
-        ?? null;
-    if (rel && typeof rel === 'object' && rel.id != null) {
-        return rel;
+    const candidates = [
+        relName,
+        camelToSnake(relName),
+        relName.replace(/_([a-z])/g, (_, c) => c.toUpperCase()),
+    ];
+
+    for (const key of candidates) {
+        const rel = props.record?.[key];
+        if (rel && typeof rel === 'object' && rel.id != null) {
+            return rel;
+        }
     }
+
     const rawId = props.record?.[fieldKey] ?? form[fieldKey];
     if (rawId != null && rawId !== '') {
         return { id: rawId };
     }
+
     return null;
 };
 
@@ -509,6 +526,9 @@ const relatedRecordLabel = (fieldKey) => {
     if (rel.display_name) {
         return rel.display_name;
     }
+    if (rel.name) {
+        return rel.name;
+    }
     if (rel.contact?.display_name) {
         return rel.contact.display_name;
     }
@@ -517,6 +537,24 @@ const relatedRecordLabel = (fieldKey) => {
     }
     return '—';
 };
+
+const unitHeaderMeta = computed(() => {
+    if (!props.record?.id) {
+        return null;
+    }
+
+    const hin = String(props.record.hin ?? '').trim();
+    if (hin) {
+        return { label: 'Hull Number', value: hin };
+    }
+
+    const serial = String(props.record.serial_number ?? '').trim();
+    if (serial) {
+        return { label: 'Serial Number', value: serial };
+    }
+
+    return { label: 'Unit ID', value: `#${props.record.id}` };
+});
 
 const relatedRecordShowUrl = (fieldKey) => {
     const def = fieldDef(fieldKey);
@@ -568,9 +606,9 @@ const relatedRecordShowUrl = (fieldKey) => {
                                         {{ headerSubtitle }}
                                     </p>
                                 </div>
-                                <div v-if="record?.id" class="text-right">
-                                    <div class="text-xs font-medium text-primary-200">Unit ID</div>
-                                    <div class="font-mono text-lg text-white">#{{ record.id }}</div>
+                                <div v-if="unitHeaderMeta" class="text-right">
+                                    <div class="text-xs font-medium text-primary-200">{{ unitHeaderMeta.label }}</div>
+                                    <div class="font-mono text-lg text-white">{{ unitHeaderMeta.value }}</div>
                                 </div>
                             </div>
                         </div>
@@ -668,7 +706,7 @@ const relatedRecordShowUrl = (fieldKey) => {
                                                 <!-- record -->
                                                 <div
                                                     v-else-if="fieldDef(field.key).type === 'record'"
-                                                    :class="field.key === 'asset_id' || field.key === 'asset_variant_id' ? 'md:col-span-2' : ''"
+                                                    :class="recordFieldGridClass(field.key)"
                                                 >
                                                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                                         {{ fieldDef(field.key).label || field.key }}
