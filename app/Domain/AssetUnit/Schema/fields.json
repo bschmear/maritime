@@ -38,6 +38,13 @@
     "description": "Internal SKU for non-boat inventory"
   },
 
+  "year": {
+    "label": "Year",
+    "type": "text",
+    "placeholder": "Year",
+    "description": "Model year for this physical unit"
+  },
+
   "condition": {
     "label": "Condition",
     "type": "select",

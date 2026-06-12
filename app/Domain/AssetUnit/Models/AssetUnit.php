@@ -33,6 +33,7 @@ class AssetUnit extends Model
         'serial_number',
         'hin',
         'sku',
+        'year',
         'condition',
         'status',
         'inactive',

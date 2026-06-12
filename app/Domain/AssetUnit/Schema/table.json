@@ -29,6 +29,11 @@
       "sortable": true
     },
     {
+      "key": "year",
+      "label": "Year",
+      "sortable": true
+    },
+    {
       "key": "condition",
       "label": "Condition",
       "sortable": true

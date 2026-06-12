@@ -27,6 +27,7 @@ class CreateAssetUnit
             'serial_number' => 'nullable|string|max:255',
             'hin' => 'nullable|string|max:255|unique:asset_units,hin',
             'sku' => 'nullable|string|max:255',
+            'year' => 'nullable|string|max:4',
             'condition' => 'required|integer|in:1,2,3',
             'status' => 'required|integer|in:1,2,3,4,5,6,7',
             'inactive' => 'nullable|boolean',

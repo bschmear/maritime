@@ -11,6 +11,7 @@
         { "key": "serial_number" },
         { "key": "hin" },
         { "key": "sku" },
+        { "key": "year" },
         { "key": "inactive" }
       ]
     },
