@@ -421,6 +421,14 @@ class ServiceTicketController extends BaseController
      */
     public function show(Request $request, $id)
     {
+        // Lightweight Inertia partial reload after approval send (only flash prop requested).
+        if (
+            $request->header('X-Inertia')
+            && $request->header('X-Inertia-Partial-Data') === 'flash'
+        ) {
+            return inertia('Tenant/ServiceTicket/Show');
+        }
+
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
 
@@ -470,6 +478,7 @@ class ServiceTicketController extends BaseController
         $recordArray['updated_at'] = $record->updated_at?->toISOString();
         $recordArray['signed_at'] = $record->signed_at?->toISOString();
         $recordArray['reauthorized_at'] = $record->reauthorized_at?->toISOString();
+        $recordArray['pickup_delivery_requested_at'] = $record->pickup_delivery_requested_at?->format('Y-m-d');
         $recordArray['signature_url'] = $record->signature_url;
         $recordArray['transaction_id'] = $record->transaction_id;
         if ($record->relationLoaded('transaction') && $record->transaction) {
@@ -615,6 +624,10 @@ class ServiceTicketController extends BaseController
             'billing_type' => $li->billing_type,
         ])->values()->all();
 
+        $recordArray = $record->toArray();
+        $recordArray['service_items'] = $record->service_items;
+        $recordArray['pickup_delivery_requested_at'] = $record->pickup_delivery_requested_at?->format('Y-m-d');
+
         $enumOptions = $this->getEnumOptions();
         $enumOptions['billing_type'] = BillingType::options();
         $enumOptions['warranty_type'] = WarrantyCoverageType::options();
@@ -622,7 +635,7 @@ class ServiceTicketController extends BaseController
         $account = AccountSettings::getCurrent();
 
         return inertia('Tenant/ServiceTicket/Edit', [
-            'record' => $record,
+            'record' => $recordArray,
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
@@ -789,7 +802,9 @@ class ServiceTicketController extends BaseController
             $tenant = tenant();
             $domain = $tenant?->domains->first()?->domain;
             if (! $domain) {
-                return back()->withErrors(['error' => 'Unable to resolve tenant domain.']);
+                return redirect()
+                    ->route('servicetickets.show', $serviceTicket->id)
+                    ->withErrors(['error' => 'Unable to resolve tenant domain.']);
             }
 
             $approvalUrl = "https://{$domain}/service-tickets/{$serviceTicket->uuid}/review";
@@ -801,15 +816,19 @@ class ServiceTicketController extends BaseController
             ]);
 
             if (! $tenantMail->canSend($customerEmail, $mailable, $request->user())) {
-                return back()->withErrors(['error' => $tenantMail->validationErrorMessage($mailable)]);
+                return redirect()
+                    ->route('servicetickets.show', $serviceTicket->id)
+                    ->withErrors(['error' => $tenantMail->validationErrorMessage($mailable)]);
             }
 
             if ($validated['delivery'] === 'email_sms') {
                 $offer = $smsService->serviceTicketApprovalSmsCanBeOffered($serviceTicket->customer, $request->user());
                 if (! $offer['offered']) {
-                    return back()->withErrors([
-                        'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
-                    ]);
+                    return redirect()
+                        ->route('servicetickets.show', $serviceTicket->id)
+                        ->withErrors([
+                            'delivery' => $offer['hint'] ?? 'SMS is not available for this send.',
+                        ]);
                 }
             }
 
@@ -828,7 +847,8 @@ class ServiceTicketController extends BaseController
                 if (! $result->success && ($result->status ?? '') === 'not_implemented') {
                     $smsNote = ' SMS is not wired yet (Twilio transport); only email was delivered.';
                 } elseif (! $result->success) {
-                    return back()
+                    return redirect()
+                        ->route('servicetickets.show', $serviceTicket->id)
                         ->with('success', "Approval request sent to {$emailTarget}.")
                         ->with('error', 'Email was sent, but SMS failed: '.($result->error ?? 'Unknown error'));
                 } else {
@@ -836,11 +856,15 @@ class ServiceTicketController extends BaseController
                 }
             }
 
-            return back()->with('success', 'Approval request sent successfully to '.$emailTarget.$smsNote);
+            return redirect()
+                ->route('servicetickets.show', $serviceTicket->id)
+                ->with('success', 'Approval request sent successfully to '.$emailTarget.$smsNote);
         } catch (\Exception $e) {
             \Log::error('Failed to send approval request email: '.$e->getMessage());
 
-            return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
+            return redirect()
+                ->route('servicetickets.show', $id)
+                ->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
     }
 

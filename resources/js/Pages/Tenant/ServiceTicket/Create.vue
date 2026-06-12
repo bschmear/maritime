@@ -86,7 +86,6 @@ const newCustomerForm = ref({
     first_name: '',
     last_name: '',
     email: '',
-    phone: '',
     mobile: '',
     company: '',
 });
@@ -278,15 +277,20 @@ watch(contactId, async (id) => {
 // ==============================
 // Create New Contact / Customer
 // ==============================
-const buildNewPersonPayload = () => ({
-    first_name: newCustomerForm.value.first_name,
-    last_name: newCustomerForm.value.last_name,
-    display_name: `${newCustomerForm.value.first_name} ${newCustomerForm.value.last_name}`.trim(),
-    email: newCustomerForm.value.email || null,
-    phone: newCustomerForm.value.phone || null,
-    mobile: newCustomerForm.value.mobile || null,
-    company: newCustomerForm.value.company || null,
-});
+const buildNewPersonPayload = () => {
+    const mobile = newCustomerForm.value.mobile?.trim() || null;
+
+    return {
+        first_name: newCustomerForm.value.first_name,
+        last_name: newCustomerForm.value.last_name,
+        display_name: `${newCustomerForm.value.first_name} ${newCustomerForm.value.last_name}`.trim(),
+        email: newCustomerForm.value.email || null,
+        mobile,
+        // Keep phone in sync for lists/forms that still read the legacy phone field.
+        phone: mobile,
+        company: newCustomerForm.value.company || null,
+    };
+};
 
 const postJson = async (url, payload) => {
     const response = await fetch(url, {
@@ -435,7 +439,6 @@ const toggleCreateCustomerForm = () => {
             first_name: '',
             last_name: '',
             email: '',
-            phone: '',
             mobile: '',
             company: '',
         };
@@ -918,24 +921,14 @@ onMounted(() => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Phone</label>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mobile</label>
                                 <input
-                                    v-model="newCustomerForm.phone"
+                                    v-model="newCustomerForm.mobile"
                                     type="tel"
                                     placeholder="(555) 123-4567"
                                     class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                 />
                             </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mobile</label>
-                            <input
-                                v-model="newCustomerForm.mobile"
-                                type="tel"
-                                placeholder="(555) 987-6543"
-                                class="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            />
                         </div>
 
                         <p

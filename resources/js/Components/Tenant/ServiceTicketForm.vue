@@ -482,7 +482,15 @@ const isFieldReadonly = (fieldKey) => {
 };
 
 // Use global timezone composable
-const { convertUTCToTimezone, convertTimezoneToUTC, timezoneLabels, accountTimezone, accountTimezoneLabel } = useTimezone();
+const {
+    convertUTCToTimezone,
+    convertTimezoneToUTC,
+    calendarDateFromStored,
+    formatCalendarDate,
+    timezoneLabels,
+    accountTimezone,
+    accountTimezoneLabel,
+} = useTimezone();
 
 const isFieldDisabledByFilter = (fieldKey) => {
     const field = props.fieldsSchema[fieldKey];
@@ -525,38 +533,7 @@ const formatDateTime = (value) => {
     }
 };
 
-const formatDate = (value) => {
-    if (!value) return '—';
-
-    try {
-        let date;
-        if (value instanceof Date) {
-            date = value;
-        } else if (typeof value === 'string') {
-            // Handle both YYYY-MM-DD and full datetime strings
-            if (value.includes('T') || value.includes(' ')) {
-                date = new Date(value);
-            } else {
-                date = new Date(value + 'T00:00:00');
-            }
-        } else {
-            date = new Date(value);
-        }
-
-        if (isNaN(date.getTime())) {
-            return '—';
-        }
-
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    } catch (e) {
-        console.error('Error formatting date:', value, e);
-        return '—';
-    }
-};
+const formatDate = (value) => formatCalendarDate(value);
 
 const pseudoRecord = computed(() => {
     const base = props.record ?? null;
@@ -688,7 +665,9 @@ Object.keys(props.fieldsSchema).forEach(key => {
         const value = props.record[key];
 
         // Handle date/datetime fields
-        if ((field.type === 'datetime' || field.type === 'date') && value) {
+        if (field.type === 'date' && value) {
+            formData[key] = calendarDateFromStored(value) ?? value;
+        } else if (field.type === 'datetime' && value) {
             let utcDate;
             if (value instanceof Date) {
                 utcDate = value;
@@ -705,24 +684,15 @@ Object.keys(props.fieldsSchema).forEach(key => {
                 return;
             }
 
-            if (field.type === 'datetime') {
-                const accountTime = utcDate.toLocaleString('sv-SE', {
-                    timeZone: accountTimezone.value,
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                }).replace(' ', 'T');
-                formData[key] = accountTime;
-            } else {
-                formData[key] = utcDate.toLocaleString('sv-SE', {
-                    timeZone: accountTimezone.value,
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit'
-                });
-            }
+            const accountTime = utcDate.toLocaleString('sv-SE', {
+                timeZone: accountTimezone.value,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+            }).replace(' ', 'T');
+            formData[key] = accountTime;
         } else {
             formData[key] = value;
         }
@@ -1501,68 +1471,75 @@ const handleCancel = () => {
                                             Ticket Details
                                         </h3>
 
+                                        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-x-6">
+                                            <!-- Status (show mode only, edit/create uses sidebar) -->
+                                            <div v-if="mode === 'show'">
+                                                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                    {{ fieldsSchema.status?.label || 'Status' }}
+                                                </dt>
+                                                <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-white">
+                                                    {{ getEnumLabel('status', record?.status) }}
+                                                </dd>
+                                            </div>
 
-                                        <!-- Status (show mode only, edit/create uses sidebar) -->
-                                        <div v-if="mode === 'show'">
-                                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.status?.label || 'Status' }}
-                                            </label>
-                                            <p class="text-md text-gray-900 dark:text-white">
-                                                {{ getEnumLabel('status', record?.status) }}
-                                            </p>
-                                        </div>
+                                            <!-- Work Type (show mode only, edit/create uses sidebar) -->
+                                            <div v-if="mode === 'show'">
+                                                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                    {{ fieldsSchema.type?.label || 'Work Type' }}
+                                                </dt>
+                                                <dd class="mt-0.5 text-sm font-medium text-gray-900 dark:text-white">
+                                                    {{ getEnumLabel('type', record?.type) }}
+                                                </dd>
+                                            </div>
 
-                                        <!-- Work Type (show mode only, edit/create uses sidebar) -->
-                                        <div v-if="mode === 'show'">
-                                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.type?.label || 'Work Type' }}
-                                            </label>
-                                            <p class="text-md text-gray-900 dark:text-white">
-                                                {{ getEnumLabel('type', record?.type) }}
-                                            </p>
-                                        </div>
+                                            <!-- Expedite -->
+                                            <div>
+                                                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                    {{ fieldsSchema.expedite?.label || 'Expedite' }}
+                                                </dt>
+                                                <dd class="mt-0.5">
+                                                    <label
+                                                        v-if="mode !== 'show'"
+                                                        class="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300"
+                                                    >
+                                                        <input
+                                                            v-model="form.expedite"
+                                                            type="checkbox"
+                                                            :disabled="isFieldReadonly('expedite')"
+                                                            class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900"
+                                                        />
+                                                        <span>{{ fieldsSchema.expedite?.help || 'High priority / rush' }}</span>
+                                                    </label>
+                                                    <span
+                                                        v-else-if="record?.expedite"
+                                                        class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-sm font-medium"
+                                                    >
+                                                        <span class="material-icons text-sm">priority_high</span>
+                                                        Expedite
+                                                    </span>
+                                                    <span v-else class="text-sm text-gray-500 dark:text-gray-400">No</span>
+                                                </dd>
+                                            </div>
 
-                                        <!-- Expedite -->
-                                        <div>
-                                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.expedite?.label || 'Expedite' }}
-                                            </label>
-                                            <div v-if="mode !== 'show'">
-                                                <label class="flex items-center gap-2 cursor-pointer">
+                                            <!-- Pickup/Delivery Date -->
+                                            <div>
+                                                <dt class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                    {{ (fieldsSchema.pickup_delivery_requested_at?.label || 'Pickup / delivery date').replace(/\s*\(optional\)\s*/i, '') }}
+                                                </dt>
+                                                <dd class="mt-0.5">
                                                     <input
-                                                        v-model="form.expedite"
-                                                        type="checkbox"
-                                                        :disabled="isFieldReadonly('expedite')"
-                                                        class="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500 dark:border-gray-600 dark:bg-gray-900"
+                                                        v-if="mode !== 'show'"
+                                                        v-model="form.pickup_delivery_requested_at"
+                                                        type="date"
+                                                        :readonly="isFieldReadonly('pickup_delivery_requested_at')"
+                                                        class="input-style text-sm"
                                                     />
-                                                    <span class="text-md text-gray-700 dark:text-gray-300">{{ fieldsSchema.expedite?.help || 'Mark as high priority/rush job' }}</span>
-                                                </label>
+                                                    <span v-else class="text-sm font-medium text-gray-900 dark:text-white">
+                                                        {{ formatDate(record?.pickup_delivery_requested_at) }}
+                                                    </span>
+                                                </dd>
                                             </div>
-                                            <div v-else>
-                                                <span v-if="record?.expedite" class="inline-flex items-center gap-1 px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-full text-md font-medium">
-                                                    <span class="material-icons text-md">priority_high</span>
-                                                    Expedite
-                                                </span>
-                                                <span v-else class="text-md text-gray-500 dark:text-gray-400">No</span>
-                                            </div>
-                                        </div>
-
-                                        <!-- Pickup/Delivery Date -->
-                                        <div>
-                                            <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                {{ fieldsSchema.pickup_delivery_requested_at?.label || 'Requested Pickup/Delivery Date (optional)' }}
-                                            </label>
-                                            <input
-                                                v-if="mode !== 'show'"
-                                                v-model="form.pickup_delivery_requested_at"
-                                                type="date"
-                                                :readonly="isFieldReadonly('pickup_delivery_requested_at')"
-                                                class="input-style"
-                                            />
-                                            <p v-else class="text-md text-gray-900 dark:text-white">
-                                                {{ formatDate(record?.pickup_delivery_requested_at) }}
-                                            </p>
-                                        </div>
+                                        </dl>
                                     </div>
                                 </div>
 
@@ -2308,22 +2285,24 @@ const handleCancel = () => {
                             </div>
 
                             <div v-if="lineItemForm.warranty" class="col-span-2">
-                                <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <p class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-2">
                                     Warranty coverage
-                                </label>
-                                <select
-                                    v-model="lineItemForm.warranty_type"
-                                    class="input-style"
-                                >
-                                    <option :value="null">-- Select --</option>
-                                    <option
+                                </p>
+                                <div class="flex flex-wrap gap-4">
+                                    <label
                                         v-for="option in warrantyCoverageOptions"
                                         :key="option.id"
-                                        :value="option.value"
+                                        class="flex cursor-pointer items-center gap-2 text-gray-800 dark:text-gray-200"
                                     >
-                                        {{ option.name }}
-                                    </option>
-                                </select>
+                                        <input
+                                            v-model="lineItemForm.warranty_type"
+                                            type="radio"
+                                            :value="option.value"
+                                            class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-900"
+                                        >
+                                        <span class="text-md">{{ option.name }}</span>
+                                    </label>
+                                </div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-4">

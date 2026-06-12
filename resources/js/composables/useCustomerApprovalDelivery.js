@@ -46,15 +46,19 @@ export function useCustomerApprovalDelivery({ postRoute, recordId, customerEmail
         sendForm.delivery = delivery.value;
         sendForm.post(postRoute(id), {
             preserveScroll,
-            onSuccess: (p) => {
-                const errs = p.props.errors || {};
-                if (!errs.delivery && !errs.error) {
-                    closeModal();
-                }
-                onSuccess?.(p);
+            preserveState: true,
+            // Avoid re-fetching the full show page in production (large payload / slow round-trip).
+            only: ['flash'],
+            onSuccess: (page) => {
+                onSuccess?.(page);
             },
             onError: (errors) => {
                 onError?.(errors);
+            },
+            onFinish: () => {
+                if (!sendForm.hasErrors) {
+                    closeModal();
+                }
             },
         });
     };

@@ -3,6 +3,10 @@
 namespace App\Services\Mail;
 
 use App\Mail\AccountInvitation;
+use App\Mail\ContractSignedNotification;
+use App\Mail\EstimateApprovalNotification;
+use App\Mail\OpportunityFeatureRequestSubmittedMail;
+use App\Mail\ServiceTicketApprovalNotification;
 use App\Models\AccountSettings;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,13 +18,22 @@ use Illuminate\Support\Facades\Mail;
  * Tenant outbound mail: sandbox routing and queue vs sync dispatch.
  *
  * When sandbox mode is on, customer/vendor operational mail is sent to the signed-in
- * user instead of external recipients. Staff account invitations are exempt.
+ * staff user instead of external recipients. Internal staff notifications and account
+ * invitations use their intended recipients.
  */
 class TenantMailService
 {
-    /** @var list<class-string<Mailable>> */
+    /**
+     * Mailables that always use their intended recipient in sandbox (never redirect to the signed-in actor).
+     *
+     * @var list<class-string<Mailable>>
+     */
     private const SANDBOX_EXEMPT = [
         AccountInvitation::class,
+        ContractSignedNotification::class,
+        EstimateApprovalNotification::class,
+        OpportunityFeatureRequestSubmittedMail::class,
+        ServiceTicketApprovalNotification::class,
     ];
 
     public function isSandboxActive(): bool
@@ -66,6 +79,11 @@ class TenantMailService
             $email = trim((string) (($actor ?? Auth::user())?->email ?? ''));
 
             return $email !== '' ? [$email] : [];
+        }
+
+        // Customer/vendor operational mail in sandbox must not reach real recipients when no staff actor is available.
+        if ($this->isSandboxActive() && ! $this->isExempt($mailable)) {
+            return [];
         }
 
         return $this->normalizeRecipients($intended);

@@ -1,6 +1,41 @@
 import { computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 
+/**
+ * Laravel `date` casts serialize as UTC midnight ISO strings. The calendar day is the
+ * YYYY-MM-DD prefix — do not shift through the account/browser timezone.
+ */
+export function calendarDateFromStored(value) {
+    if (value == null || value === '') {
+        return null;
+    }
+
+    const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+
+    return match ? match[1] : null;
+}
+
+export function formatCalendarDate(value) {
+    const ymd = calendarDateFromStored(value);
+
+    if (!ymd) {
+        return '—';
+    }
+
+    const [year, month, day] = ymd.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+
+    if (Number.isNaN(date.getTime())) {
+        return '—';
+    }
+
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
 export function useTimezone() {
     const page = usePage();
 
@@ -54,6 +89,8 @@ export function useTimezone() {
     return {
         convertUTCToTimezone,
         convertTimezoneToUTC,
+        calendarDateFromStored,
+        formatCalendarDate,
         timezoneLabels,
         accountTimezone,
         accountTimezoneLabel,

@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head } from '@inertiajs/vue3';
+import { formatCalendarDate } from '@/composables/useTimezone';
 import { computed, onMounted, ref, watch } from 'vue';
 
 const VIEW_STORAGE_KEY = 'maritime.servicetickets.view';
@@ -66,14 +67,7 @@ const getStatusBgClass = (statusId) => {
     return status?.bgClass || 'bg-gray-200 dark:bg-gray-900 dark:text-white';
 };
 
-const formatDate = (date) => {
-    if (!date) return '—';
-    return new Date(date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-    });
-};
+const formatDate = (date) => formatCalendarDate(date);
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined) return '$0.00';

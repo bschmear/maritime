@@ -6,6 +6,8 @@ use App\Mail\AccountInvitation;
 use App\Mail\ContactPortalLink;
 use App\Mail\DocumentRequestMail;
 use App\Mail\InvoiceViewRequest;
+use App\Mail\ServiceTicketApprovalNotification;
+use App\Mail\ServiceTicketApproved;
 use App\Mail\VendorPortalLink;
 use App\Services\Mail\TenantMailService;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -16,15 +18,32 @@ use Tests\TestCase;
 class TenantMailServiceTest extends TestCase
 {
     #[Test]
-    public function only_account_invitation_is_sandbox_exempt(): void
+    public function internal_staff_notifications_are_sandbox_exempt(): void
     {
         $service = new TenantMailService;
 
         $this->assertTrue($service->isExemptMailableClass(AccountInvitation::class));
+        $this->assertTrue($service->isExemptMailableClass(ServiceTicketApprovalNotification::class));
         $this->assertFalse($service->isExemptMailableClass(ContactPortalLink::class));
         $this->assertFalse($service->isExemptMailableClass(VendorPortalLink::class));
         $this->assertFalse($service->isExemptMailableClass(DocumentRequestMail::class));
         $this->assertFalse($service->isExemptMailableClass(InvoiceViewRequest::class));
+        $this->assertFalse($service->isExemptMailableClass(ServiceTicketApproved::class));
+    }
+
+    #[Test]
+    public function resolve_blocks_customer_recipient_in_sandbox_without_staff_actor(): void
+    {
+        $service = $this->partialMock(TenantMailService::class, function ($mock) {
+            $mock->shouldReceive('isSandboxActive')->andReturn(true);
+        });
+
+        $resolved = $service->resolveRecipients(
+            'customer@example.com',
+            $this->mailableStub(ServiceTicketApproved::class),
+        );
+
+        $this->assertSame([], $resolved);
     }
 
     #[Test]
