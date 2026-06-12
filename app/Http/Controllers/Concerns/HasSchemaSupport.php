@@ -6,9 +6,9 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Support\Validation\ActionResultErrors;
 use App\Support\Validation\SchemaFormValidator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -164,7 +164,7 @@ trait HasSchemaSupport
 
         $records = $modelClass::query()
             ->select($columns)
-            ->orderByDesc($orderColumn)
+            ->orderBy($orderColumn)
             ->limit($limit)
             ->get();
 
@@ -790,7 +790,7 @@ trait HasSchemaSupport
     /**
      * @param  array<string, mixed>  $result
      */
-    protected function actionFailureResponse(Request $request, array $result, ?array $fieldsSchema = null, string $action = 'create'): RedirectResponse|\Illuminate\Http\JsonResponse
+    protected function actionFailureResponse(Request $request, array $result, ?array $fieldsSchema = null, string $action = 'create'): RedirectResponse|JsonResponse
     {
         $normalized = $this->normalizeActionFailure($result, $fieldsSchema);
         $errors = $normalized['errors'];

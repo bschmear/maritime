@@ -423,7 +423,17 @@ class GeneralController extends BaseController
             $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
             // RecordSelect / pickers: alphabetical by label; do not prioritize seed sort_order.
             $query->orderBy('display_name', $dir)->orderBy('category', $dir);
-        } elseif (in_array($orderBy, ['id', 'created_at', 'updated_at']) || ($orderBy === 'display_name' && $hasDisplayNameColumn)) {
+        } elseif ($orderBy === 'display_name' && $hasDisplayNameColumn) {
+            $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+            $table = $recordModel->getTable();
+            if ($typeKey === 'assetvariant') {
+                $query->orderByRaw(
+                    "LOWER(COALESCE(NULLIF({$table}.display_name, ''), {$table}.name)) {$dir}"
+                );
+            } else {
+                $query->orderByRaw("LOWER({$table}.display_name) {$dir}");
+            }
+        } elseif (in_array($orderBy, ['id', 'created_at', 'updated_at'], true)) {
             $query->orderBy($orderBy, $orderDirection);
         } else {
             // Default ordering

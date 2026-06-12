@@ -1,0 +1,782 @@
+[
+  {
+    "id": "mark-gr",
+    "brand": "Zodiac Milpro",
+    "name": "MARK GR Series",
+    "type_display": "Heavy-Duty Military Inflatable (Grand Raid)",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "The MARK series, specifically the Grand Raid (GR), is the backbone of many professional and military fleets worldwide. Known as the 'quintessential' heavy-duty Zodiac, it has been refined over 40 years to provide a simple, rugged, and reliable platform for extreme conditions. Built with high-grade CSM/Neoprene fabric and reinforced throughout, the Grand Raid is designed for heavy payloads and easy maintenance. Its classic inflatable keel design offers reliable sea-keeping, making it the choice for everything from Jacques Cousteau\u2019s explorations to modern-day fire and rescue operations.",
+    "features": [
+      "Heavy-duty CSM / Neoprene (Hypalon) tube construction",
+      "Reinforced aluminum sectional floorboards",
+      "Patented intercommunicating valve system",
+      "Integrated over-pressure relief valves",
+      "Heavy-duty transom with stainless steel protection",
+      "Wrap-around lifelines and non-skid tube reinforcements",
+      "Inflatable keel for improved tracking",
+      "Reinforced rubbing strakes on keel and tubes",
+      "Dual self-bailing drains",
+      "Stowage bags for hull and floor components"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "CSM (Hypalon) / Aluminum Floor"
+    },
+    "length_range_mm": {
+      "min": 4200,
+      "max": 4700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "mark-2-gr",
+        "name": "MK 2 GR",
+        "description": "Compact 4.20 m Grand Raid rated for 7 persons and 55 hp.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 91,
+          "capacity_persons": 7,
+          "max_hp": 55,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "mark-3-gr",
+        "name": "MK 3 GR",
+        "description": "Classic 4.70 m Grand Raid rated for 10 persons and 65 hp.",
+        "specifications": {
+          "length_mm": 4700,
+          "width_mm": 1930,
+          "height_mm": null,
+          "weight_kg": 127,
+          "capacity_persons": 10,
+          "max_hp": 65,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "mark-hd",
+    "brand": "Zodiac Milpro",
+    "name": "MARK HD Series",
+    "type_display": "Heavy-Duty Futura-Hull Military Inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "The MARK HD line extends the proven MARK platform with Futura Commando speed-tube hull technology for higher payloads and twin-engine options on longer hulls.",
+    "features": [
+      "Heavy-duty CSM / Neoprene (Hypalon) tube construction",
+      "Reinforced aluminum sectional floorboards",
+      "Patented intercommunicating valve system",
+      "Integrated over-pressure relief valves",
+      "Heavy-duty transom with stainless steel protection",
+      "Wrap-around lifelines and non-skid tube reinforcements",
+      "Inflatable keel for improved tracking",
+      "Reinforced rubbing strakes on keel and tubes",
+      "Dual self-bailing drains",
+      "Stowage bags for hull and floor components",
+      "Futura Commando hull with speed tubes",
+      "Twin outboard configurations on select models"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "CSM (Hypalon) / Multi-option Floor"
+    },
+    "length_range_mm": {
+      "min": 5300,
+      "max": 7000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "mark-4-hd",
+        "name": "MK 4 HD",
+        "description": "5.30 m heavy-duty MARK with 80 hp single or twin 40 hp.",
+        "specifications": {
+          "length_mm": 5300,
+          "width_mm": 2140,
+          "height_mm": null,
+          "weight_kg": 150,
+          "capacity_persons": 13,
+          "max_hp": 80,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "mark-5-hd",
+        "name": "MK 5 HD",
+        "description": "5.85 m MARK HD rated to 115 hp single or twin 50 hp.",
+        "specifications": {
+          "length_mm": 5850,
+          "width_mm": 2480,
+          "height_mm": null,
+          "weight_kg": 260,
+          "capacity_persons": 15,
+          "max_hp": 115,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "mark-6-hd",
+        "name": "MK 6 HD",
+        "description": "7.00 m flagship MARK HD with 175 hp single or twin 75 hp.",
+        "specifications": {
+          "length_mm": 7000,
+          "width_mm": 2750,
+          "height_mm": null,
+          "weight_kg": 331,
+          "capacity_persons": 20,
+          "max_hp": 175,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "futura-commando",
+    "brand": "Zodiac Milpro",
+    "name": "Futura Commando Series (FC)",
+    "type_display": "Special Forces Combat Inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "The Futura Commando (FC) range is the most recognizable military boat in the world, used by elite Special Forces and Commandos across all theaters of operation. Its defining characteristic is the patented Futura hull, which uses two additional small 'speed tubes' underneath the main buoyancy tubes to lift the hull and reduce drag. This allows the FC range to plane heavy combat loads with smaller engines while providing unsurpassed maneuverability. Built with 'Duratane' fabric, these boats are field-repairable and support advanced deployment methods including Helidrop, Parachute Airdrop, and Underwater Caching.",
+    "features": [
+      "Patented Futura hull with lateral 'speed tube' stabilizers",
+      "Military-grade 1880 dtx CSM / Neoprene fabric",
+      "Multiple floor options: Aluminum rigid, Slatted roll-up, or HPP (High Pressure)",
+      "CO2 or SCUBA bottle fast-inflation system",
+      "Underwater Caching capability for covert operations",
+      "Compatible with Helidrop and Parachute Airdrop",
+      "13 interior large tie-down D-rings for gear security",
+      "Reinforced plywood transom with bottom-edge protection",
+      "Multi-chambered hull for combat survivability",
+      "Standard NATO codification for allied fleet compatibility"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "1880 dtx CSM (Hypalon) / Multi-option Floor"
+    },
+    "length_range_mm": {
+      "min": 4200,
+      "max": 5850
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "fc-420",
+        "name": "FC 420",
+        "description": "Compact 4.20 m combat inflatable (rigid floor configuration).",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 131,
+          "capacity_persons": 8,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fc-470",
+        "name": "FC 470",
+        "description": "Industry-standard 4.70 m Special Forces combat boat (rigid floor).",
+        "specifications": {
+          "length_mm": 4700,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 153,
+          "capacity_persons": 10,
+          "max_hp": 60,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fc-530",
+        "name": "FC 530",
+        "description": "Large 5.30 m Commando hull with 80 hp capability (rigid floor).",
+        "specifications": {
+          "length_mm": 5300,
+          "width_mm": 2140,
+          "height_mm": null,
+          "weight_kg": 184,
+          "capacity_persons": 13,
+          "max_hp": 80,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "fc-580",
+        "name": "FC 580",
+        "description": "5.85 m Commando with 115 hp single or twin 55 hp (rigid floor).",
+        "specifications": {
+          "length_mm": 5850,
+          "width_mm": 2480,
+          "height_mm": null,
+          "weight_kg": 234,
+          "capacity_persons": 15,
+          "max_hp": 115,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "erb",
+    "brand": "Zodiac Milpro",
+    "name": "ERB Series",
+    "type_display": "Emergency Response Inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "The Emergency Response Boat (ERB) range provides rapid-deploy rescue inflatables with fast-inflation capability and multiple floor options for surf and flood response.",
+    "features": [
+      "Fast inflation capability",
+      "V-hull inflatable design",
+      "Rigid, roll-up, and HPP floor options",
+      "Compact folded stowage footprint"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "CSM (Hypalon) / Multi-option Floor"
+    },
+    "length_range_mm": {
+      "min": 3200,
+      "max": 4100
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "erb-310",
+        "name": "ERB 310",
+        "description": "3.20 m rapid-response inflatable (rigid floor).",
+        "specifications": {
+          "length_mm": 3200,
+          "width_mm": 1600,
+          "height_mm": null,
+          "weight_kg": 62,
+          "capacity_persons": 4,
+          "max_hp": 10,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "erb-380",
+        "name": "ERB 380",
+        "description": "3.93 m rescue inflatable rated for 7 persons (rigid floor).",
+        "specifications": {
+          "length_mm": 3930,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 86,
+          "capacity_persons": 7,
+          "max_hp": 30,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "erb-400",
+        "name": "ERB 400",
+        "description": "4.10 m ERB with 8-person capacity (rigid floor).",
+        "specifications": {
+          "length_mm": 4100,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 99,
+          "capacity_persons": 8,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "zmsr",
+    "brand": "Zodiac Milpro",
+    "name": "ZMSR Series",
+    "type_display": "Surf Rescue Inflatable",
+    "boat_type_key": "power-inflatable",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "The ZMSR (Zodiac Milpro Surf Rescue) is engineered for surf and beach rescue with a compact V-hull inflatable platform.",
+    "features": [
+      "V-hull inflatable design",
+      "Compact folded stowage",
+      "Surf rescue optimized geometry"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "CSM (Hypalon) / Floor system"
+    },
+    "length_range_mm": {
+      "min": 3810,
+      "max": 3810
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "zmsr-380",
+        "name": "ZMSR 380",
+        "description": "3.81 m surf rescue inflatable rated for 6 persons and 30 hp.",
+        "specifications": {
+          "length_mm": 3810,
+          "width_mm": 1680,
+          "height_mm": null,
+          "weight_kg": 81,
+          "capacity_persons": 6,
+          "max_hp": 30,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "srr",
+    "brand": "Zodiac Milpro",
+    "name": "SRR Series (Sea RIB Responder)",
+    "type_display": "Military-Grade Professional RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Sea RIB (SR) series, also known as the SRR (Sea RIB Responder) range, is a line of high-performance rigid inflatable boats specifically evolved for military and professional intervention. Built on a proven fiberglass hull with a deep-V design, these boats are engineered to be simple, functional, and exceptionally tough. A hallmark of the SR series is its removable 'slide-on' tube system, which significantly simplifies maintenance and allows for rapid collar replacement in the field. The decks are self-draining and feature integrated high-capacity fuel tanks and under-deck cable paths, providing a clean, unobstructed workspace for search and rescue, law enforcement, and naval operations.",
+    "features": [
+      "Removable slide-on buoyancy tube system",
+      "Military-grade 1670 dtx or 1880 dtx CSM/Neoprene fabric",
+      "Self-draining deck with integrated non-skid surface",
+      "Large capacity under-deck fuel tanks with access hatches",
+      "Integrated cable paths for clean deck installations",
+      "Molded bow box and aft motor well storage",
+      "Heavy-duty towing and lifting brackets (bow and transom)",
+      "Intercommunicating inflation valves",
+      "Optional self-righting frames and navigation roll-bars",
+      "Water ballast system on certain models (e.g., SR-5.4) for stationary stability"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / CSM (Hypalon) Tubes"
+    },
+    "length_range_mm": {
+      "min": 4240,
+      "max": 11060
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "srr-420",
+        "name": "SRR 420",
+        "description": "Compact 4.24 m fiberglass responder RIB.",
+        "specifications": {
+          "length_mm": 4240,
+          "width_mm": 1900,
+          "height_mm": null,
+          "weight_kg": 436,
+          "capacity_persons": 6,
+          "max_hp": 40,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "srr-500",
+        "name": "SRR 500",
+        "description": "4.90 m mid-size responder with 80 hp rating.",
+        "specifications": {
+          "length_mm": 4900,
+          "width_mm": 2050,
+          "height_mm": null,
+          "weight_kg": 631,
+          "capacity_persons": 9,
+          "max_hp": 80,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "srr-530",
+        "name": "SRR 530",
+        "description": "5.30 m responder with integrated 75 L fuel tank.",
+        "specifications": {
+          "length_mm": 5300,
+          "width_mm": 2200,
+          "height_mm": null,
+          "weight_kg": 756,
+          "capacity_persons": 12,
+          "max_hp": 100,
+          "fuel_capacity_l": 75
+        }
+      },
+      {
+        "id": "srr-650",
+        "name": "SRR 650",
+        "description": "6.50 m offshore responder rated to 150 hp.",
+        "specifications": {
+          "length_mm": 6500,
+          "width_mm": 2590,
+          "height_mm": null,
+          "weight_kg": 1514,
+          "capacity_persons": 15,
+          "max_hp": 150,
+          "fuel_capacity_l": 240
+        }
+      },
+      {
+        "id": "srr-750",
+        "name": "SRR 750",
+        "description": "7.40 m high-capacity responder with twin 150 hp option.",
+        "specifications": {
+          "length_mm": 7400,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 2117,
+          "capacity_persons": 16,
+          "max_hp": 300,
+          "fuel_capacity_l": 550
+        }
+      },
+      {
+        "id": "srr-870",
+        "name": "SRR 870",
+        "description": "8.79 m flagship open responder with twin 300 hp.",
+        "specifications": {
+          "length_mm": 8790,
+          "width_mm": 3050,
+          "height_mm": null,
+          "weight_kg": 2424,
+          "capacity_persons": 18,
+          "max_hp": 600,
+          "fuel_capacity_l": 620
+        }
+      },
+      {
+        "id": "srr-1100",
+        "name": "SRR 1100",
+        "description": "11.06 m long-range responder with twin 350 hp.",
+        "specifications": {
+          "length_mm": 11060,
+          "width_mm": 3050,
+          "height_mm": null,
+          "weight_kg": 3254,
+          "capacity_persons": 22,
+          "max_hp": 700,
+          "fuel_capacity_l": 900
+        }
+      }
+    ]
+  },
+  {
+    "id": "srmn",
+    "brand": "Zodiac Milpro",
+    "name": "SRMN Series (Sea RIB Military Naval)",
+    "type_display": "Original Military RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The SRMN (Sea RIB Military Naval) is Zodiac Milpro's original rigid inflatable line \u2014 tough, simple, and functional for day-to-day military and professional missions.",
+    "features": [
+      "Glassfiber polyester hull",
+      "Removable slide-on tube system",
+      "Self-draining deck",
+      "Military-grade CSM/Neoprene tubes"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Fiberglass Hull / CSM (Hypalon) Tubes"
+    },
+    "length_range_mm": {
+      "min": 5300,
+      "max": 6000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "srmn-500",
+        "name": "SRMN 500",
+        "description": "5.30 m military naval RIB rated to 100 hp.",
+        "specifications": {
+          "length_mm": 5300,
+          "width_mm": 2200,
+          "height_mm": null,
+          "weight_kg": 548,
+          "capacity_persons": 10,
+          "max_hp": 100,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "srmn-550",
+        "name": "SRMN 550",
+        "description": "5.50 m SRMN with 120 hp rating.",
+        "specifications": {
+          "length_mm": 5500,
+          "width_mm": 2180,
+          "height_mm": null,
+          "weight_kg": 699,
+          "capacity_persons": 14,
+          "max_hp": 120,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "srmn-600",
+        "name": "SRMN 600",
+        "description": "6.00 m SRMN workhorse rated to 150 hp.",
+        "specifications": {
+          "length_mm": 6000,
+          "width_mm": 2450,
+          "height_mm": null,
+          "weight_kg": 849,
+          "capacity_persons": 16,
+          "max_hp": 150,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "sra",
+    "brand": "Zodiac Milpro",
+    "name": "SRA Series (Sea RIB Aluminum)",
+    "type_display": "Aluminum Hull Professional RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Sea RIB Aluminum (SRA) range is built for the most demanding professional and military environments where extreme durability and modularity are required. Featuring a marine-grade 5083 aluminum deep-V hull, the SRA series is capable of withstanding harsh coastal and riverine conditions while maintaining high speeds. A standout innovation of the SRA range is the choice between standard round collars or 'D-shape' collar technology, the latter of which significantly increases useable deck area. The deck itself integrates a modular track system, allowing for rapid reconfiguration of seating, consoles, and mission-specific equipment (such as gun mounts or dive doors) to suit various operational roles.",
+    "features": [
+      "Marine-grade 5083 aluminum alloy Deep-V hull",
+      "Available with D-shape collar technology for increased deck space",
+      "Modular deck track system for rapid mission reconfiguration",
+      "Slide-on removable tube system in CSM/Neoprene",
+      "Integrated under-deck fuel tanks fore and aft",
+      "Reinforced vertical knees for hull strength",
+      "Open deck or roofed console options",
+      "Specialized mission equipment: gun posts, dive doors, and rescue cradles",
+      "Diver door options for easy water access and recovery",
+      "Durable non-skid aluminum flooring"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Hull / CSM (Hypalon) Tubes"
+    },
+    "length_range_mm": {
+      "min": 6500,
+      "max": 11000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "sra-650-ob",
+        "name": "SRA 650 OB",
+        "description": "6.50 m aluminum RIB outboard configuration.",
+        "specifications": {
+          "length_mm": 6500,
+          "width_mm": 2730,
+          "height_mm": null,
+          "weight_kg": 2105,
+          "capacity_persons": 10,
+          "max_hp": 300,
+          "fuel_capacity_l": 240
+        }
+      },
+      {
+        "id": "sra-750-ob",
+        "name": "SRA 750 OB",
+        "description": "7.50 m aluminum RIB with twin 200 hp outboards.",
+        "specifications": {
+          "length_mm": 7500,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 2148,
+          "capacity_persons": 14,
+          "max_hp": 400,
+          "fuel_capacity_l": 530
+        }
+      },
+      {
+        "id": "sra-750-dj",
+        "name": "SRA 750 DJ",
+        "description": "7.50 m diesel-jet aluminum RIB patrol configuration.",
+        "specifications": {
+          "length_mm": 7500,
+          "width_mm": 2760,
+          "height_mm": null,
+          "weight_kg": 2100,
+          "capacity_persons": 14,
+          "max_hp": null,
+          "fuel_capacity_l": 182
+        }
+      },
+      {
+        "id": "sra-750-io",
+        "name": "SRA 750 IO",
+        "description": "7.50 m inboard sterndrive aluminum RIB.",
+        "specifications": {
+          "length_mm": 7500,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 2800,
+          "capacity_persons": 14,
+          "max_hp": null,
+          "fuel_capacity_l": 200
+        }
+      },
+      {
+        "id": "sra-800-ob",
+        "name": "SRA 800 OB",
+        "description": "8.00 m aluminum RIB with twin 300 hp outboards.",
+        "specifications": {
+          "length_mm": 8000,
+          "width_mm": 2900,
+          "height_mm": null,
+          "weight_kg": 2900,
+          "capacity_persons": 15,
+          "max_hp": 600,
+          "fuel_capacity_l": 600
+        }
+      },
+      {
+        "id": "sra-900-ob",
+        "name": "SRA 900 OB",
+        "description": "9.00 m aluminum patrol RIB with twin 350 hp.",
+        "specifications": {
+          "length_mm": 9000,
+          "width_mm": 3020,
+          "height_mm": null,
+          "weight_kg": 2673,
+          "capacity_persons": 16,
+          "max_hp": 700,
+          "fuel_capacity_l": 644
+        }
+      },
+      {
+        "id": "sra-1050-ob",
+        "name": "SRA 1050 OB",
+        "description": "11.0 m flagship aluminum RIB with twin 450 hp.",
+        "specifications": {
+          "length_mm": 11000,
+          "width_mm": 3020,
+          "height_mm": null,
+          "weight_kg": 3800,
+          "capacity_persons": 16,
+          "max_hp": 900,
+          "fuel_capacity_l": 800
+        }
+      }
+    ]
+  },
+  {
+    "id": "zodiac-hurricane",
+    "brand": "Zodiac Milpro",
+    "name": "Zodiac Hurricane Series",
+    "type_display": "Custom High-Performance RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "Zodiac Hurricane (ZH) boats are customizable high-end RIBs built for the most extreme maritime tasks, from 6 to 16 m with aluminum or composite hulls and multiple propulsion options.",
+    "features": [
+      "Aluminium or composite hull options",
+      "Custom build lengths from 6 to 16 m",
+      "Outboard, inboard, sterndrive, surface drive, or waterjet",
+      "Up to 70 knot capability"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum or Composite Hull / CSM (Hypalon) Tubes"
+    },
+    "length_range_mm": {
+      "min": null,
+      "max": null
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "zh-custom",
+        "name": "ZH Custom",
+        "description": "Custom-configured Zodiac Hurricane built to mission requirements; contact Zodiac Milpro for specifications.",
+        "specifications": {
+          "length_mm": null,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": null,
+          "capacity_persons": null,
+          "max_hp": null,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  }
+]

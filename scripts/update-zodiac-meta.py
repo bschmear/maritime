@@ -22,10 +22,6 @@ SERIES_VARIANT_ORDER = {
     "zodiac-nomad-rib-alu": ["nomad-2-7", "nomad-3-1", "nomad-3-3", "nomad-3-6", "nomad-3-9"],
     "zodiac-yachtline": ["yachtline-360", "yachtline-400", "yachtline-440", "yachtline-490"],
     "zodiac-n-zo": ["n-zo-680", "n-zo-700-cabine", "n-zo-760"],
-    "zodiac-milpro-mark": ["mark-2-gr", "mark-3-gr"],
-    "zodiac-milpro-futura": ["fc-420", "fc-470", "fc-530"],
-    "zodiac-milpro-sr": ["sr-420", "sr-530", "sr-650", "sr-750", "sr-870"],
-    "zodiac-milpro-sra": ["sra-750", "sra-900"],
 }
 
 DISPLAY_NAMES = {

@@ -52,29 +52,5 @@
     "name": "N-ZO Series",
     "url": "https://www.zodiac-nautic.com/en/boats/n-zo/",
     "type": "listing_page"
-  },
-  {
-    "id": "zodiac-milpro-mark",
-    "name": "MARK Series (Grand Raid)",
-    "url": "https://milpro.zodiac-nautic.com/en/mark/",
-    "type": "listing_page"
-  },
-  {
-    "id": "zodiac-milpro-futura",
-    "name": "Futura Commando Series (FC)",
-    "url": "https://milpro.zodiac-nautic.com/en/futura-commando/",
-    "type": "listing_page"
-  },
-  {
-    "id": "zodiac-milpro-sr",
-    "name": "Sea RIB / SR Series",
-    "url": "https://milpro.zodiac-nautic.com/en/sea-rib/",
-    "type": "listing_page"
-  },
-  {
-    "id": "zodiac-milpro-sra",
-    "name": "SRA Series (Aluminum RIB)",
-    "url": "https://milpro.zodiac-nautic.com/en/sra/",
-    "type": "listing_page"
   }
 ]

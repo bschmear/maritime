@@ -1,0 +1,65 @@
+[
+  {
+    "id": "mark-gr",
+    "name": "MARK GR Series",
+    "url": "https://zodiacmilpro.com/military-boats/",
+    "type": "listing_page",
+    "category": "Military Boats"
+  },
+  {
+    "id": "mark-hd",
+    "name": "MARK HD Series",
+    "url": "https://zodiacmilpro.com/military-boats/",
+    "type": "listing_page",
+    "category": "Military Boats"
+  },
+  {
+    "id": "futura-commando",
+    "name": "Futura Commando Series (FC)",
+    "url": "https://zodiacmilpro.com/military-boats/",
+    "type": "listing_page",
+    "category": "Military Boats"
+  },
+  {
+    "id": "erb",
+    "name": "ERB Series",
+    "url": "https://zodiacmilpro.com/rescue-boats/",
+    "type": "listing_page",
+    "category": "Rescue Boats"
+  },
+  {
+    "id": "zmsr",
+    "name": "ZMSR Series",
+    "url": "https://zodiacmilpro.com/rescue-boats/",
+    "type": "listing_page",
+    "category": "Rescue Boats"
+  },
+  {
+    "id": "srr",
+    "name": "SRR Series (Sea RIB Responder)",
+    "url": "https://zodiacmilpro.com/sea-rib-grp/",
+    "type": "listing_page",
+    "category": "Sea RIB GRP"
+  },
+  {
+    "id": "srmn",
+    "name": "SRMN Series (Sea RIB Military Naval)",
+    "url": "https://zodiacmilpro.com/sea-rib-grp/",
+    "type": "listing_page",
+    "category": "Sea RIB GRP"
+  },
+  {
+    "id": "sra",
+    "name": "SRA Series (Sea RIB Aluminum)",
+    "url": "https://zodiacmilpro.com/ribs-aluminium/",
+    "type": "listing_page",
+    "category": "Aluminum RIBs"
+  },
+  {
+    "id": "zodiac-hurricane",
+    "name": "Zodiac Hurricane Series",
+    "url": "https://zodiacmilpro.com/zodiac-hurricane/",
+    "type": "listing_page",
+    "category": "Custom RIBs"
+  }
+]

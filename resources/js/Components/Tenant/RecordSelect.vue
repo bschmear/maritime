@@ -745,13 +745,12 @@
             url.searchParams.append('per_page', props.perPage);
             url.searchParams.append('type', domain);
 
-            // For initial load (first page, no search), order by display_name
-            if (initialLoad && currentPage.value === 1 && !searchQuery.value) {
-                url.searchParams.append('order_by', 'display_name');
-                url.searchParams.append('order_direction', 'asc');
-            }
-
             const q = typeof searchQuery.value === 'string' ? searchQuery.value.trim() : searchQuery.value;
+
+            // Default list order: A–Z by label (including filtered lists, e.g. variants by asset).
+            url.searchParams.append('order_by', 'display_name');
+            url.searchParams.append('order_direction', 'asc');
+
             if (q) {
                 url.searchParams.append('search', q);
             }
