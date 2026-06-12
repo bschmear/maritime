@@ -9,6 +9,11 @@ import {
     taxRateForResolvedLines,
 } from '@/Utils/lineItemsFromEstimate';
 import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
+import TransactionAssetUnitStatusModal from '@/Components/Tenant/TransactionAssetUnitStatusModal.vue';
+import {
+    buildAssetUnitStatusDraft,
+    collectAssetUnitsFromLineItems,
+} from '@/Utils/transactionAssetUnits';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -29,6 +34,8 @@ const flash = computed(() => page.props.flash || {});
 const statusEnumKey = 'App\\Enums\\Transaction\\TransactionStatus';
 const invoiceStatusEnumKey = 'App\\Enums\\Invoice\\Status';
 const deliveryStatusEnumKey = 'App\\Enums\\Deliveries\\Status';
+const unitStatusOptions = computed(() => props.enumOptions.asset_unit_status ?? []);
+const transactionStatusOptions = computed(() => props.enumOptions[statusEnumKey] ?? []);
 
 const createInvoiceHref = computed(
     () => route('invoices.create') + `?transaction_id=${props.record.id}&contact_id=${props.record.customer?.contact_id || ''}`,
@@ -114,25 +121,71 @@ const canMarkDealComplete = computed(() => {
     return true;
 });
 
-function markDealComplete() {
-    if (!canMarkDealComplete.value) return;
+const showAssetUnitStatusModal = ref(false);
+const assetUnitStatusRows = ref([]);
+const completingDeal = ref(false);
+const pendingTerminalStatus = ref(null);
+const pendingTerminalStatusId = ref(TRANSACTION_STATUS_ID.completed);
+
+const csrfToken = () => {
     const fromPage = page.props?.csrf_token;
     const meta = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    const token = fromPage ?? meta;
-    router.patch(
-        route('transactions.update', props.record.id),
-        { status: 'completed' },
-        {
-            preserveScroll: true,
-            headers: token ? { 'X-CSRF-TOKEN': String(token) } : {},
-            onError: (errors) => {
-                const msg = errors?.status;
-                const text = Array.isArray(msg) ? msg[0] : msg ?? Object.values(errors)[0];
-                const s = Array.isArray(text) ? text[0] : text;
-                if (s) window.alert(s);
-            },
+    return fromPage ?? meta;
+};
+
+const patchTransactionStatus = (statusValue, assetUnitStatuses = null) => {
+    completingDeal.value = true;
+    const payload = { status: statusValue };
+    if (assetUnitStatuses?.length) {
+        payload.asset_unit_statuses = assetUnitStatuses;
+    }
+    const token = csrfToken();
+    router.patch(route('transactions.update', props.record.id), payload, {
+        preserveScroll: true,
+        headers: token ? { 'X-CSRF-TOKEN': String(token) } : {},
+        onFinish: () => {
+            completingDeal.value = false;
         },
-    );
+        onError: (errors) => {
+            const msg = errors?.status;
+            const text = Array.isArray(msg) ? msg[0] : msg ?? Object.values(errors)[0];
+            const s = Array.isArray(text) ? text[0] : text;
+            if (s) window.alert(s);
+        },
+    });
+};
+
+const beginTerminalStatusChange = (statusValue, statusId) => {
+    const units = collectAssetUnitsFromLineItems(items.value);
+    if (!units.length) {
+        patchTransactionStatus(statusValue);
+        return;
+    }
+    pendingTerminalStatus.value = statusValue;
+    pendingTerminalStatusId.value = statusId;
+    assetUnitStatusRows.value = buildAssetUnitStatusDraft(units, statusId);
+    showAssetUnitStatusModal.value = true;
+};
+
+const closeAssetUnitStatusModal = () => {
+    showAssetUnitStatusModal.value = false;
+    pendingTerminalStatus.value = null;
+    pendingTerminalStatusId.value = TRANSACTION_STATUS_ID.completed;
+};
+
+const confirmAssetUnitStatuses = (statuses) => {
+    const statusValue = pendingTerminalStatus.value;
+    showAssetUnitStatusModal.value = false;
+    pendingTerminalStatus.value = null;
+    if (!statusValue) {
+        return;
+    }
+    patchTransactionStatus(statusValue, statuses);
+};
+
+function markDealComplete() {
+    if (!canMarkDealComplete.value) return;
+    beginTerminalStatusChange('completed', TRANSACTION_STATUS_ID.completed);
 }
 
 const invoiceStatusMeta = (status) => {
@@ -1368,5 +1421,16 @@ const confirmAddStep = () => {
                 </div>
             </div>
         </div>
+
+        <TransactionAssetUnitStatusModal
+            :show="showAssetUnitStatusModal"
+            v-model:rows="assetUnitStatusRows"
+            :transaction-status-id="pendingTerminalStatusId"
+            :status-options="transactionStatusOptions"
+            :unit-status-options="unitStatusOptions"
+            :processing="completingDeal"
+            @close="closeAssetUnitStatusModal"
+            @confirm="confirmAssetUnitStatuses"
+        />
     </TenantLayout>
 </template>

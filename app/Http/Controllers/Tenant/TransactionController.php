@@ -8,6 +8,7 @@ use App\Domain\Transaction\Actions\CreateTransaction;
 use App\Domain\Transaction\Actions\DeleteTransaction;
 use App\Domain\Transaction\Actions\UpdateTransaction;
 use App\Domain\Transaction\Models\Transaction;
+use App\Enums\Inventory\UnitStatus;
 use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Timezone;
 use App\Enums\Transaction\TransactionStatus;
@@ -325,6 +326,7 @@ class TransactionController extends BaseController
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
         $enumOptions['App\\Enums\\Invoice\\Status'] = InvoiceStatus::options();
+        $enumOptions['asset_unit_status'] = UnitStatus::options();
         $account = AccountSettings::getCurrent();
 
         $record = Transaction::query()
@@ -336,7 +338,7 @@ class TransactionController extends BaseController
                         'selectedAssetOptionsFromSourceLine',
                         'itemable',
                         'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
-                        'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
+                        'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price', 'status']),
                         'estimateLineItem' => fn ($q2) => $q2
                             ->select([
                                 'id',
@@ -351,7 +353,7 @@ class TransactionController extends BaseController
                             ])
                             ->with([
                                 'assetVariant' => fn ($q3) => $q3->select(['id', 'display_name', 'name']),
-                                'assetUnit' => fn ($q3) => $q3->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
+                                'assetUnit' => fn ($q3) => $q3->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price', 'status']),
                             ]),
                     ])
                     ->orderBy('position')
@@ -411,6 +413,7 @@ class TransactionController extends BaseController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $formSchema = $this->getFormSchema();
         $enumOptions = $this->getEnumOptions();
+        $enumOptions['asset_unit_status'] = UnitStatus::options();
         $account = AccountSettings::getCurrent();
 
         $record = Transaction::query()
@@ -421,7 +424,7 @@ class TransactionController extends BaseController
                     'selectedAssetOptionsFromSourceLine',
                     'itemable',
                     'assetVariant' => fn ($qv) => $qv->select(['id', 'display_name', 'name']),
-                    'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
+                    'assetUnit' => fn ($qu) => $qu->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price', 'status']),
                     'estimateLineItem' => fn ($q2) => $q2
                         ->select([
                             'id',
@@ -436,7 +439,7 @@ class TransactionController extends BaseController
                         ])
                         ->with([
                             'assetVariant' => fn ($q3) => $q3->select(['id', 'display_name', 'name']),
-                            'assetUnit' => fn ($q3) => $q3->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price']),
+                            'assetUnit' => fn ($q3) => $q3->select(['id', 'asset_id', 'asset_variant_id', 'serial_number', 'hin', 'sku', 'cost', 'asking_price', 'status']),
                         ]),
                 ])->orderBy('position')->orderBy('id'),
                 'customer' => Customer::eagerWithContactSelect(),

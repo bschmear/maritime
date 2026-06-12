@@ -7,8 +7,14 @@ import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
 import Modal from '@/Components/Modal.vue';
+import TransactionAssetUnitStatusModal from '@/Components/Tenant/TransactionAssetUnitStatusModal.vue';
 import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { lineEffectiveUnitPrice } from '@/Utils/lineItemsFromEstimate';
+import {
+    buildAssetUnitStatusDraft,
+    collectAssetUnitsFromFormAssetItems,
+    isTerminalTransactionStatus,
+} from '@/Utils/transactionAssetUnits';
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
 
 const debounce = (fn, delay) => {
@@ -69,9 +75,13 @@ const statusMetaFor = (idOrValue) =>
         bgClass: 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
     };
 
+const unitStatusOptions = computed(() => props.enumOptions.asset_unit_status ?? []);
+
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
 const merged = { ...(props.record || {}), ...(props.initialData || {}) };
+
+const initialTransactionStatusId = resolveStatusId(merged.status) ?? statusOptions.value[0]?.id ?? null;
 
 /** Must be defined before `useForm` (used for needs_contract / line items). */
 const normalizeTaxable = (v) => v !== false && v !== 0 && v !== '0' && v !== 'false';
@@ -186,11 +196,37 @@ const fetchCustomerAddressesForPicker = async (customerId) => {
     }
 };
 
+const syncCustomerSnapshotFromRecord = (customer) => {
+    if (!customer?.id) {
+        return;
+    }
+
+    const nameParts = [customer.first_name, customer.last_name].filter(Boolean);
+    form.customer_name = customer.display_name || nameParts.join(' ') || '';
+    form.customer_email = customer.email ?? '';
+    form.customer_phone = customer.phone ?? customer.mobile ?? '';
+};
+
 const handleCustomerSelected = async (customer) => {
     if (!customer?.id || props.mode === 'show') return;
+    syncCustomerSnapshotFromRecord(customer);
     showAddressPicker.value = true;
     await fetchCustomerAddressesForPicker(customer.id);
 };
+
+watch(
+    () => form.customer_id,
+    (customerId) => {
+        if (props.mode !== 'create') {
+            return;
+        }
+        if (!customerId) {
+            form.customer_name = '';
+            form.customer_email = '';
+            form.customer_phone = '';
+        }
+    },
+);
 
 /** Re-open the customer address modal from the billing section. */
 const openBillingCustomerAddressPicker = async () => {
@@ -624,6 +660,7 @@ onMounted(() => {
                 variant_display_name: variantDisplayName,
                 asset_unit_id: unitId,
                 unit_display_name: unitDisplayName,
+                asset_unit: item.asset_unit ?? item.assetUnit ?? item.estimate_line_item?.asset_unit ?? item.estimate_line_item?.assetUnit ?? null,
                 asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
                 selected_asset_options: hydrateAssetSelectionsFromItem(item),
             });
@@ -848,6 +885,49 @@ const hasTaxRateChanged = () =>
     Math.abs((Number(form.tax_rate) || 0) - (Number(taxRateBaseline.value) || 0)) > 0.0001;
 
 const showTaxSyncModal = ref(false);
+const showAssetUnitStatusModal = ref(false);
+const assetUnitStatusRows = ref([]);
+const pendingAssetUnitStatuses = ref(null);
+let pendingSubmitAfterUnitStatuses = null;
+
+const shouldPromptAssetUnitStatuses = () => {
+    if (props.mode !== 'edit') {
+        return false;
+    }
+    if (!isTerminalTransactionStatus(form.status)) {
+        return false;
+    }
+    if (Number(form.status) === Number(initialTransactionStatusId)) {
+        return false;
+    }
+    return collectAssetUnitsFromFormAssetItems(assetItems.value).length > 0;
+};
+
+const maybePromptAssetUnitStatuses = (next) => {
+    if (!shouldPromptAssetUnitStatuses()) {
+        pendingAssetUnitStatuses.value = null;
+        next();
+        return;
+    }
+
+    const units = collectAssetUnitsFromFormAssetItems(assetItems.value);
+    assetUnitStatusRows.value = buildAssetUnitStatusDraft(units, form.status);
+    pendingSubmitAfterUnitStatuses = next;
+    showAssetUnitStatusModal.value = true;
+};
+
+const closeAssetUnitStatusModal = () => {
+    showAssetUnitStatusModal.value = false;
+    pendingSubmitAfterUnitStatuses = null;
+};
+
+const confirmAssetUnitStatuses = (statuses) => {
+    pendingAssetUnitStatuses.value = statuses;
+    showAssetUnitStatusModal.value = false;
+    const next = pendingSubmitAfterUnitStatuses;
+    pendingSubmitAfterUnitStatuses = null;
+    next?.();
+};
 
 // ─── Submit ───────────────────────────────────────────────────────────────────
 
@@ -862,12 +942,12 @@ const submit = () => {
         showTaxSyncModal.value = true;
         return;
     }
-    performSubmit(false);
+    maybePromptAssetUnitStatuses(() => performSubmit(false));
 };
 
 const confirmTaxSync = (updateLinkedInvoices) => {
     showTaxSyncModal.value = false;
-    performSubmit(updateLinkedInvoices);
+    maybePromptAssetUnitStatuses(() => performSubmit(updateLinkedInvoices));
 };
 
 const performSubmit = (updateLinkedInvoices) => {
@@ -934,12 +1014,18 @@ const performSubmit = (updateLinkedInvoices) => {
             return all;
         })() }),
         ...(props.mode === 'edit' ? { update_linked_invoice_tax: !!updateLinkedInvoices } : {}),
+        ...(pendingAssetUnitStatuses.value
+            ? { asset_unit_statuses: pendingAssetUnitStatuses.value }
+            : {}),
     }));
 
     if (props.mode === 'edit') {
         form.put(route('transactions.update', props.record.id), {
             headers: { ...csrfHeader() },
-            onSuccess: () => { window.location.href = route('transactions.show', props.record.id); },
+            onSuccess: () => {
+                pendingAssetUnitStatuses.value = null;
+                window.location.href = route('transactions.show', props.record.id);
+            },
         });
     } else {
         form.post(route('transactions.store'));
@@ -1148,8 +1234,8 @@ const handleCancel = () => emit('cancel');
                                 </div>
                             </div>
 
-                            <!-- ─── Customer Snapshot ────────────────────────────────── -->
-                            <div class="border-gray-200 dark:border-gray-700 pt-6">
+                            <!-- ─── Customer Snapshot (edit/show only; create saves via customer_id) ─ -->
+                            <div v-if="mode !== 'create'" class="border-gray-200 dark:border-gray-700 pt-6">
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                     Customer Snapshot
                                 </h3>
@@ -1226,7 +1312,7 @@ const handleCancel = () => emit('cancel');
                                 <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
                                     Tax
                                 </h3>
-                                <div class="space-y-4 max-w-md">
+                                <div class="s max-w-md flex  gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tax rate (%)</label>
                                         <input
@@ -2153,6 +2239,17 @@ const handleCancel = () => emit('cancel');
                 </div>
             </Transition>
         </Teleport>
+
+        <TransactionAssetUnitStatusModal
+            :show="showAssetUnitStatusModal"
+            v-model:rows="assetUnitStatusRows"
+            :transaction-status-id="form.status"
+            :status-options="statusOptions"
+            :unit-status-options="unitStatusOptions"
+            :processing="form.processing"
+            @close="closeAssetUnitStatusModal"
+            @confirm="confirmAssetUnitStatuses"
+        />
 
         <Modal :show="showTaxSyncModal" max-width="md" @close="showTaxSyncModal = false">
             <div class="p-6">

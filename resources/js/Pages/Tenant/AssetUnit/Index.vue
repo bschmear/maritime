@@ -44,12 +44,11 @@ const tabBtnClass = (tab, active) => [
         : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800',
 ];
 
-const breadcrumbItems = computed(() => {
-    return [
-        { label: 'Home', href: route('dashboard') },
-        { label: props.pluralTitle },
-    ];
-});
+const breadcrumbItems = computed(() => [
+    { label: 'Home', href: route('dashboard') },
+    { label: 'Assets', href: route('assets.index') },
+    { label: 'Asset Units' },
+]);
 </script>
 
 <template>

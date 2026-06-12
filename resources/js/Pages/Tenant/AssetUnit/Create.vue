@@ -18,7 +18,8 @@ const props = defineProps({
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: 'Asset units', href: route('assetunits.index') },
+    { label: 'Assets', href: route('assets.index') },
+    { label: 'Asset Units', href: route('assets.units.global-index') },
     { label: 'New' },
 ]);
 

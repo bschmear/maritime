@@ -11,6 +11,7 @@ use App\Domain\Transaction\Support\AssertTransactionLineItemsEditable;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
 use App\Domain\Transaction\Support\FillTransactionCustomerSnapshot;
 use App\Domain\Transaction\Support\RecalculateTransactionTotals;
+use App\Domain\Transaction\Support\SyncAssetUnitStatusesFromTransaction;
 use App\Domain\Transaction\Support\SyncLinkedDealTaxRate;
 use App\Enums\Transaction\TransactionStatus;
 use App\Support\TransactionEnumMapper;
@@ -27,6 +28,9 @@ class UpdateTransaction
     {
         $updateLinkedInvoiceTax = filter_var($data['update_linked_invoice_tax'] ?? false, FILTER_VALIDATE_BOOLEAN);
         unset($data['update_linked_invoice_tax']);
+
+        $assetUnitStatuses = $data['asset_unit_statuses'] ?? null;
+        unset($data['asset_unit_statuses']);
 
         $validator = Validator::make($data, [
             'customer_id' => ['sometimes', 'required', 'integer', 'exists:customer_profiles,id'],
@@ -124,13 +128,37 @@ class UpdateTransaction
         $syncItems = array_key_exists('items', $data) && is_array($data['items']);
         $itemsData = $syncItems ? $data['items'] : [];
 
+        $newStatusValue = $payload['status'] ?? null;
+        $terminalStatuses = [
+            TransactionStatus::Completed->value,
+            TransactionStatus::Failed->value,
+            TransactionStatus::Cancelled->value,
+        ];
+        $shouldSyncUnitStatuses = is_array($assetUnitStatuses)
+            && $newStatusValue !== null
+            && in_array($newStatusValue, $terminalStatuses, true);
+
         try {
             $record = null;
             $previousTaxRate = null;
+            $previousStatus = null;
 
-            DB::transaction(function () use ($id, $payload, $syncItems, $itemsData, &$record, &$previousTaxRate) {
+            DB::transaction(function () use (
+                $id,
+                $payload,
+                $syncItems,
+                $itemsData,
+                $assetUnitStatuses,
+                $shouldSyncUnitStatuses,
+                $newStatusValue,
+                $terminalStatuses,
+                &$record,
+                &$previousTaxRate,
+                &$previousStatus,
+            ) {
                 $record = RecordModel::findOrFail($id);
                 $previousTaxRate = (float) ($record->tax_rate ?? 0);
+                $previousStatus = $record->status;
 
                 if ($syncItems) {
                     AssertTransactionLineItemsEditable::validate($record);
@@ -152,6 +180,14 @@ class UpdateTransaction
                     $this->syncItems($record, $itemsData);
                     $record->refresh();
                     RecalculateTransactionTotals::rollupTransaction($record->fresh());
+                }
+
+                if (
+                    $shouldSyncUnitStatuses
+                    && $newStatusValue !== $previousStatus
+                    && in_array($newStatusValue, $terminalStatuses, true)
+                ) {
+                    SyncAssetUnitStatusesFromTransaction::apply($record->fresh(), $assetUnitStatuses);
                 }
             });
 

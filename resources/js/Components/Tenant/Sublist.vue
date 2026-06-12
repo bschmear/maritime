@@ -1103,7 +1103,10 @@ const getSublistRecordType = (domain) => {
     return `${domain.charAt(0).toLowerCase()}${domain.slice(1)}s`;
 };
 
-const sublistAllowsCreateModal = () => sublistTableSchema.value?.allow_create_modal !== false;
+/** When false, domain has a dedicated create page — show link in sublist modal header. */
+const sublistHasCustomCreatePage = computed(
+    () => sublistTableSchema.value?.allow_create_modal === false,
+);
 
 const isAssetUnitMsoTab = computed(() => activeTab.value?.sublistKind === 'assetUnitMso');
 
@@ -1164,10 +1167,10 @@ const buildSublistCreateQueryParams = () => {
     return params;
 };
 
-const navigateToSublistCreatePage = () => {
+const getSublistCreatePageUrl = () => {
     const tab = activeTab.value;
     if (!tab?.domain) {
-        return;
+        return null;
     }
 
     const recordType = getSublistRecordType(tab.domain);
@@ -1183,7 +1186,7 @@ const navigateToSublistCreatePage = () => {
         }
     } catch (error) {
         console.error('[Sublist] Unable to resolve create route:', error);
-        return;
+        return null;
     }
 
     const query = buildSublistCreateQueryParams();
@@ -1192,8 +1195,10 @@ const navigateToSublistCreatePage = () => {
         url += `${url.includes('?') ? '&' : '?'}${qs}`;
     }
 
-    window.location.href = url;
+    return url;
 };
+
+const sublistCreatePageUrl = computed(() => getSublistCreatePageUrl());
 
 const handleTabChange = async (sublist) => {
     activeTab.value = sublist;
@@ -1296,11 +1301,6 @@ const openSublistCreateModal = async () => {
 
     if (activeTab.value) {
         await ensureSublistTableSchema(activeTab.value);
-    }
-
-    if (!sublistAllowsCreateModal()) {
-        navigateToSublistCreatePage();
-        return;
     }
 
     showSublistCreateModal.value = true;
@@ -1422,11 +1422,6 @@ const openCreateNewFromAttachModal = async () => {
 
     if (activeTab.value) {
         await ensureSublistTableSchema(activeTab.value);
-    }
-
-    if (!sublistAllowsCreateModal()) {
-        navigateToSublistCreatePage();
-        return;
     }
 
     showSublistCreateModal.value = true;
@@ -2202,19 +2197,28 @@ watch(
     <!-- Sublist Create Modal -->
     <Modal :show="showSublistCreateModal" @close="closeSublistCreateModal" :max-width="'4xl'">
         <!-- Modal Header -->
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center justify-between gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
                 Create New {{ activeTab?.label || 'Record' }}
             </h3>
-            <button
-                @click="closeSublistCreateModal"
-                type="button"
-                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
-            >
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
+            <div class="flex shrink-0 items-center gap-2">
+                <a
+                    v-if="sublistHasCustomCreatePage && sublistCreatePageUrl"
+                    :href="sublistCreatePageUrl"
+                    class="inline-flex items-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+                    Open Create Page
+                </a>
+                <button
+                    @click="closeSublistCreateModal"
+                    type="button"
+                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white"
+                >
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <!-- Modal Body -->
