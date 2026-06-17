@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
+import Sublist from '@/Components/Tenant/Sublist.vue';
 import DeliveryPreview from '@/Components/Tenant/DeliveryPreview.vue';
 import MobileActionBar from '@/Components/Tenant/MobileActionBar.vue';
 import MobileActionBarButton from '@/Components/Tenant/MobileActionBarButton.vue';
@@ -9,10 +10,19 @@ import { useMobileActionBar } from '@/composables/useMobileActionBar';
 import { usePwaLinks } from '@/composables/usePwaLinks';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, onMounted, ref } from 'vue';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+import { useTimezone } from '@/composables/useTimezone';
+import { computed, onMounted, ref, watch } from 'vue';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const props = defineProps({
     record: { type: Object, required: true },
+    formSchema: { type: Object, default: null },
+    domainName: { type: String, default: 'Delivery' },
     enumOptions: { type: Object, default: () => ({}) },
     account: { type: Object, default: null },
     checklistItems: { type: Array, default: () => [] },
@@ -41,9 +51,13 @@ const props = defineProps({
         }),
     },
     logoUrl: { type: String, default: null },
+    canApproveRequest: { type: Boolean, default: false },
+    canResubmitRequest: { type: Boolean, default: false },
+    canCreateDelivery: { type: Boolean, default: true },
 });
 
 const page = usePage();
+const { accountTimezone } = useTimezone();
 const { headerActionsClass } = useMobileActionBar();
 const { externalLinkTarget } = usePwaLinks();
 
@@ -53,6 +67,8 @@ const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url
 const deliverySmsEnabledForEnRoute = computed(() => props.deliveryEnRouteSms?.modal === true);
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
+
+const visibleSublists = computed(() => props.formSchema?.sublists ?? []);
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
@@ -147,8 +163,8 @@ const saveCategoryAdminModal = async () => {
 const isSigned = computed(() => !!props.record?.signed_at);
 
 const deliveryStatusOptions = computed(() => props.enumOptions?.delivery_status || [
+    { id: 'requested', name: 'Requested' },
     { id: 'scheduled', name: 'Scheduled' },
-    { id: 'confirmed', name: 'Confirmed' },
     { id: 'en_route', name: 'En Route' },
     { id: 'delivered', name: 'Delivered' },
     { id: 'cancelled', name: 'Cancelled' },
@@ -337,7 +353,7 @@ const relatedRecords = computed(() => {
 
 const canMarkEnRoute = computed(
     () => !isSigned.value
-        && ['scheduled', 'confirmed', 'rescheduled'].includes(props.record?.status),
+        && ['scheduled', 'rescheduled'].includes(props.record?.status),
 );
 
 const destinationCompleteForTravel = computed(() => {
@@ -350,8 +366,66 @@ const destinationCompleteForTravel = computed(() => {
 });
 
 const showTravelComputeButton = computed(
-    () => ['scheduled', 'confirmed', 'rescheduled'].includes(props.record?.status)
+    () => ['scheduled', 'rescheduled'].includes(props.record?.status)
         && props.record?.estimated_travel_duration_seconds == null,
+);
+
+const isRequested = computed(() => props.record?.status === 'requested');
+const reviewNotes = ref('');
+const proposedScheduledAt = ref('');
+const reviewProcessing = ref(false);
+
+const serverUtcToLocalInput = (value) => {
+    if (!value) return '';
+    const m = dayjs(value);
+    if (!m.isValid()) return '';
+    return m.tz(accountTimezone.value).format('YYYY-MM-DDTHH:mm');
+};
+
+const accountDatetimeLocalToUtcIso = (value) => {
+    if (!value?.trim()) return null;
+    const m = dayjs.tz(value, accountTimezone.value);
+    return m.isValid() ? m.utc().format() : null;
+};
+
+const approveRequest = () => {
+    reviewProcessing.value = true;
+    router.post(route('deliveries.requests.approve', props.record.id), {
+        review_notes: reviewNotes.value || null,
+    }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
+};
+
+const denyRequest = () => {
+    reviewProcessing.value = true;
+    router.post(route('deliveries.requests.deny', props.record.id), {
+        review_notes: reviewNotes.value || null,
+    }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
+};
+
+const proposeReschedule = () => {
+    reviewProcessing.value = true;
+    router.post(route('deliveries.requests.propose-reschedule', props.record.id), {
+        review_notes: reviewNotes.value || null,
+        proposed_scheduled_at: accountDatetimeLocalToUtcIso(proposedScheduledAt.value),
+    }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
+};
+
+const resubmitRequest = () => {
+    reviewProcessing.value = true;
+    const local = proposedScheduledAt.value || serverUtcToLocalInput(props.record?.proposed_scheduled_at);
+    router.post(route('deliveries.requests.resubmit', props.record.id), {
+        scheduled_at: accountDatetimeLocalToUtcIso(local),
+    }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
+};
+
+watch(
+    () => props.record?.proposed_scheduled_at,
+    (v) => {
+        if (v && !proposedScheduledAt.value) {
+            proposedScheduledAt.value = serverUtcToLocalInput(v);
+        }
+    },
+    { immediate: true },
 );
 
 const travelComputeReady = computed(
@@ -1231,11 +1305,89 @@ const googleMapsDirectionsUrl = computed(() => {
                     </div>
                 </div>
 
+                <Sublist
+                    v-if="visibleSublists.length > 0 && domainName"
+                    :parent-record="record"
+                    :parent-domain="domainName"
+                    :sublists="visibleSublists"
+                />
 
             </div>
 
             <!-- Sidebar -->
             <div class="min-w-0 space-y-6 lg:col-span-4">
+                <!-- Request approval -->
+                <div
+                    v-if="isRequested"
+                    class="rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30"
+                >
+                    <h3 class="mb-2 text-lg font-semibold text-amber-950 dark:text-amber-100">Delivery request</h3>
+                    <p class="mb-4 text-sm text-amber-900/80 dark:text-amber-200/80">
+                        Requested by {{ record.requested_by?.display_name ?? '—' }}
+                        <span v-if="record.requested_at"> on {{ formatDateTime(record.requested_at) }}</span>
+                    </p>
+                    <div v-if="record.review_decision === 'reschedule_requested'" class="mb-4 rounded-lg border border-amber-300 bg-white/70 p-3 text-sm dark:border-amber-700 dark:bg-gray-900/40">
+                        <p class="font-medium text-amber-950 dark:text-amber-100">Approver requested a new time</p>
+                        <p v-if="record.proposed_scheduled_at" class="mt-1">Proposed: {{ formatDateTime(record.proposed_scheduled_at) }}</p>
+                        <p v-if="record.review_notes" class="mt-1 text-gray-700 dark:text-gray-300">{{ record.review_notes }}</p>
+                    </div>
+                    <div v-if="canApproveRequest" class="space-y-3">
+                        <textarea
+                            v-model="reviewNotes"
+                            rows="2"
+                            class="input-style w-full text-sm"
+                            placeholder="Optional note to requester"
+                        />
+                        <input
+                            v-model="proposedScheduledAt"
+                            type="datetime-local"
+                            class="input-style w-full text-sm"
+                            placeholder="Proposed schedule (for reschedule)"
+                        />
+                        <button
+                            type="button"
+                            class="btn-primary w-full"
+                            :disabled="reviewProcessing"
+                            @click="approveRequest"
+                        >
+                            Approve & schedule
+                        </button>
+                        <button
+                            type="button"
+                            class="w-full rounded-lg border border-amber-400 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900/40"
+                            :disabled="reviewProcessing || !proposedScheduledAt"
+                            @click="proposeReschedule"
+                        >
+                            Propose reschedule
+                        </button>
+                        <button
+                            type="button"
+                            class="btn-danger w-full"
+                            :disabled="reviewProcessing"
+                            @click="denyRequest"
+                        >
+                            Deny request
+                        </button>
+                    </div>
+                    <div v-else-if="canResubmitRequest" class="space-y-3">
+                        <input
+                            v-model="proposedScheduledAt"
+                            type="datetime-local"
+                            class="input-style w-full text-sm"
+                            :placeholder="record.proposed_scheduled_at ? serverUtcToLocalInput(record.proposed_scheduled_at) : 'Updated schedule'"
+                        />
+                        <button
+                            type="button"
+                            class="btn-primary w-full"
+                            :disabled="reviewProcessing"
+                            @click="resubmitRequest"
+                        >
+                            Resubmit for approval
+                        </button>
+                    </div>
+                    <p v-else class="text-sm text-amber-800 dark:text-amber-200">Awaiting review by the location delivery approver.</p>
+                </div>
+
                 <!-- Actions -->
                 <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions</h3>

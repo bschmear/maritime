@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { useTenantPermissions } from '@/composables/useTenantPermissions';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
@@ -16,9 +17,13 @@ const props = defineProps({
     subsidiaryOptions: { type: Array, default: () => [] },
     fieldsSchema: { type: Object, default: () => ({}) },
     enumOptions: { type: Object, default: () => ({}) },
+    canCreateDelivery: { type: Boolean, default: true },
+    pendingRequestCount: { type: Number, default: 0 },
 });
 
-const ALLOWED_STATUSES = ['scheduled', 'confirmed', 'en_route', 'delivered', 'cancelled', 'rescheduled'];
+const { can } = useTenantPermissions();
+const canCreateDeliveryEffective = computed(() => props.canCreateDelivery || can('delivery.create'));
+const ALLOWED_STATUSES = ['scheduled', 'en_route', 'delivered', 'cancelled', 'rescheduled'];
 const DEFAULT_STATUSES = ['scheduled', 'en_route', 'rescheduled'];
 
 const parseInitialStatuses = (filters) => {
@@ -430,7 +435,7 @@ const dayModalDeliveries = computed(() => {
 
 const statusConfig = {
     scheduled: { label: 'Scheduled', bg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300', icon: 'schedule', dot: 'bg-blue-500' },
-    confirmed: { label: 'Confirmed', bg: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300', icon: 'task_alt', dot: 'bg-indigo-500' },
+    requested: { label: 'Requested', bg: 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300', icon: 'pending_actions', dot: 'bg-amber-500' },
     en_route: { label: 'En Route', bg: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300', icon: 'local_shipping', dot: 'bg-yellow-500' },
     delivered: { label: 'Delivered', bg: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300', icon: 'check_circle', dot: 'bg-green-500' },
     cancelled: { label: 'Cancelled', bg: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300', icon: 'cancel', dot: 'bg-red-500' },
@@ -442,7 +447,7 @@ const getStatus = (s) => statusConfig[s] || statusConfig.scheduled;
 /** Full Tailwind classes for filter dots (avoid dynamic `bg-${color}-500` in template). */
 const STATUS_FILTER_DOT = {
     scheduled: 'bg-blue-500',
-    confirmed: 'bg-indigo-500',
+    requested: 'bg-amber-500',
     en_route: 'bg-yellow-500',
     delivered: 'bg-green-500',
     cancelled: 'bg-red-500',
@@ -956,14 +961,33 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <!-- New Delivery -->
-                    <Link
-                        :href="route('deliveries.create')"
-                        class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-md flex-shrink-0"
-                    >
-                        <span class="material-icons text-lg">add</span>
-                        <span>New Delivery</span>
-                    </Link>
+                    <!-- New Delivery / Request -->
+                    <div class="flex flex-shrink-0 flex-wrap items-center gap-2">
+                        <Link
+                            v-if="pendingRequestCount > 0"
+                            :href="route('deliveries.requests.index')"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 px-3 py-2 text-md font-medium text-amber-800 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-950/40"
+                        >
+                            <span class="material-icons text-lg">pending_actions</span>
+                            {{ pendingRequestCount }} request{{ pendingRequestCount === 1 ? '' : 's' }}
+                        </Link>
+                        <Link
+                            v-if="canCreateDeliveryEffective"
+                            :href="route('deliveries.create')"
+                            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-md font-medium text-white transition-colors hover:bg-blue-700"
+                        >
+                            <span class="material-icons text-lg">add</span>
+                            <span>New Delivery</span>
+                        </Link>
+                        <Link
+                            v-else
+                            :href="route('deliveries.requests.create')"
+                            class="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-md font-medium text-white transition-colors hover:bg-amber-700"
+                        >
+                            <span class="material-icons text-lg">add</span>
+                            <span>Create Delivery Request</span>
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Active filter pills (same pattern as Table.vue) -->

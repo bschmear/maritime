@@ -20,7 +20,7 @@ final class DeliveryFleetOccupancy
      */
     public static function statusesExcludedFromFleetConflicts(): array
     {
-        return ['cancelled', 'delivered'];
+        return ['cancelled', 'delivered', 'requested'];
     }
 
     public static function travelMinutes(?int $seconds): int
@@ -179,6 +179,132 @@ final class DeliveryFleetOccupancy
         }
 
         return $out;
+    }
+
+    /**
+     * @return list<array{id: int, display_name: string, status: string, scheduled_at: string|null, window_start: string|null, window_end: string|null}>
+     */
+    public static function findTechnicianConflicts(
+        ?int $technicianId,
+        Delivery $subject,
+        ?int $excludeDeliveryId = null
+    ): array {
+        if ($technicianId === null || $technicianId <= 0) {
+            return [];
+        }
+
+        $subjectWindow = self::occupancyWindow($subject);
+        if ($subjectWindow === null) {
+            return [];
+        }
+
+        /** @var CarbonInterface $s0 */
+        /** @var CarbonInterface $s1 */
+        [$s0, $s1] = $subjectWindow;
+
+        $out = [];
+        foreach (self::technicianDeliveriesQuery($technicianId, $excludeDeliveryId ?? ($subject->getKey() ?: null))->cursor() as $other) {
+            /** @var Delivery $other */
+            $w = self::occupancyWindow($other);
+            if ($w === null) {
+                continue;
+            }
+            [$o0, $o1] = $w;
+            if (! self::intervalsOverlap($s0, $s1, $o0, $o1)) {
+                continue;
+            }
+            $out[] = self::technicianDeliveryPayload($other, $o0, $o1, true);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Upcoming deliveries for a driver in a window around the draft schedule.
+     *
+     * @return list<array{id: int, display_name: string, status: string, scheduled_at: string|null, window_start: string|null, window_end: string|null, conflicts_with_draft: bool}>
+     */
+    public static function technicianUpcomingSchedule(
+        int $technicianId,
+        Delivery $subject,
+        ?int $excludeDeliveryId = null
+    ): array {
+        $subjectWindow = self::occupancyWindow($subject);
+        if ($subjectWindow === null) {
+            return [];
+        }
+
+        /** @var CarbonInterface $s0 */
+        /** @var CarbonInterface $s1 */
+        [$s0, $s1] = $subjectWindow;
+
+        $rangeStart = $s0->copy()->subDay()->startOfDay();
+        $rangeEnd = $s1->copy()->addDays(7)->endOfDay();
+
+        $conflictIds = array_column(
+            self::findTechnicianConflicts($technicianId, $subject, $excludeDeliveryId),
+            'id',
+        );
+
+        $out = [];
+        foreach (self::technicianDeliveriesQuery($technicianId, $excludeDeliveryId ?? ($subject->getKey() ?: null))->cursor() as $delivery) {
+            /** @var Delivery $delivery */
+            $w = self::occupancyWindow($delivery);
+            if ($w === null) {
+                continue;
+            }
+            [$w0, $w1] = $w;
+            if ($w1->lt($rangeStart) || $w0->gt($rangeEnd)) {
+                continue;
+            }
+            $out[] = self::technicianDeliveryPayload(
+                $delivery,
+                $w0,
+                $w1,
+                in_array((int) $delivery->id, $conflictIds, true),
+            );
+        }
+
+        usort($out, static fn (array $a, array $b) => strcmp((string) ($a['window_start'] ?? ''), (string) ($b['window_start'] ?? '')));
+
+        return $out;
+    }
+
+    private static function technicianDeliveriesQuery(int $technicianId, ?int $excludeDeliveryId): \Illuminate\Database\Eloquent\Builder
+    {
+        $q = Delivery::query()
+            ->where('technician_id', $technicianId)
+            ->whereNotIn('status', self::statusesExcludedFromFleetConflicts())
+            ->whereNotNull('scheduled_at')
+            ->orderBy('scheduled_at');
+
+        if ($excludeDeliveryId !== null) {
+            $q->where('id', '!=', $excludeDeliveryId);
+        }
+
+        return $q;
+    }
+
+    /**
+     * @return array{id: int, display_name: string, status: string, scheduled_at: string|null, window_start: string|null, window_end: string|null, conflicts_with_draft: bool}
+     */
+    private static function technicianDeliveryPayload(
+        Delivery $delivery,
+        CarbonInterface $windowStart,
+        CarbonInterface $windowEnd,
+        bool $conflictsWithDraft,
+    ): array {
+        $scheduled = self::asCarbon($delivery->getAttribute('scheduled_at'));
+
+        return [
+            'id' => (int) $delivery->id,
+            'display_name' => $delivery->display_name,
+            'status' => (string) $delivery->status,
+            'scheduled_at' => $scheduled?->toIso8601String(),
+            'window_start' => $windowStart->toIso8601String(),
+            'window_end' => $windowEnd->toIso8601String(),
+            'conflicts_with_draft' => $conflictsWithDraft,
+        ];
     }
 
     /**

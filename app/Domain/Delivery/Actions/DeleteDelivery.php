@@ -4,6 +4,8 @@ namespace App\Domain\Delivery\Actions;
 
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
+use App\Domain\SystemLog\Support\LogSystemEvent;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -15,6 +17,7 @@ class DeleteDelivery
         try {
             $record = RecordModel::findOrFail($id);
             $technicianId = $record->technician_id;
+            LogSystemEvent::record($record, SystemLogAction::Deleted);
             $record->delete();
             SyncTechnicianDeliveryInProgress::recomputeForUserIds([$technicianId]);
 

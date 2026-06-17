@@ -6,13 +6,14 @@ use App\Domain\Fleet\Models\Fleet;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
+use App\Models\Concerns\HasSystemLogs;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Location extends Model
 {
-    use HasDocuments;
+    use HasDocuments, HasSystemLogs;
 
     protected $guarded = [
         'id',
@@ -43,6 +44,16 @@ class Location extends Model
     public function manager_user()
     {
         return $this->belongsTo(User::class, 'manager_user_id')->select('id', 'display_name');
+    }
+
+    public function managerUser()
+    {
+        return $this->belongsTo(User::class, 'manager_user_id')->select('id', 'display_name', 'email');
+    }
+
+    public function deliveryApprover()
+    {
+        return $this->belongsTo(User::class, 'delivery_approver_user_id')->select('id', 'display_name', 'email');
     }
 
     public function subsidiaries()

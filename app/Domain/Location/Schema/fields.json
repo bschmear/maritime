@@ -67,6 +67,13 @@
         "type": "record",
         "typeDomain": "User"
     },
+    "delivery_approver_user_id": {
+        "label": "Delivery Approver",
+        "type": "record",
+        "typeDomain": "User",
+        "relationship": "deliveryApprover",
+        "help": "Notified when a delivery request starts from this location. Falls back to Manager if empty."
+    },
     "created_by_id": {
         "label": "Created By",
         "type": "record",

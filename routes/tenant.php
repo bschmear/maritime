@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountConsignmentController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\AccountSetupController;
+use App\Http\Controllers\Tenant\AccountDeliveryManagementController;
 use App\Http\Controllers\Tenant\AccountSmsNotificationsController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AssetController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\DeliveryChecklistController;
 use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
+use App\Http\Controllers\Tenant\DeliveryRequestController;
 use App\Http\Controllers\Tenant\DeliveryLocationController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\DocumentRequestController;
@@ -482,12 +484,20 @@ Route::middleware([
         });
 
         Route::prefix('deliveries')->name('deliveries.')->group(function () {
+            Route::get('/requests', [DeliveryRequestController::class, 'index'])->name('requests.index');
+            Route::get('/requests/create', [DeliveryRequestController::class, 'create'])->name('requests.create');
+            Route::post('/requests', [DeliveryRequestController::class, 'store'])->name('requests.store');
+            Route::post('/{delivery}/request/approve', [DeliveryRequestController::class, 'approve'])->name('requests.approve');
+            Route::post('/{delivery}/request/deny', [DeliveryRequestController::class, 'deny'])->name('requests.deny');
+            Route::post('/{delivery}/request/propose-reschedule', [DeliveryRequestController::class, 'proposeReschedule'])->name('requests.propose-reschedule');
+            Route::post('/{delivery}/request/resubmit', [DeliveryRequestController::class, 'resubmit'])->name('requests.resubmit');
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
             Route::get('/source-items', [DeliveryController::class, 'sourceItems'])->name('source-items');
             Route::get('/schedule', [DeliveryController::class, 'schedule'])->name('delivery-schedule');
             Route::get('/schedule-board', [DeliveryController::class, 'scheduleBoard'])->name('schedule-board');
             Route::post('/check-fleet-schedule', [DeliveryController::class, 'checkFleetSchedule'])->name('check-fleet-schedule');
+            Route::post('/check-technician-schedule', [DeliveryController::class, 'checkTechnicianSchedule'])->name('check-technician-schedule');
             Route::post('/travel-estimate', [DeliveryController::class, 'travelEstimate'])->name('travel-estimate');
             Route::post('/{delivery}/compute-travel', [DeliveryController::class, 'computeTravel'])->name('compute-travel');
             Route::get('/{delivery}/print', [DeliveryController::class, 'print'])->name('print');
@@ -719,6 +729,8 @@ Route::middleware([
             Route::post('/consignment/policies/reorder', [AccountConsignmentController::class, 'reorderPolicies'])->name('consignment.policies.reorder');
             Route::get('/notifications/sms', [AccountSmsNotificationsController::class, 'index'])->name('notifications.sms.index');
             Route::patch('/notifications/sms', [AccountSmsNotificationsController::class, 'update'])->name('notifications.sms.update');
+            Route::get('/delivery-management', [AccountDeliveryManagementController::class, 'index'])->name('delivery-management.index');
+            Route::patch('/delivery-management', [AccountDeliveryManagementController::class, 'update'])->name('delivery-management.update');
             Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');
             Route::get('/payments/stripe', [PaymentConfigurationController::class, 'stripePage'])->name('payments.stripe');
             Route::get('/payments', [PaymentConfigurationController::class, 'index'])->name('payments');

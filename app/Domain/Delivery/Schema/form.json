@@ -21,7 +21,7 @@
         },
         {
           "key": "asset_unit_id",
-          "required": true
+          "required": false
         },
         {
           "key": "work_order_id",
@@ -105,6 +105,12 @@
     {
       "label": "Checklist",
       "domain": "DeliveryChecklistItem"
+    },
+    {
+      "label": "System log",
+      "domain": "SystemLog",
+      "modelRelationship": "systemLogs",
+      "readOnly": true
     }
   ]
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
+use App\Domain\Delivery\Support\DeliveryApproverResolver;
 use App\Domain\Document\Actions\CreateDocument;
 use App\Domain\Document\Models\Document;
 use App\Domain\DocumentRequest\Models\DocumentRequest;
@@ -18,6 +19,8 @@ use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Domain\WarrantyClaim\Support\LogWarrantyClaimVendorEmailCommunication;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Mail\ContractSignedNotification;
+use App\Mail\DeliveryRequestReviewedMail;
+use App\Mail\DeliveryRequestSubmittedMail;
 use App\Mail\EstimateApprovalNotification;
 use App\Mail\OpportunityFeatureRequestSubmittedMail;
 use App\Mail\ServiceTicketApprovalNotification;
@@ -326,10 +329,6 @@ class NotificationService
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Delivery
-    // ─────────────────────────────────────────────────────────────────────────
-
     public function notifyDeliverySigned(Delivery $delivery, AccountSettings $account): void
     {
         try {
@@ -366,6 +365,89 @@ class NotificationService
                 'delivery_id' => $delivery->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
+            ]);
+        }
+    }
+
+    public function notifyDeliveryRequestSubmitted(Delivery $delivery, AccountSettings $account): void
+    {
+        try {
+            $delivery->loadMissing(['location', 'requestedBy', 'customer']);
+            $approver = DeliveryApproverResolver::forLocation($delivery->location);
+
+            if (! $approver) {
+                Log::warning('No approver found for delivery request submission', [
+                    'delivery_id' => $delivery->id,
+                    'location_id' => $delivery->location_id,
+                ]);
+
+                return;
+            }
+
+            $requesterName = $delivery->requestedBy?->display_name ?? 'A team member';
+            $locationName = $delivery->location?->display_name ?? 'location';
+
+            Notification::create([
+                'assigned_to_user_id' => $approver->id,
+                'type' => 'delivery_request_submitted',
+                'title' => 'Delivery Request Submitted',
+                'message' => "{$requesterName} submitted {$delivery->display_name} departing from {$locationName}.",
+                'route' => 'deliveries.show',
+                'route_params' => ['delivery' => $delivery->id],
+            ]);
+
+            $email = $approver->email ?? null;
+            if ($email !== null && trim((string) $email) !== '') {
+                $mailable = new DeliveryRequestSubmittedMail($delivery, $account, $approver);
+                $this->tenantMail->send($email, $mailable);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to notify delivery request submitted', [
+                'delivery_id' => $delivery->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function notifyDeliveryRequestReviewed(Delivery $delivery, AccountSettings $account): void
+    {
+        try {
+            $delivery->loadMissing(['requestedBy', 'reviewedBy', 'customer', 'location']);
+
+            $notifyUser = $delivery->requestedBy;
+            if (! $notifyUser) {
+                Log::warning('No requester found for delivery request review notification', [
+                    'delivery_id' => $delivery->id,
+                ]);
+
+                return;
+            }
+
+            $decisionLabel = match ($delivery->review_decision) {
+                'approved' => 'approved',
+                'denied' => 'denied',
+                'reschedule_requested' => 'marked for reschedule',
+                default => 'updated',
+            };
+
+            Notification::create([
+                'assigned_to_user_id' => $notifyUser->id,
+                'type' => 'delivery_request_reviewed',
+                'title' => 'Delivery Request Reviewed',
+                'message' => "Your delivery request {$delivery->display_name} was {$decisionLabel}.",
+                'route' => 'deliveries.show',
+                'route_params' => ['delivery' => $delivery->id],
+            ]);
+
+            $email = $notifyUser->email ?? null;
+            if ($email !== null && trim((string) $email) !== '') {
+                $mailable = new DeliveryRequestReviewedMail($delivery, $account, $notifyUser);
+                $this->tenantMail->send($email, $mailable);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to notify delivery request reviewed', [
+                'delivery_id' => $delivery->id,
+                'error' => $e->getMessage(),
             ]);
         }
     }

@@ -18,6 +18,8 @@ class CreateLocation
                 'email' => ['nullable', 'email', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'notes' => ['nullable', 'string'],
+                'manager_user_id' => ['nullable', 'integer', 'exists:users,id'],
+                'delivery_approver_user_id' => ['nullable', 'integer', 'exists:users,id'],
             ])->validate();
 
             $fieldsToSave = array_merge($data, $validated);

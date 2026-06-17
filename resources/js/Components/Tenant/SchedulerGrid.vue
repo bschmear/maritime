@@ -610,7 +610,8 @@ function initials(name)     { return name.split(' ').map(n => n[0]).join('').toU
 const STATUS_COLORS = {
   pending: '#F59E0B', in_progress: '#60A5FA', completed: '#34D399', cancelled: '#9CA3AF',
   draft: '#9CA3AF', open: '#93C5FD', scheduled: '#818CF8', waiting: '#A8A29E', blocked: '#F87171', closed: '#64748B',
-  confirmed: '#A78BFA', en_route: '#38BDF8', delivered: '#34D399', rescheduled: '#FBBF24',
+  scheduled: '#94A3B8', requested: '#F59E0B',
+  en_route: '#38BDF8', delivered: '#34D399', rescheduled: '#FBBF24',
 }
 
 function woCardBaseClass(wo) {

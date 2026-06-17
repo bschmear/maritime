@@ -12,9 +12,9 @@
       "type": "record",
       "typeDomain": "AssetUnit",
       "filterby": "customer_id",
-      "required": true,
+      "required": false,
       "create": false,
-      "help": "Boat, engine, or trailer being delivered"
+      "help": "Legacy single-asset field; deliveries use line items instead"
     },
   
     "work_order_id": {

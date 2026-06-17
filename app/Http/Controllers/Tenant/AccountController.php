@@ -65,6 +65,13 @@ class AccountController extends Controller
                 'stats' => null,
             ],
             [
+                'title' => 'Delivery management',
+                'description' => 'Assign who approves delivery requests for each location.',
+                'icon' => 'local_shipping',
+                'href' => route('account.delivery-management.index'),
+                'stats' => null,
+            ],
+            [
                 'title' => 'Payments',
                 'description' => 'Connect Stripe to accept customer and invoice payments. Configure which payment methods you offer.',
                 'icon' => 'payments',

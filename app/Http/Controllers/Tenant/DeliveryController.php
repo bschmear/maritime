@@ -12,7 +12,7 @@ use App\Domain\Delivery\Actions\SwapDeliveryFleetAssignments;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
-use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
+use App\Domain\Delivery\Support\DeliveryApproverResolver;
 use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
 use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
@@ -60,7 +60,7 @@ class DeliveryController extends RecordController
     */
     public function index(Request $request)
     {
-        $allowedStatuses = ['scheduled', 'confirmed', 'en_route', 'delivered', 'cancelled', 'rescheduled'];
+        $allowedStatuses = ['scheduled', 'en_route', 'delivered', 'cancelled', 'rescheduled'];
         $defaultStatuses = ['scheduled', 'en_route', 'rescheduled'];
 
         $statusesForQuery = $this->resolveDeliveryIndexStatuses($request, $allowedStatuses, $defaultStatuses);
@@ -95,6 +95,7 @@ class DeliveryController extends RecordController
         $calendarMonthDeliveries = $calendarMonthQuery
             ->where('scheduled_at', '>=', $monthRangeStartUtc)
             ->where('scheduled_at', '<', $monthRangeEndUtc)
+            ->whereNotIn('status', ['requested'])
             ->orderBy('scheduled_at')
             ->get()
             ->filter(static function (RecordModel $d) use ($tz, $monthStart): bool {
@@ -199,6 +200,8 @@ class DeliveryController extends RecordController
             'subsidiaryOptions' => $subsidiaries,
             'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
             'enumOptions' => $this->getEnumOptions(),
+            'canCreateDelivery' => tenant_has_permission('delivery.create'),
+            'pendingRequestCount' => RecordModel::query()->where('status', 'requested')->count(),
         ]);
     }
 
@@ -342,7 +345,7 @@ class DeliveryController extends RecordController
     {
         $deliveryId = $delivery instanceof RecordModel ? $delivery->id : $delivery;
 
-        $record = RecordModel::with($this->deliveryDetailRelationships())
+        $record = RecordModel::with($this->deliveryShowRelationships())
             ->findOrFail($deliveryId);
 
         $record->setAppends(array_merge($record->getAppends(), ['signature_url']));
@@ -381,6 +384,7 @@ class DeliveryController extends RecordController
             'recordType' => 'deliveries',
             'recordTitle' => 'Delivery',
             'domainName' => 'Delivery',
+            'formSchema' => $this->getFormSchema(),
             'enumOptions' => $this->getEnumOptions(),
             'account' => $account,
             'checklistItems' => $checklistItems,
@@ -404,6 +408,13 @@ class DeliveryController extends RecordController
                 'hint' => $signatureSmsOffer['hint'],
             ],
             'logoUrl' => $account->logo_url,
+            'canApproveRequest' => $record->status === 'requested'
+                && DeliveryApproverResolver::currentUserCanApprove($record->location),
+            'canResubmitRequest' => $record->status === 'requested' && (
+                (current_tenant_user_id() !== null && (int) $record->requested_by_user_id === (int) current_tenant_user_id())
+                || current_tenant_role_slug() === 'admin'
+            ),
+            'canCreateDelivery' => tenant_has_permission('delivery.create'),
         ]);
     }
 
@@ -685,7 +696,7 @@ class DeliveryController extends RecordController
         // Quick status-only PATCH (existing behavior preserved).
         if ($request->has('status') && count($request->keys()) === 1) {
             $request->validate([
-                'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
+                'status' => 'required|in:scheduled,en_route,delivered,cancelled,rescheduled',
             ]);
 
             (new UpdateAction)($delivery->id, ['status' => $request->status]);
@@ -834,6 +845,40 @@ class DeliveryController extends RecordController
         ]);
     }
 
+    public function checkTechnicianSchedule(Request $request): JsonResponse
+    {
+        $payload = $request->all();
+        $validator = Validator::make($payload, [
+            'technician_id' => 'required|integer|exists:users,id',
+            'scheduled_at' => 'required|date',
+            'time_to_leave_by' => 'nullable|date',
+            'estimated_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+            'estimated_return_travel_duration_seconds' => 'nullable|integer|min:0|max:864000',
+            'delivery_duration_minutes' => 'nullable|integer|min:1|max:32767',
+            'exclude_delivery_id' => 'nullable|integer|exists:deliveries,id',
+        ]);
+        $validated = $validator->validate();
+
+        $technicianId = (int) $validated['technician_id'];
+        $subject = DeliveryFleetOccupancy::deliveryFromAttributes($validated, $validated['exclude_delivery_id'] ?? null);
+        $conflicts = DeliveryFleetOccupancy::findTechnicianConflicts(
+            $technicianId,
+            $subject,
+            $validated['exclude_delivery_id'] ?? null,
+        );
+        $upcoming = DeliveryFleetOccupancy::technicianUpcomingSchedule(
+            $technicianId,
+            $subject,
+            $validated['exclude_delivery_id'] ?? null,
+        );
+
+        return response()->json([
+            'ok' => $conflicts === [],
+            'conflicts' => $conflicts,
+            'upcoming' => $upcoming,
+        ]);
+    }
+
     public function scheduleBoard(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -874,7 +919,8 @@ class DeliveryController extends RecordController
             ->with(['customer.contact', 'location', 'deliveryLocation', 'fleetTruck', 'fleetTrailer'])
             ->where('scheduled_at', '>=', $dayStartUtc)
             ->where('scheduled_at', '<', $dayEndExclusiveUtc)
-            ->whereNotNull('technician_id');
+            ->whereNotNull('technician_id')
+            ->whereNotIn('status', ['requested', 'cancelled']);
 
         if (! empty($validated['location_id'])) {
             $deliveryQuery->where('location_id', (int) $validated['location_id']);
@@ -1021,7 +1067,7 @@ class DeliveryController extends RecordController
         $id = $delivery instanceof RecordModel ? $delivery->id : (int) $delivery;
         $model = RecordModel::query()->findOrFail($id);
 
-        if (! in_array($model->status, ['scheduled', 'confirmed', 'rescheduled'], true)) {
+        if (! in_array($model->status, ['scheduled', 'rescheduled'], true)) {
             return back()->with('error', 'This delivery cannot be marked en route from its current status.');
         }
 
@@ -1517,5 +1563,33 @@ class DeliveryController extends RecordController
                     ]);
             },
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function deliveryShowRelationships(): array
+    {
+        $relationships = array_merge($this->deliveryDetailRelationships(), [
+            'requestedBy',
+            'reviewedBy',
+        ]);
+
+        foreach ($this->getFormSchema()['sublists'] ?? [] as $sublist) {
+            if (! isset($sublist['modelRelationship'])) {
+                continue;
+            }
+
+            $name = $sublist['modelRelationship'];
+            if ($name === 'systemLogs') {
+                $relationships[$name] = fn ($query) => $query
+                    ->with(['user' => fn ($userQuery) => $userQuery->select(['id', 'display_name'])])
+                    ->orderByDesc('created_at');
+            } else {
+                $relationships[$name] = fn ($query) => $query->select('*');
+            }
+        }
+
+        return $relationships;
     }
 }

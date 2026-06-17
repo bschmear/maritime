@@ -4,7 +4,7 @@ import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import Modal from '@/Components/Modal.vue';
-import { useForm, router, usePage } from '@inertiajs/vue3';
+import { useForm, router, usePage, Link } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
 import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
@@ -22,6 +22,7 @@ const props = defineProps({
     mode: { type: String, default: 'create' },
     customerAddresses: { type: Array, default: () => [] },
     enumOptions: { type: Object, default: () => ({}) },
+    approverLocationIds: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['saved', 'cancelled']);
@@ -30,6 +31,8 @@ const page = usePage();
 const { accountTimezone } = useTimezone();
 
 const isEdit = computed(() => props.mode === 'edit' && props.record);
+const isRequest = computed(() => props.mode === 'request');
+const scheduleDirectly = ref(false);
 
 /** Create page opened with ?transaction_id= or ?work_order_id= (prefill from RecordController). */
 const deliveryCreateFromTransaction = computed(
@@ -143,7 +146,18 @@ form.transform((data) => ({
     time_to_leave_by: data.time_to_leave_by?.trim()
         ? (accountDatetimeLocalToUtcIso(data.time_to_leave_by) ?? null)
         : null,
+    ...(isRequest.value && scheduleDirectly.value ? { schedule_directly: true } : {}),
 }));
+
+const canScheduleDirectlyForLocation = computed(() => {
+    if (!isRequest.value || !form.location_id) {
+        return false;
+    }
+
+    return props.approverLocationIds.some((id) => Number(id) === Number(form.location_id));
+});
+
+const showDirectScheduleUi = computed(() => isRequest.value && canScheduleDirectlyForLocation.value);
 
 const sourceMode = ref(form.work_order_id ? 'work_order' : form.transaction_id ? 'transaction' : 'none');
 
@@ -183,7 +197,6 @@ const recordForFleetPickers = computed(() => {
 
 const statusOptions = computed(() => props.enumOptions?.delivery_status || [
     { id: 'scheduled', name: 'Scheduled' },
-    { id: 'confirmed', name: 'Confirmed' },
     { id: 'en_route', name: 'En Route' },
     { id: 'delivered', name: 'Delivered' },
     { id: 'cancelled', name: 'Cancelled' },
@@ -587,6 +600,86 @@ watch(
     scheduleFleetConflictCheck,
 );
 
+/* ─── Driver schedule conflict check (debounced) ─── */
+const driverConflicts = ref([]);
+const driverUpcoming = ref([]);
+const driverCheckLoading = ref(false);
+const showDriverScheduleModal = ref(false);
+let driverCheckTimer = null;
+
+const scheduleDriverConflictCheck = () => {
+    clearTimeout(driverCheckTimer);
+    driverCheckTimer = setTimeout(runDriverScheduleCheck, 450);
+};
+
+const buildDriverSchedulePayload = () => ({
+    technician_id: form.technician_id,
+    scheduled_at: accountDatetimeLocalToUtcIso(form.scheduled_at) || form.scheduled_at,
+    time_to_leave_by: accountDatetimeLocalToUtcIso(form.time_to_leave_by) || null,
+    estimated_travel_duration_seconds: form.estimated_travel_duration_seconds,
+    estimated_return_travel_duration_seconds: form.estimated_return_travel_duration_seconds,
+    delivery_duration_minutes: form.delivery_duration_minutes,
+    ...(isEdit.value && props.record?.id ? { exclude_delivery_id: props.record.id } : {}),
+});
+
+const runDriverScheduleCheck = async ({ openModalOnConflict = false } = {}) => {
+    if (!form.technician_id || !form.scheduled_at?.trim()) {
+        driverConflicts.value = [];
+        driverUpcoming.value = [];
+
+        return;
+    }
+    driverCheckLoading.value = true;
+    try {
+        const { data } = await axios.post(route('deliveries.check-technician-schedule'), buildDriverSchedulePayload());
+        const hadConflicts = driverConflicts.value.length > 0;
+        driverConflicts.value = data.conflicts || [];
+        driverUpcoming.value = data.upcoming || [];
+        if (openModalOnConflict && driverConflicts.value.length > 0 && !hadConflicts) {
+            showDriverScheduleModal.value = true;
+        }
+    } catch {
+        /* non-blocking */
+    } finally {
+        driverCheckLoading.value = false;
+    }
+};
+
+const openDriverScheduleModal = async () => {
+    await runDriverScheduleCheck();
+    showDriverScheduleModal.value = true;
+};
+
+const formatDriverScheduleTime = (value) => {
+    if (!value) {
+        return '—';
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime())
+        ? '—'
+        : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+watch(
+    () => [
+        form.scheduled_at,
+        form.time_to_leave_by,
+        form.estimated_travel_duration_seconds,
+        form.estimated_return_travel_duration_seconds,
+        form.delivery_duration_minutes,
+    ],
+    scheduleDriverConflictCheck,
+);
+
+watch(
+    () => form.technician_id,
+    async (technicianId, oldId) => {
+        if (technicianId && technicianId !== oldId && form.scheduled_at?.trim()) {
+            await runDriverScheduleCheck({ openModalOnConflict: true });
+        }
+    },
+);
+
 watch(
     () => form.location_id,
     (newLoc, oldLoc) => {
@@ -642,17 +735,26 @@ const onFleetTrailerRecordSelected = (r) => {
 };
 
 /* ─── Submit ─── */
-const submit = () => {
-    const url = isEdit.value
-        ? route('deliveries.update', props.record.id)
-        : route('deliveries.store');
-    const method = isEdit.value ? 'put' : 'post';
+const submit = (direct = false) => {
+    scheduleDirectly.value = isRequest.value && direct;
+
+    if (scheduleDirectly.value && !form.status) {
+        form.status = 'scheduled';
+    }
+
+    const url = isRequest.value
+        ? route('deliveries.requests.store')
+        : isEdit.value
+            ? route('deliveries.update', props.record.id)
+            : route('deliveries.store');
+    const method = isRequest.value || !isEdit.value ? 'post' : 'put';
     form.submit(method, url, validationSubmitOptions({
         onSuccess: () => {
             form.swap_with_delivery_id = null;
             emit('saved');
         },
         onFinish: async () => {
+            scheduleDirectly.value = false;
             await nextTick();
             const c = page.props.flash?.delivery_fleet_conflicts;
             if (Array.isArray(c) && c.length) {
@@ -690,6 +792,7 @@ const locationField = computed(() => ({
     typeDomain: 'Location',
     label: 'Depart from (location)',
     filterby: 'subsidiary_id',
+    required: isRequest.value,
 }));
 const fleetTruckField = computed(() => ({
     type: 'record',
@@ -960,7 +1063,7 @@ const onScheduledAtCommittedChange = async () => {
             </div>
         </div>
 
-        <form @submit.prevent="submit">
+        <form @submit.prevent="submit(showDirectScheduleUi)">
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <!-- ============================
@@ -1127,6 +1230,36 @@ const onScheduledAtCommittedChange = async () => {
                                             @record-selected="(r) => selectedTechnicianLabel = r?.name ?? ''"
                                             field-key="technician_id"
                                         />
+                                        <div v-if="form.technician_id" class="mt-2 flex flex-wrap items-center gap-2">
+                                            <button
+                                                type="button"
+                                                class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400"
+                                                :disabled="driverCheckLoading || !form.scheduled_at?.trim()"
+                                                @click="openDriverScheduleModal"
+                                            >
+                                                <span class="material-icons text-[16px]">calendar_month</span>
+                                                View driver schedule
+                                            </button>
+                                            <span v-if="driverCheckLoading" class="text-xs text-gray-500 dark:text-gray-400">
+                                                Checking schedule…
+                                            </span>
+                                        </div>
+                                        <div
+                                            v-if="driverConflicts.length"
+                                            class="mt-3 rounded-md border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100 space-y-2"
+                                        >
+                                            <p class="font-medium">
+                                                This driver has {{ driverConflicts.length }} overlapping
+                                                {{ driverConflicts.length === 1 ? 'delivery' : 'deliveries' }}.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                class="text-sm font-semibold text-primary-700 hover:underline dark:text-primary-300"
+                                                @click="openDriverScheduleModal"
+                                            >
+                                                Review schedule and conflicts
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1136,7 +1269,19 @@ const onScheduledAtCommittedChange = async () => {
                                         Schedule
                                     </h3>
 
-                                    <div>
+                                    <div v-if="showDirectScheduleUi" class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 dark:border-green-800/60 dark:bg-green-950/30">
+                                        <div class="flex items-start gap-2">
+                                            <span class="material-icons mt-0.5 text-[18px] text-green-600 dark:text-green-400">verified_user</span>
+                                            <div class="text-sm text-green-900 dark:text-green-200">
+                                                <p class="font-semibold">You can schedule this delivery directly</p>
+                                                <p class="mt-0.5 text-green-800/90 dark:text-green-300/90">
+                                                    You are the delivery approver for this location. Schedule it now or submit as a request for review.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div v-if="!isRequest || showDirectScheduleUi">
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Status</label>
                                         <select v-model="form.status" class="input-style w-full">
                                             <option
@@ -1554,7 +1699,30 @@ const onScheduledAtCommittedChange = async () => {
                             <span class="text-md font-semibold text-white">Actions</span>
                         </div>
                         <div class="p-5 space-y-3">
+                            <template v-if="showDirectScheduleUi">
+                                <button
+                                    type="button"
+                                    :disabled="form.processing"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                                    @click="submit(true)"
+                                >
+                                    <span class="material-icons text-[18px]" :class="{ 'animate-spin': form.processing }">
+                                        {{ form.processing ? 'sync' : 'event' }}
+                                    </span>
+                                    {{ form.processing ? 'Saving…' : 'Schedule delivery' }}
+                                </button>
+                                <button
+                                    type="button"
+                                    :disabled="form.processing"
+                                    class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors dark:text-amber-200 dark:bg-amber-950/40 dark:border-amber-800 dark:hover:bg-amber-950/60"
+                                    @click="submit(false)"
+                                >
+                                    <span class="material-icons text-[18px]">pending_actions</span>
+                                    Submit as request
+                                </button>
+                            </template>
                             <button
+                                v-else
                                 type="submit"
                                 :disabled="form.processing"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
@@ -1562,7 +1730,7 @@ const onScheduledAtCommittedChange = async () => {
                                 <span class="material-icons text-[18px]" :class="{ 'animate-spin': form.processing }">
                                     {{ form.processing ? 'sync' : 'check' }}
                                 </span>
-                                {{ form.processing ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Delivery') }}
+                                {{ form.processing ? 'Saving…' : (isRequest ? 'Submit request' : (isEdit ? 'Save Changes' : 'Create Delivery')) }}
                             </button>
                             <button
                                 type="button"
@@ -1580,7 +1748,13 @@ const onScheduledAtCommittedChange = async () => {
                             <span class="text-md font-semibold text-white">Delivery summary</span>
                         </div>
                         <div class="p-5 space-y-2 text-md">
-                            <div class="space-y-1.5">
+                            <div v-if="isRequest && !showDirectScheduleUi" class="space-y-1.5">
+                                <span class="text-gray-500 dark:text-gray-400 text-sm block">Status</span>
+                                <span class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                                    Requested (pending approval)
+                                </span>
+                            </div>
+                            <div v-else class="space-y-1.5">
                                 <span class="text-gray-500 dark:text-gray-400 text-sm block">Status</span>
                                 <select v-model="form.status" class="input-style w-full text-md">
                                     <option
@@ -1648,6 +1822,96 @@ const onScheduledAtCommittedChange = async () => {
                 </div>
             </div>
         </form>
+
+        <Modal :show="showDriverScheduleModal" max-width="2xl" @close="showDriverScheduleModal = false">
+            <div class="p-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Driver schedule</h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Upcoming deliveries for {{ selectedTechnicianLabel || 'this driver' }}
+                            <template v-if="form.scheduled_at"> around {{ formatAccountDatetimeLocal(form.scheduled_at) }}</template>.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+                        @click="showDriverScheduleModal = false"
+                    >
+                        <span class="material-icons">close</span>
+                    </button>
+                </div>
+
+                <div
+                    v-if="driverConflicts.length"
+                    class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="font-semibold">{{ driverConflicts.length }} conflict{{ driverConflicts.length === 1 ? '' : 's' }}</span>
+                    with the draft delivery window.
+                </div>
+
+                <div v-if="driverCheckLoading" class="mt-6 text-sm text-gray-500 dark:text-gray-400">
+                    Loading schedule…
+                </div>
+                <div
+                    v-else-if="!driverUpcoming.length"
+                    class="mt-6 rounded-lg border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400"
+                >
+                    No other upcoming deliveries in this window.
+                </div>
+                <div v-else class="mt-4 max-h-[28rem] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-900/40">
+                            <tr>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-500">Delivery</th>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-500">Status</th>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-500">Scheduled</th>
+                                <th class="px-4 py-2 text-left font-semibold text-gray-500">Busy window</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                            <tr
+                                v-for="row in driverUpcoming"
+                                :key="row.id"
+                                :class="row.conflicts_with_draft ? 'bg-amber-50 dark:bg-amber-950/30' : ''"
+                            >
+                                <td class="px-4 py-3">
+                                    <Link
+                                        :href="route('deliveries.show', row.id)"
+                                        class="font-medium text-primary-700 hover:underline dark:text-primary-300"
+                                    >
+                                        {{ row.display_name }}
+                                    </Link>
+                                    <span
+                                        v-if="row.conflicts_with_draft"
+                                        class="ml-2 inline-flex rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-900/60 dark:text-amber-100"
+                                    >
+                                        Conflict
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 capitalize text-gray-700 dark:text-gray-300">{{ row.status?.replace('_', ' ') }}</td>
+                                <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ formatDriverScheduleTime(row.scheduled_at) }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400">
+                                    {{ formatDriverScheduleTime(row.window_start) }}
+                                    –
+                                    {{ formatDriverScheduleTime(row.window_end) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button
+                        type="button"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        @click="showDriverScheduleModal = false"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <Modal :show="showTravelPrereqModal" max-width="md" @close="showTravelPrereqModal = false">
             <div class="p-6">

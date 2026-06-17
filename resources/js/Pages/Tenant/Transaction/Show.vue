@@ -400,7 +400,7 @@ const relatedRecords = computed(() => {
 //   draft | pending_approval | signed | cancelled | expired
 //
 // Delivery status — stored as string (Deliveries\Status values):
-//   scheduled | confirmed | en_route | delivered | cancelled | rescheduled
+//   scheduled | requested | en_route | delivered | cancelled | rescheduled
 //
 const stepperSteps = computed(() => {
     const steps = [];

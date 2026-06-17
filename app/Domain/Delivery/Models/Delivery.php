@@ -13,6 +13,7 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Deliveries\Status as DeliveryStatus;
+use App\Models\Concerns\HasSystemLogs;
 use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,7 +23,7 @@ use Illuminate\Support\Facades\DB;
 
 class Delivery extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasSystemLogs, SoftDeletes;
 
     protected $fillable = [
         'uuid',
@@ -40,6 +41,13 @@ class Delivery extends Model
         'customer_arrived_notified_at',
         'delivered_at',
         'status',
+        'requested_by_user_id',
+        'requested_at',
+        'reviewed_by_user_id',
+        'reviewed_at',
+        'review_decision',
+        'review_notes',
+        'proposed_scheduled_at',
         'technician_id',
         'recipient_name',
         'signature_path',
@@ -74,6 +82,9 @@ class Delivery extends Model
         'en_route_at' => 'datetime',
         'customer_arrived_notified_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'requested_at' => 'datetime',
+        'reviewed_at' => 'datetime',
+        'proposed_scheduled_at' => 'datetime',
         'signed_at' => 'datetime',
         'estimated_travel_duration_seconds' => 'integer',
         'estimated_return_travel_duration_seconds' => 'integer',
@@ -161,6 +172,16 @@ class Delivery extends Model
         return $this->belongsTo(User::class, 'technician_id');
     }
 
+    public function requestedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'requested_by_user_id');
+    }
+
+    public function reviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reviewed_by_user_id');
+    }
+
     public function items()
     {
         return $this->hasMany(DeliveryItem::class)->orderBy('position');
@@ -226,7 +247,7 @@ class Delivery extends Model
      * Reflect per-item delivery state onto the delivery's status field.
      *
      * - All items delivered → status=delivered, stamp delivered_at if empty.
-     * - Some but not all → if currently scheduled/confirmed, bump to en_route.
+     * - Some but not all → if currently scheduled, bump to en_route.
      * - Items exist but none delivered → if currently delivered, step back to en_route.
      */
     public function syncStatusFromItems(): self
@@ -248,7 +269,7 @@ class Delivery extends Model
         }
 
         if ($delivered > 0) {
-            if (in_array($this->status, ['scheduled', 'confirmed'], true)) {
+            if (in_array($this->status, ['scheduled', 'rescheduled'], true)) {
                 $this->status = 'en_route';
             }
 

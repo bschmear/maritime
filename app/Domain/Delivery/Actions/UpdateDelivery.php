@@ -8,6 +8,8 @@ use App\Domain\Delivery\Models\DeliveryItem;
 use App\Domain\Delivery\Support\DeliveryFleetConflictGuard;
 use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
+use App\Domain\SystemLog\Support\LogSystemEvent;
+use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -30,7 +32,7 @@ class UpdateDelivery
             'location_id' => 'nullable|exists:locations,id',
             'scheduled_at' => 'sometimes|required|date',
             'estimated_arrival_at' => 'nullable|date',
-            'status' => 'sometimes|required|in:scheduled,en_route,delivered,cancelled,rescheduled,confirmed',
+            'status' => 'sometimes|required|in:scheduled,en_route,delivered,cancelled,rescheduled',
             'internal_notes' => 'nullable|string|max:5000',
             'customer_notes' => 'nullable|string|max:5000',
 
@@ -97,7 +99,7 @@ class UpdateDelivery
                     }
                 }
 
-                if (isset($validated['status']) && in_array($validated['status'], ['scheduled', 'confirmed'], true)) {
+                if (isset($validated['status']) && $validated['status'] === 'scheduled') {
                     $validated['estimated_arrival_at'] = null;
                     $validated['en_route_at'] = null;
                 }
@@ -135,6 +137,8 @@ class UpdateDelivery
 
                 $final = $record->fresh();
                 SyncTechnicianDeliveryInProgress::syncForDelivery($final, $previousTechnicianId);
+
+                LogSystemEvent::record($final, SystemLogAction::Updated);
 
                 return [
                     'success' => true,

@@ -4,6 +4,8 @@ namespace App\Support\Validation;
 
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use ReflectionEnum;
 
 final class SchemaFormValidator
 {
@@ -103,9 +105,40 @@ final class SchemaFormValidator
             'date', 'datetime' => ['required', 'date'],
             'number', 'currency' => ['required', 'numeric'],
             'record' => ['required'],
-            'select' => isset($def['enum']) ? ['required', 'integer'] : ['required'],
+            'select' => isset($def['enum']) ? self::enumSelectRules($def) : ['required'],
             default => ['required', 'string'],
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $def
+     * @return list<string|Rule>
+     */
+    private static function enumSelectRules(array $def): array
+    {
+        $enumClass = $def['enum'] ?? null;
+        if (! is_string($enumClass) || ! class_exists($enumClass)) {
+            return ['required', 'integer'];
+        }
+
+        try {
+            $reflection = new ReflectionEnum($enumClass);
+        } catch (\Throwable) {
+            return ['required', 'integer'];
+        }
+
+        if (! $reflection->isBacked()) {
+            return ['required', 'integer'];
+        }
+
+        $backingType = $reflection->getBackingType()?->getName();
+        $values = array_map(static fn ($case) => $case->value, $enumClass::cases());
+
+        if ($backingType === 'string') {
+            return ['required', 'string', Rule::in($values)];
+        }
+
+        return ['required', 'integer', Rule::in($values)];
     }
 
     /**

@@ -376,6 +376,12 @@ const resolveSublistParentFilterValue = (foreignKey, fieldDef) => {
 };
 
 const loadSublistIndexSchema = async (sublist) => {
+    if (sublist.domain === 'SystemLog') {
+        applySystemLogSublistSchemas();
+
+        return;
+    }
+
     const routePlural = getDomainPlural(sublist.domain);
     const schemaResponse = await axios.get(route(`${routePlural}.index`), {
         params: { per_page: 1, page: 1 },
@@ -386,6 +392,19 @@ const loadSublistIndexSchema = async (sublist) => {
     });
     sublistTableSchema.value = schemaResponse.data.schema || null;
     sublistFieldsSchema.value = schemaResponse.data.fieldsSchema || {};
+};
+
+const applySystemLogSublistSchemas = () => {
+    sublistTableSchema.value = {
+        columns: [
+            { key: 'action', label: 'Action', sortable: true },
+            { key: 'user_id', label: 'User', sortable: true },
+            { key: 'created_at', label: 'When', sortable: true },
+        ],
+    };
+    sublistFieldsSchema.value = sublistCreateFormData.value?.fieldsSchema
+        ?? sublistFieldsSchema.value
+        ?? {};
 };
 
 const getRelatedRecord = (item, relationshipName) => {
@@ -711,6 +730,24 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
         return;
     }
 
+    // System logs are morphMany rows on the parent — no standalone index route.
+    if (sublist.domain === 'SystemLog') {
+        isLoadingSublist.value = true;
+        try {
+            const relationshipData = getParentRelationship(sublist.modelRelationship);
+            sublistData.value = Array.isArray(relationshipData) ? [...relationshipData] : [];
+            sublistPagination.value = null;
+            sublistUsesApiSource.value = false;
+            applySystemLogSublistSchemas();
+        } catch (error) {
+            console.error('Error loading system logs:', error);
+            sublistData.value = [];
+        } finally {
+            isLoadingSublist.value = false;
+        }
+        return;
+    }
+
     // Handle Many-to-Many relationships (eager-loaded from parent record)
     if (sublist.modelRelationship && sublist.relationshipType === 'ManyToMany') {
         isLoadingSublist.value = true;
@@ -771,7 +808,11 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
                 sublistData.value = rows;
                 sublistPagination.value = null;
                 sublistUsesApiSource.value = false;
-                await loadSublistIndexSchema(sublist);
+                try {
+                    await loadSublistIndexSchema(sublist);
+                } catch (schemaError) {
+                    console.warn(`[Sublist] Could not load index schema for ${sublist.domain}`, schemaError);
+                }
             } catch (error) {
                 console.error(`Error loading eager ${sublist.modelRelationship} sublist:`, error);
                 sublistData.value = [];
@@ -1221,6 +1262,13 @@ const handleTabChange = async (sublist) => {
 
     // For document relationships, skip schema loading and just fetch data
     if (sublist.domain === 'Document') {
+        fetchSublistData(sublist);
+        return;
+    }
+
+    // System logs: select-form for enum options, embedded table schema, parent relationship for rows
+    if (sublist.domain === 'SystemLog') {
+        await loadSublistSchema(sublist);
         fetchSublistData(sublist);
         return;
     }

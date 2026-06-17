@@ -89,6 +89,10 @@
           "required": false
         },
         {
+          "key": "delivery_approver_user_id",
+          "required": false
+        },
+        {
           "key": "notes",
           "required": false
         }
@@ -106,6 +110,12 @@
       "label": "Documents",
       "domain": "Document",
       "modelRelationship": "documents"
+    },
+    {
+      "label": "System log",
+      "domain": "SystemLog",
+      "modelRelationship": "systemLogs",
+      "readOnly": true
     }
   ]
 }
