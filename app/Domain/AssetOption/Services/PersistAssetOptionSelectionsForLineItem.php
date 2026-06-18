@@ -10,6 +10,7 @@ use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\Transaction\Models\TransactionLineItem;
 use App\Domain\Transaction\Support\ComputeTransactionLineTax;
 use App\Services\AssetOptionResolver;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -134,6 +135,25 @@ final class PersistAssetOptionSelectionsForLineItem
                     'selected_asset_options' => 'Invalid option value for "'.$optionPayload['name'].'".',
                 ]);
             }
+
+            // #region agent log
+            file_put_contents(
+                base_path('.cursor/debug-ae1c12.log'),
+                json_encode([
+                    'sessionId' => 'ae1c12',
+                    'hypothesisId' => 'H1',
+                    'location' => 'PersistAssetOptionSelectionsForLineItem.php:before-create',
+                    'message' => 'selected option insert schema check',
+                    'data' => [
+                        'tenant_id' => tenant()?->id,
+                        'line_item_id' => $lineItem->id,
+                        'has_taxable_column' => Schema::hasColumn('transaction_line_item_selected_options', 'taxable'),
+                    ],
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ])."\n",
+                FILE_APPEND
+            );
+            // #endregion
 
             EstimateSelectedOption::query()->create([
                 'estimate_id' => $estimateId,
