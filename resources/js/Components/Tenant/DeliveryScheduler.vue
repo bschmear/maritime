@@ -632,9 +632,12 @@ function outboundDepartureAbsoluteMinutes(delivery, arrivalMidnightMin = null) {
     const T = travelMins(delivery);
     let D = A - T;
     const rawLeave = delivery?.leave_by_minutes;
+    const MAX_LEAVE_EARLY_MIN = 240;
     if (rawLeave != null && Number.isFinite(Number(rawLeave))) {
         const leaveAbs = Number(rawLeave);
-        if (Number.isFinite(leaveAbs) && leaveAbs < D) D = leaveAbs;
+        if (Number.isFinite(leaveAbs) && leaveAbs < D && D - leaveAbs <= MAX_LEAVE_EARLY_MIN) {
+            D = leaveAbs;
+        }
     }
     return D;
 }

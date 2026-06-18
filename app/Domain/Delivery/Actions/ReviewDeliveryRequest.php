@@ -26,10 +26,10 @@ class ReviewDeliveryRequest
 
     public function __invoke(RecordModel $delivery, string $decision, ?string $notes = null, ?string $proposedScheduledAt = null): array
     {
-        if ($delivery->status !== 'requested') {
+        if (! $delivery->pending_request) {
             return [
                 'success' => false,
-                'message' => 'Only requested deliveries can be reviewed.',
+                'message' => 'Only pending delivery requests can be reviewed.',
                 'record' => $delivery,
             ];
         }
@@ -58,7 +58,7 @@ class ReviewDeliveryRequest
             'proposed_scheduled_at' => $proposedScheduledAt,
         ], [
             'decision' => 'required|in:'.self::DECISION_APPROVED.','.self::DECISION_DENIED.','.self::DECISION_RESCHEDULE_REQUESTED,
-            'review_notes' => 'nullable|string|max:5000',
+            'review_notes' => 'nullable|string|max:5000|required_if:decision,'.self::DECISION_DENIED,
             'proposed_scheduled_at' => 'nullable|date|required_if:decision,'.self::DECISION_RESCHEDULE_REQUESTED,
         ]);
 
@@ -83,14 +83,19 @@ class ReviewDeliveryRequest
                 ];
 
                 if ($decision === self::DECISION_APPROVED) {
+                    // Use the requester's stored schedule/fleet data for conflict checks. Running
+                    // Google travel estimates first can backdate the fleet window by hours and
+                    // falsely conflict with earlier deliveries on the same truck.
+                    DeliveryFleetConflictGuard::assertResolved($delivery->fresh(), null);
+
                     $updates['status'] = 'scheduled';
+                    $updates['pending_request'] = false;
                     $updates['proposed_scheduled_at'] = null;
                     $delivery->update($updates);
 
                     app(ComputeDeliveryTravelEstimates::class)($delivery);
                     $delivery->save();
 
-                    $delivery = DeliveryFleetConflictGuard::assertResolved($delivery->fresh(), null);
                     SyncTechnicianDeliveryInProgress::recomputeForUserIds([$delivery?->technician_id]);
 
                     $delivery = $delivery->fresh(['location', 'requestedBy', 'reviewedBy', 'customer']);
@@ -103,7 +108,7 @@ class ReviewDeliveryRequest
                 }
 
                 if ($decision === self::DECISION_DENIED) {
-                    $updates['status'] = 'cancelled';
+                    $updates['pending_request'] = false;
                     $updates['proposed_scheduled_at'] = null;
                     $delivery->update($updates);
 

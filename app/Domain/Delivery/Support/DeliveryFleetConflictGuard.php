@@ -21,11 +21,13 @@ final class DeliveryFleetConflictGuard
             return $record;
         }
 
+        $excludeDeliveryId = $record->getKey() !== null ? (int) $record->getKey() : null;
+
         $conflicts = DeliveryFleetOccupancy::findConflicts(
             $record->fleet_truck_id !== null ? (int) $record->fleet_truck_id : null,
             $record->fleet_trailer_id !== null ? (int) $record->fleet_trailer_id : null,
             $record,
-            null
+            $excludeDeliveryId
         );
 
         if ($conflicts === []) {
@@ -45,11 +47,13 @@ final class DeliveryFleetConflictGuard
             $record = $records[0]->id === (int) $record->id ? $records[0] : $records[1];
             $record->refresh();
 
+            $excludeDeliveryId = $record->getKey() !== null ? (int) $record->getKey() : null;
+
             $conflicts = DeliveryFleetOccupancy::findConflicts(
                 $record->fleet_truck_id !== null ? (int) $record->fleet_truck_id : null,
                 $record->fleet_trailer_id !== null ? (int) $record->fleet_trailer_id : null,
                 $record,
-                null
+                $excludeDeliveryId
             );
         }
 

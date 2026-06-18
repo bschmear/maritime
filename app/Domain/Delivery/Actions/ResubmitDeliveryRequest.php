@@ -13,10 +13,10 @@ class ResubmitDeliveryRequest
 {
     public function __invoke(RecordModel $delivery, ?string $scheduledAt = null): array
     {
-        if ($delivery->status !== 'requested') {
+        if (! $this->canResubmit($delivery)) {
             return [
                 'success' => false,
-                'message' => 'Only requested deliveries can be resubmitted.',
+                'message' => 'This delivery request cannot be resubmitted.',
                 'record' => $delivery,
             ];
         }
@@ -49,7 +49,10 @@ class ResubmitDeliveryRequest
         ])->validate();
 
         $delivery->update([
+            'pending_request' => true,
+            'status' => 'requested',
             'scheduled_at' => $validated['scheduled_at'],
+            'time_to_leave_by' => null,
             'proposed_scheduled_at' => null,
             'review_decision' => null,
             'review_notes' => null,
@@ -65,5 +68,22 @@ class ResubmitDeliveryRequest
             'success' => true,
             'record' => $delivery,
         ];
+    }
+
+    private function canResubmit(RecordModel $delivery): bool
+    {
+        if ($delivery->review_decision === ReviewDeliveryRequest::DECISION_DENIED) {
+            return true;
+        }
+
+        if ($delivery->status === 'cancelled') {
+            return false;
+        }
+
+        if ($delivery->pending_request) {
+            return true;
+        }
+
+        return $delivery->review_decision === ReviewDeliveryRequest::DECISION_RESCHEDULE_REQUESTED;
     }
 }

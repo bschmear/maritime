@@ -13,6 +13,7 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Deliveries\Status as DeliveryStatus;
+use App\Models\Concerns\HasDocuments;
 use App\Models\Concerns\HasSystemLogs;
 use App\Support\SignatureStorage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\DB;
 
 class Delivery extends Model
 {
-    use HasFactory, HasSystemLogs, SoftDeletes;
+    use HasDocuments, HasFactory, HasSystemLogs, SoftDeletes;
 
     protected $fillable = [
         'uuid',
@@ -48,6 +49,7 @@ class Delivery extends Model
         'review_decision',
         'review_notes',
         'proposed_scheduled_at',
+        'pending_request',
         'technician_id',
         'recipient_name',
         'signature_path',
@@ -85,6 +87,7 @@ class Delivery extends Model
         'requested_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'proposed_scheduled_at' => 'datetime',
+        'pending_request' => 'boolean',
         'signed_at' => 'datetime',
         'estimated_travel_duration_seconds' => 'integer',
         'estimated_return_travel_duration_seconds' => 'integer',

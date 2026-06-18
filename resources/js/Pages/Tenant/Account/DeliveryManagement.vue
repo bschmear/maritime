@@ -3,7 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     locations: { type: Array, default: () => [] },
@@ -15,6 +15,8 @@ const page = usePage();
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
 
 const approverField = { type: 'record', typeDomain: 'User', label: 'Delivery approver' };
+
+const editingApproverIds = ref(new Set());
 
 const form = useForm({
     approvers: props.locations.map((loc) => ({
@@ -30,6 +32,7 @@ watch(
             location_id: loc.id,
             delivery_approver_user_id: loc.delivery_approver_user_id ?? null,
         }));
+        editingApproverIds.value = new Set();
     },
     { deep: true },
 );
@@ -43,7 +46,36 @@ const toggleInactive = () => {
 };
 
 const save = () => {
-    form.patch(route('account.delivery-management.update'), { preserveScroll: true });
+    form.patch(route('account.delivery-management.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            editingApproverIds.value = new Set();
+        },
+    });
+};
+
+const isEditingApprover = (locationId) => editingApproverIds.value.has(locationId);
+
+const startEditApprover = (locationId) => {
+    editingApproverIds.value = new Set([...editingApproverIds.value, locationId]);
+};
+
+const cancelEditApprover = (locationId, index) => {
+    const loc = props.locations.find((row) => row.id === locationId);
+    form.approvers[index].delivery_approver_user_id = loc?.delivery_approver_user_id ?? null;
+    const next = new Set(editingApproverIds.value);
+    next.delete(locationId);
+    editingApproverIds.value = next;
+};
+
+const userShowHref = (userId) => route('users.show', userId);
+
+const approverDisplayName = (loc) => {
+    if (loc.delivery_approver?.display_name) {
+        return loc.delivery_approver.display_name;
+    }
+
+    return null;
 };
 
 const breadcrumbItems = computed(() => [
@@ -59,6 +91,8 @@ const totalPending = computed(() =>
 const unconfiguredCount = computed(() =>
     props.locations.filter((loc) => !loc.effective_approver).length,
 );
+
+const isEditingAny = computed(() => editingApproverIds.value.size > 0);
 </script>
 
 <template>
@@ -130,7 +164,7 @@ const unconfiguredCount = computed(() =>
                 {{ flashSuccess }}
             </div>
 
-            <!-- Main form card -->
+            <!-- Main form -->
             <form @submit.prevent="save">
                 <!-- Toolbar -->
                 <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -144,6 +178,7 @@ const unconfiguredCount = computed(() =>
                         Show inactive locations
                     </label>
                     <button
+                        v-if="isEditingAny"
                         type="submit"
                         :disabled="form.processing"
                         class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:opacity-50"
@@ -198,27 +233,84 @@ const unconfiguredCount = computed(() =>
 
                         <!-- Card body -->
                         <div class="space-y-4 p-4">
-                            <!-- Manager -->
-                            <div class="flex items-center gap-2 text-sm">
-                                <span class="material-icons text-[16px] text-gray-400">person</span>
-                                <span class="text-gray-500 dark:text-gray-400">Manager:</span>
-                                <span class="font-medium text-gray-900 dark:text-white">
-                                    {{ loc.manager?.display_name ?? '—' }}
-                                </span>
-                            </div>
+                            <!-- Manager & approver (read-only) -->
+                            <dl class="space-y-3 text-sm">
+                                <div class="flex items-start justify-between gap-3">
+                                    <dt class="shrink-0 text-gray-500 dark:text-gray-400">Manager</dt>
+                                    <dd class="text-right font-medium text-gray-900 dark:text-white">
+                                        <Link
+                                            v-if="loc.manager"
+                                            :href="userShowHref(loc.manager.id)"
+                                            class="text-primary-700 hover:underline dark:text-primary-300"
+                                        >
+                                            {{ loc.manager.display_name }}
+                                        </Link>
+                                        <span v-else class="text-gray-400">—</span>
+                                    </dd>
+                                </div>
+                                <div class="flex items-start justify-between gap-3">
+                                    <dt class="shrink-0 text-gray-500 dark:text-gray-400">Delivery approver</dt>
+                                    <dd class="text-right font-medium text-gray-900 dark:text-white">
+                                        <template v-if="!isEditingApprover(loc.id)">
+                                            <Link
+                                                v-if="loc.delivery_approver"
+                                                :href="userShowHref(loc.delivery_approver.id)"
+                                                class="text-primary-700 hover:underline dark:text-primary-300"
+                                            >
+                                                {{ approverDisplayName(loc) }}
+                                            </Link>
+                                            <span v-else class="text-gray-500 dark:text-gray-400">
+                                                None
+                                                <span class="block text-xs font-normal text-gray-400 dark:text-gray-500">
+                                                    Uses manager when set
+                                                </span>
+                                            </span>
+                                        </template>
+                                    </dd>
+                                </div>
+                            </dl>
 
-                            <!-- Approver selector -->
-                            <div>
-                                <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                    Delivery approver
+                            <!-- Edit approver -->
+                            <div v-if="isEditingApprover(loc.id)" class="space-y-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+                                <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Change delivery approver
                                 </label>
                                 <RecordSelect
                                     v-model="form.approvers[index].delivery_approver_user_id"
                                     :field="approverField"
                                 />
+                                <p class="text-xs text-gray-500 dark:text-gray-400">
+                                    Leave empty to use the location manager as the approver.
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button
+                                        type="submit"
+                                        :disabled="form.processing"
+                                        class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                                    >
+                                        <span class="material-icons text-[16px]">save</span>
+                                        Save
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                        @click="cancelEditApprover(loc.id, index)"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
                             </div>
+                            <button
+                                v-else
+                                type="button"
+                                class="inline-flex items-center gap-1.5 text-sm font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+                                @click="startEditApprover(loc.id)"
+                            >
+                                <span class="material-icons text-[16px]">edit</span>
+                                Change approver
+                            </button>
 
-                            <!-- Effective approver -->
+                            <!-- Effective approver status -->
                             <div
                                 class="flex items-start gap-2 rounded-lg px-3 py-2.5 text-xs"
                                 :class="loc.effective_approver
@@ -232,7 +324,13 @@ const unconfiguredCount = computed(() =>
                                     {{ loc.effective_approver ? 'check_circle' : 'error' }}
                                 </span>
                                 <span v-if="loc.effective_approver">
-                                    Effective: <strong>{{ loc.effective_approver.display_name }}</strong>
+                                    Effective approver:
+                                    <Link
+                                        :href="userShowHref(loc.effective_approver.id)"
+                                        class="font-semibold text-primary-700 hover:underline dark:text-primary-300"
+                                    >
+                                        {{ loc.effective_approver.display_name }}
+                                    </Link>
                                     <span v-if="loc.effective_approver.uses_manager_fallback" class="opacity-75"> (uses manager)</span>
                                 </span>
                                 <span v-else>
@@ -243,9 +341,9 @@ const unconfiguredCount = computed(() =>
                     </div>
                 </div>
 
-                <!-- Bottom save bar (sticky on mobile) -->
+                <!-- Bottom save bar -->
                 <div
-                    v-if="locations.length > 0"
+                    v-if="locations.length > 0 && isEditingAny"
                     class="sticky bottom-4 mt-4 flex justify-end"
                 >
                     <button

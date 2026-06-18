@@ -20,6 +20,7 @@ final class DocumentableTypes
         'AssetUnit',
         'Contact',
         'Customer',
+        'Delivery',
         'InventoryItem',
         'InventoryUnit',
         'Invoice',

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Delivery\Actions\CancelDeniedDeliveryRequest;
 use App\Domain\Delivery\Actions\CreateDelivery;
 use App\Domain\Delivery\Actions\CreateDeliveryRequest;
 use App\Domain\Delivery\Actions\ResubmitDeliveryRequest;
 use App\Domain\Delivery\Actions\ReviewDeliveryRequest;
+use App\Domain\Delivery\Actions\UpdatePendingDeliveryRequest;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Support\DeliveryApproverResolver;
 use App\Domain\Location\Models\Location;
@@ -36,12 +38,25 @@ class DeliveryRequestController extends Controller
         abort_unless(tenant_has_permission('delivery.view'), 403);
 
         $query = RecordModel::query()
-            ->with(['customer', 'location', 'requestedBy', 'technician'])
-            ->where('status', 'requested')
+            ->with([
+                'customer',
+                'location.managerUser',
+                'location.deliveryApprover',
+                'requestedBy',
+                'technician',
+            ])
+            ->where('pending_request', true)
             ->orderByDesc('requested_at');
 
         if ($request->filled('location_id')) {
             $query->where('location_id', (int) $request->input('location_id'));
+        }
+
+        if ($request->filled('approver_id')) {
+            $approverId = (int) $request->input('approver_id');
+            $query->whereHas('location', function ($q) use ($approverId) {
+                DeliveryApproverResolver::scopeEffectiveApprover($q, $approverId);
+            });
         }
 
         $userId = current_tenant_user_id();
@@ -58,15 +73,83 @@ class DeliveryRequestController extends Controller
             ->orderBy('display_name')
             ->get(['id', 'display_name']);
 
+        $approverLocations = Location::query()
+            ->with(['managerUser', 'deliveryApprover'])
+            ->orderBy('display_name')
+            ->get();
+
         return Inertia::render('Tenant/Delivery/Requests/Index', [
             'deliveries' => $deliveries,
             'filters' => [
                 'location_id' => $request->input('location_id'),
+                'approver_id' => $request->input('approver_id'),
             ],
             'locationOptions' => $locations,
+            'approverOptions' => DeliveryApproverResolver::distinctApproverOptions($approverLocations),
             'canCreateDelivery' => $canCreateDelivery,
-            'pendingCount' => RecordModel::query()->where('status', 'requested')->count(),
+            'pendingCount' => RecordModel::query()->where('pending_request', true)->count(),
         ]);
+    }
+
+    public function edit(RecordModel $delivery): Response
+    {
+        abort_unless(tenant_has_permission('delivery.view'), 403);
+        abort_unless(
+            $delivery->pending_request || $delivery->review_decision === ReviewDeliveryRequest::DECISION_DENIED,
+            404,
+        );
+
+        $userId = current_tenant_user_id();
+        $isRequester = $userId !== null && (int) $delivery->requested_by_user_id === (int) $userId;
+        $isAdmin = current_tenant_role_slug() === 'admin';
+        abort_unless($isRequester || $isAdmin, 403);
+
+        $delivery->load([
+            'customer',
+            'location',
+            'subsidiary',
+            'technician',
+            'fleetTruck',
+            'fleetTrailer',
+            'items.assetUnit',
+            'items.assetVariant',
+        ]);
+
+        $account = AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Delivery/Requests/Edit', [
+            'record' => $delivery,
+            'enumOptions' => $this->getEnumOptions(),
+            'account' => $account,
+            'customerAddresses' => $delivery->customer ? $delivery->customer->addresses()->get() : [],
+        ]);
+    }
+
+    public function update(
+        Request $request,
+        RecordModel $delivery,
+        UpdatePendingDeliveryRequest $action,
+        NotificationService $notifications,
+    ): RedirectResponse {
+        abort_unless(tenant_has_permission('delivery.view'), 403);
+        abort_unless(
+            $delivery->pending_request || $delivery->review_decision === ReviewDeliveryRequest::DECISION_DENIED,
+            404,
+        );
+
+        $result = $action($delivery, $request->all());
+
+        if (! ($result['success'] ?? false)) {
+            return back()
+                ->withInput()
+                ->withErrors(['form' => $result['message'] ?? 'Could not update delivery request.']);
+        }
+
+        $notifications->notifyDeliveryRequestSubmitted($result['record'], AccountSettings::getCurrent());
+
+        return redirect()
+            ->route('deliveries.show', $delivery->id)
+            ->with('success', 'Delivery request updated and resubmitted for approval.');
     }
 
     public function create(Request $request): Response
@@ -135,7 +218,7 @@ class DeliveryRequestController extends Controller
 
     public function deny(Request $request, RecordModel $delivery, ReviewDeliveryRequest $action, NotificationService $notifications): RedirectResponse
     {
-        $request->validate(['review_notes' => 'nullable|string|max:5000']);
+        $request->validate(['review_notes' => 'required|string|max:5000']);
 
         $result = $action($delivery, ReviewDeliveryRequest::DECISION_DENIED, $request->input('review_notes'));
 
@@ -173,6 +256,23 @@ class DeliveryRequestController extends Controller
         $notifications->notifyDeliveryRequestSubmitted($result['record'], $account);
 
         return back()->with('success', 'Delivery request resubmitted for approval.');
+    }
+
+    public function cancel(
+        RecordModel $delivery,
+        CancelDeniedDeliveryRequest $action,
+    ): RedirectResponse {
+        abort_unless(tenant_has_permission('delivery.view'), 403);
+
+        $result = $action($delivery);
+
+        if (! ($result['success'] ?? false)) {
+            return back()->with('error', $result['message'] ?? 'Could not cancel delivery request.');
+        }
+
+        return redirect()
+            ->route('deliveries.show', $delivery->id)
+            ->with('success', 'Delivery request cancelled.');
     }
 
     private function storeDirectSchedule(Request $request, CreateDelivery $createDelivery): RedirectResponse

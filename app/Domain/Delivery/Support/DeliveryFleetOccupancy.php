@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\Delivery\Support;
 
 use App\Domain\Delivery\Models\Delivery;
+use App\Models\AccountSettings;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 
@@ -15,6 +16,9 @@ use Carbon\CarbonInterface;
  */
 final class DeliveryFleetOccupancy
 {
+    /** Max minutes before computed departure that an explicit leave-by time is honored. */
+    private const MAX_LEAVE_BY_EARLY_PADDING_MINUTES = 240;
+
     /**
      * @return list<string>
      */
@@ -42,18 +46,35 @@ final class DeliveryFleetOccupancy
     }
 
     /**
-     * Normalize schedule attributes to Carbon (draft models / API payloads may be strings).
+     * Account timezone for calendar-day boundaries; UTC instants are used for overlap math.
      */
-    private static function asCarbon(mixed $value): ?CarbonInterface
+    public static function comparisonTimezone(): string
+    {
+        try {
+            $account = AccountSettings::getCurrent();
+            if (is_string($account->timezone ?? null) && $account->timezone !== '') {
+                return $account->timezone;
+            }
+        } catch (\Throwable) {
+            // Tenant/account context may be unavailable in tests or CLI.
+        }
+
+        return (string) config('app.timezone', 'UTC');
+    }
+
+    /**
+     * Normalize schedule attributes to a UTC instant (DB values, API ISO strings, Carbon models).
+     */
+    private static function asUtcInstant(mixed $value): ?CarbonInterface
     {
         if ($value === null || $value === '') {
             return null;
         }
         if ($value instanceof CarbonInterface) {
-            return $value->copy();
+            return $value->copy()->utc();
         }
         try {
-            return Carbon::parse((string) $value, (string) config('app.timezone'));
+            return Carbon::parse((string) $value)->utc();
         } catch (\Throwable) {
             return null;
         }
@@ -71,13 +92,11 @@ final class DeliveryFleetOccupancy
      */
     public static function occupancyWindow(Delivery $d): ?array
     {
-        $scheduled = self::asCarbon($d->getAttribute('scheduled_at'));
+        $scheduled = self::asUtcInstant($d->getAttribute('scheduled_at'));
         if ($scheduled === null) {
             return null;
         }
 
-        $tz = (string) config('app.timezone');
-        $scheduled = $scheduled->copy()->timezone($tz);
         $travelOutMin = self::travelMinutes($d->estimated_travel_duration_seconds !== null ? (int) $d->estimated_travel_duration_seconds : null);
         $returnSec = $d->estimated_return_travel_duration_seconds;
         $travelBackMin = self::travelMinutes(
@@ -88,11 +107,11 @@ final class DeliveryFleetOccupancy
         $atLocMin = self::atLocationMinutes($d->delivery_duration_minutes !== null ? (int) $d->delivery_duration_minutes : null);
 
         $leaveStart = $scheduled->copy()->subMinutes($travelOutMin);
-        $ttlb = self::asCarbon($d->getAttribute('time_to_leave_by'));
-        if ($ttlb !== null) {
-            $ttlb = $ttlb->copy()->timezone($tz);
-            if ($ttlb->lt($leaveStart)) {
-                $leaveStart = $ttlb;
+        $ttlb = self::asUtcInstant($d->getAttribute('time_to_leave_by'));
+        if ($ttlb !== null && $ttlb->lt($leaveStart)) {
+            $earlyBySeconds = $leaveStart->getTimestamp() - $ttlb->getTimestamp();
+            if ($earlyBySeconds <= self::MAX_LEAVE_BY_EARLY_PADDING_MINUTES * 60) {
+                $leaveStart = $ttlb->copy();
             }
         }
 
@@ -103,7 +122,8 @@ final class DeliveryFleetOccupancy
 
     public static function intervalsOverlap(CarbonInterface $a0, CarbonInterface $a1, CarbonInterface $b0, CarbonInterface $b1): bool
     {
-        return $a0->lt($b1) && $b0->lt($a1);
+        return $a0->getTimestamp() < $b1->getTimestamp()
+            && $b0->getTimestamp() < $a1->getTimestamp();
     }
 
     /**
@@ -133,6 +153,7 @@ final class DeliveryFleetOccupancy
         [$s0, $s1] = $subjectWindow;
 
         $q = Delivery::query()
+            ->where('pending_request', false)
             ->whereNotIn('status', self::statusesExcludedFromFleetConflicts())
             ->whereNotNull('scheduled_at')
             ->where(function ($q2) use ($fleetTruckId, $fleetTrailerId) {
@@ -238,8 +259,9 @@ final class DeliveryFleetOccupancy
         /** @var CarbonInterface $s1 */
         [$s0, $s1] = $subjectWindow;
 
-        $rangeStart = $s0->copy()->subDay()->startOfDay();
-        $rangeEnd = $s1->copy()->addDays(7)->endOfDay();
+        $tz = self::comparisonTimezone();
+        $rangeStart = $s0->copy()->timezone($tz)->subDay()->startOfDay()->utc();
+        $rangeEnd = $s1->copy()->timezone($tz)->addDays(7)->endOfDay()->utc();
 
         $conflictIds = array_column(
             self::findTechnicianConflicts($technicianId, $subject, $excludeDeliveryId),
@@ -254,7 +276,7 @@ final class DeliveryFleetOccupancy
                 continue;
             }
             [$w0, $w1] = $w;
-            if ($w1->lt($rangeStart) || $w0->gt($rangeEnd)) {
+            if ($w1->getTimestamp() < $rangeStart->getTimestamp() || $w0->getTimestamp() > $rangeEnd->getTimestamp()) {
                 continue;
             }
             $out[] = self::technicianDeliveryPayload(
@@ -294,7 +316,7 @@ final class DeliveryFleetOccupancy
         CarbonInterface $windowEnd,
         bool $conflictsWithDraft,
     ): array {
-        $scheduled = self::asCarbon($delivery->getAttribute('scheduled_at'));
+        $scheduled = self::asUtcInstant($delivery->getAttribute('scheduled_at'));
 
         return [
             'id' => (int) $delivery->id,

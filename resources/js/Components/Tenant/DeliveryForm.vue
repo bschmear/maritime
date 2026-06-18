@@ -32,6 +32,7 @@ const { accountTimezone } = useTimezone();
 
 const isEdit = computed(() => props.mode === 'edit' && props.record);
 const isRequest = computed(() => props.mode === 'request');
+const isRequestEdit = computed(() => props.mode === 'request-edit' && props.record);
 const scheduleDirectly = ref(false);
 
 /** Create page opened with ?transaction_id= or ?work_order_id= (prefill from RecordController). */
@@ -106,7 +107,7 @@ const mapRecordItem = (it) => ({
 /** Snapshot for initial form state (Inertia first paint). */
 const initialRecord = props.record ?? {};
 
-const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSchema);
+const { handleSubmitErrors } = useFormValidationToast(() => props.fieldsSchema);
 
 const form = useForm({
     customer_id: initialRecord.customer_id ?? null,
@@ -546,6 +547,8 @@ const itemLabel = (item) => {
 /* ─── Fleet schedule conflict check (debounced) ─── */
 const fleetConflicts = ref([]);
 const fleetCheckLoading = ref(false);
+const showFleetConflictModal = ref(false);
+const scheduleConflictMessage = ref('');
 let fleetCheckTimer = null;
 
 const scheduleFleetConflictCheck = () => {
@@ -574,7 +577,7 @@ const runFleetConflictCheck = async () => {
             fleet_trailer_id: form.fleet_trailer_id,
             location_id: form.location_id,
         };
-        if (isEdit.value && props.record?.id) {
+        if ((isEdit.value || isRequestEdit.value) && props.record?.id) {
             payload.exclude_delivery_id = props.record.id;
         }
         const { data } = await axios.post(route('deliveries.check-fleet-schedule'), payload);
@@ -619,7 +622,7 @@ const buildDriverSchedulePayload = () => ({
     estimated_travel_duration_seconds: form.estimated_travel_duration_seconds,
     estimated_return_travel_duration_seconds: form.estimated_return_travel_duration_seconds,
     delivery_duration_minutes: form.delivery_duration_minutes,
-    ...(isEdit.value && props.record?.id ? { exclude_delivery_id: props.record.id } : {}),
+    ...((isEdit.value || isRequestEdit.value) && props.record?.id ? { exclude_delivery_id: props.record.id } : {}),
 });
 
 const runDriverScheduleCheck = async ({ openModalOnConflict = false } = {}) => {
@@ -648,6 +651,76 @@ const runDriverScheduleCheck = async ({ openModalOnConflict = false } = {}) => {
 const openDriverScheduleModal = async () => {
     await runDriverScheduleCheck();
     showDriverScheduleModal.value = true;
+};
+
+const focusScheduledTimeField = () => {
+    showDriverScheduleModal.value = false;
+    nextTick(() => {
+        document.getElementById('delivery-form-scheduled-at')?.focus();
+        document.getElementById('delivery-form-scheduled-at')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+};
+
+const focusDriverField = () => {
+    showDriverScheduleModal.value = false;
+    nextTick(() => {
+        document.getElementById('technician_id')?.focus();
+        document.getElementById('technician_id')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+};
+
+const openFleetConflictModal = (conflicts, message = '') => {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        return;
+    }
+    fleetConflicts.value = conflicts;
+    scheduleConflictMessage.value = message || 'Truck or trailer is already booked for this window.';
+    showFleetConflictModal.value = true;
+};
+
+const shouldCheckScheduleConflictsOnSubmit = () => {
+    if (!form.scheduled_at?.trim()) {
+        return false;
+    }
+
+    if (isRequest.value || isRequestEdit.value) {
+        return true;
+    }
+
+    return form.status !== 'requested' && form.status !== 'cancelled';
+};
+
+const ensureScheduleConflictsResolved = async () => {
+    if (!shouldCheckScheduleConflictsOnSubmit()) {
+        return true;
+    }
+
+    if (form.fleet_truck_id || form.fleet_trailer_id) {
+        await runFleetConflictCheck();
+        if (fleetConflicts.value.length > 0) {
+            scheduleConflictMessage.value = 'Truck or trailer is already booked for this window. Change the schedule, pick different fleet units, or swap assignments before submitting.';
+            showFleetConflictModal.value = true;
+
+            return false;
+        }
+    }
+
+    if (form.technician_id) {
+        await runDriverScheduleCheck();
+        if (driverConflicts.value.length > 0) {
+            scheduleConflictMessage.value = 'This driver has overlapping deliveries at the selected time. Change the schedule or choose a different driver before submitting.';
+            showDriverScheduleModal.value = true;
+
+            return false;
+        }
+    }
+
+    return true;
+};
+
+const shouldSkipConflictToast = (errors) => {
+    const text = [errors?.form, errors?.general].flat().filter(Boolean).join(' ').toLowerCase();
+    return text.includes('conflict') || text.includes('fleet scheduling');
 };
 
 const formatDriverScheduleTime = (value) => {
@@ -702,6 +775,7 @@ const pickSwapOnCreate = (otherDeliveryId) => {
         return;
     }
     form.swap_with_delivery_id = otherDeliveryId;
+    showFleetConflictModal.value = false;
     submit();
 };
 
@@ -714,6 +788,7 @@ const swapFleetInPlace = async (otherDeliveryId) => {
             other_delivery_id: otherDeliveryId,
         });
         fleetConflicts.value = [];
+        showFleetConflictModal.value = false;
         router.reload({ only: ['record'], preserveScroll: true });
     } catch (e) {
         console.error(e);
@@ -735,34 +810,59 @@ const onFleetTrailerRecordSelected = (r) => {
 };
 
 /* ─── Submit ─── */
-const submit = (direct = false) => {
+const submit = async (direct = false) => {
     scheduleDirectly.value = isRequest.value && direct;
 
     if (scheduleDirectly.value && !form.status) {
         form.status = 'scheduled';
     }
 
+    if (!await ensureScheduleConflictsResolved()) {
+        return;
+    }
+
     const url = isRequest.value
         ? route('deliveries.requests.store')
-        : isEdit.value
-            ? route('deliveries.update', props.record.id)
-            : route('deliveries.store');
-    const method = isRequest.value || !isEdit.value ? 'post' : 'put';
-    form.submit(method, url, validationSubmitOptions({
+        : isRequestEdit.value
+            ? route('deliveries.requests.update', props.record.id)
+            : isEdit.value
+                ? route('deliveries.update', props.record.id)
+                : route('deliveries.store');
+    const method = isRequestEdit.value
+        ? 'put'
+        : (isRequest.value || !isEdit.value ? 'post' : 'put');
+    form.submit(method, url, {
+        preserveScroll: true,
         onSuccess: () => {
             form.swap_with_delivery_id = null;
             emit('saved');
+        },
+        onError: (errors) => {
+            if (shouldSkipConflictToast(errors)) {
+                return;
+            }
+            handleSubmitErrors(errors);
         },
         onFinish: async () => {
             scheduleDirectly.value = false;
             await nextTick();
             const c = page.props.flash?.delivery_fleet_conflicts;
             if (Array.isArray(c) && c.length) {
-                fleetConflicts.value = c;
+                openFleetConflictModal(c, page.props.flash?.error || '');
             }
         },
-    }));
+    });
 };
+
+watch(
+    () => page.props.flash?.delivery_fleet_conflicts,
+    (conflicts) => {
+        if (Array.isArray(conflicts) && conflicts.length > 0) {
+            openFleetConflictModal(conflicts, page.props.flash?.error || '');
+        }
+    },
+    { immediate: true },
+);
 
 /* ─── Field configs for RecordSelect ─── */
 const customerField = computed(() => ({ type: 'record', typeDomain: 'Customer', label: 'Customer', required: true }));
@@ -1063,7 +1163,7 @@ const onScheduledAtCommittedChange = async () => {
             </div>
         </div>
 
-        <form @submit.prevent="submit(showDirectScheduleUi)">
+        <form @submit.prevent="submit(false)">
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <!-- ============================
@@ -1281,7 +1381,7 @@ const onScheduledAtCommittedChange = async () => {
                                         </div>
                                     </div>
 
-                                    <div v-if="!isRequest || showDirectScheduleUi">
+                                    <div v-if="(!isRequest && !isRequestEdit) || showDirectScheduleUi">
                                         <label class="block text-md font-medium text-gray-700 dark:text-gray-300 mb-1.5">Status</label>
                                         <select v-model="form.status" class="input-style w-full">
                                             <option
@@ -1303,6 +1403,7 @@ const onScheduledAtCommittedChange = async () => {
                                             Target time at the delivery address (account time zone, same as other schedule fields).
                                         </p>
                                         <input
+                                            id="delivery-form-scheduled-at"
                                             type="datetime-local"
                                             v-model="form.scheduled_at"
                                             class="input-style"
@@ -1730,7 +1831,7 @@ const onScheduledAtCommittedChange = async () => {
                                 <span class="material-icons text-[18px]" :class="{ 'animate-spin': form.processing }">
                                     {{ form.processing ? 'sync' : 'check' }}
                                 </span>
-                                {{ form.processing ? 'Saving…' : (isRequest ? 'Submit request' : (isEdit ? 'Save Changes' : 'Create Delivery')) }}
+                                {{ form.processing ? 'Saving…' : (isRequest ? 'Submit request' : (isRequestEdit ? 'Save request' : (isEdit ? 'Save Changes' : 'Create Delivery'))) }}
                             </button>
                             <button
                                 type="button"
@@ -1846,8 +1947,8 @@ const onScheduledAtCommittedChange = async () => {
                     v-if="driverConflicts.length"
                     class="mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
                 >
-                    <span class="font-semibold">{{ driverConflicts.length }} conflict{{ driverConflicts.length === 1 ? '' : 's' }}</span>
-                    with the draft delivery window.
+                    <p class="font-semibold">{{ driverConflicts.length }} conflict{{ driverConflicts.length === 1 ? '' : 's' }}</p>
+                    <p v-if="scheduleConflictMessage" class="mt-1">{{ scheduleConflictMessage }}</p>
                 </div>
 
                 <div v-if="driverCheckLoading" class="mt-6 text-sm text-gray-500 dark:text-gray-400">
@@ -1901,11 +2002,73 @@ const onScheduledAtCommittedChange = async () => {
                     </table>
                 </div>
 
-                <div class="mt-6 flex justify-end">
+                <div class="mt-6 flex flex-wrap justify-end gap-3">
+                    <button
+                        v-if="driverConflicts.length"
+                        type="button"
+                        class="rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                        @click="focusScheduledTimeField"
+                    >
+                        Change scheduled time
+                    </button>
+                    <button
+                        v-if="driverConflicts.length"
+                        type="button"
+                        class="rounded-lg border border-amber-400 bg-white px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100"
+                        @click="focusDriverField"
+                    >
+                        Choose different driver
+                    </button>
                     <button
                         type="button"
                         class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
                         @click="showDriverScheduleModal = false"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <Modal :show="showFleetConflictModal" max-width="2xl" @close="showFleetConflictModal = false">
+            <div class="p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Fleet scheduling conflict</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {{ scheduleConflictMessage || 'Truck or trailer is already booked for this window.' }}
+                </p>
+                <ul class="mt-4 space-y-2">
+                    <li
+                        v-for="c in fleetConflicts"
+                        :key="c.id"
+                        class="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700 dark:bg-amber-950/40 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <span class="font-medium text-gray-900 dark:text-gray-100">
+                            {{ c.display_name }}
+                            <span class="ml-2 font-normal capitalize text-gray-600 dark:text-gray-400">{{ c.status }}</span>
+                        </span>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <Link
+                                :href="route('deliveries.show', c.id)"
+                                class="text-sm font-semibold text-primary-700 hover:underline dark:text-primary-300"
+                            >
+                                View delivery
+                            </Link>
+                            <button
+                                v-if="c.status !== 'en_route'"
+                                type="button"
+                                class="text-sm font-semibold text-primary-700 hover:underline dark:text-primary-300"
+                                @click.prevent="isEdit ? swapFleetInPlace(c.id) : pickSwapOnCreate(c.id)"
+                            >
+                                Swap truck/trailer
+                            </button>
+                        </div>
+                    </li>
+                </ul>
+                <div class="mt-6 flex justify-end">
+                    <button
+                        type="button"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        @click="showFleetConflictModal = false"
                     >
                         Close
                     </button>
@@ -1941,6 +2104,7 @@ const onScheduledAtCommittedChange = async () => {
             v-model="assetFormModel"
             v-model:open="showAssetModal"
             :editing="editingIndex !== null"
+            :customer-id="form.customer_id"
             hide-quantity
             is-delivery
             @save="saveAssetItem"

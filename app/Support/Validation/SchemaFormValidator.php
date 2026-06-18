@@ -121,6 +121,15 @@ final class SchemaFormValidator
             return ['required', 'integer'];
         }
 
+        if (method_exists($enumClass, 'options')) {
+            $options = $enumClass::options();
+            if (is_array($options) && $options !== [] && isset($options[0]['id'])) {
+                $ids = array_map(static fn (array $option) => (int) $option['id'], $options);
+
+                return ['required', 'integer', Rule::in($ids)];
+            }
+        }
+
         try {
             $reflection = new ReflectionEnum($enumClass);
         } catch (\Throwable) {

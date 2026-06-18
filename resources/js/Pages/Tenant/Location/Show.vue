@@ -134,8 +134,8 @@ const confirmDelete = () => {
         onFinish: () => {
             isDeleting.value = false;
             showDeleteModal.value = false;
-        },
-    });
+    },
+});
 };
 </script>
 

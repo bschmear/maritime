@@ -487,10 +487,13 @@ Route::middleware([
             Route::get('/requests', [DeliveryRequestController::class, 'index'])->name('requests.index');
             Route::get('/requests/create', [DeliveryRequestController::class, 'create'])->name('requests.create');
             Route::post('/requests', [DeliveryRequestController::class, 'store'])->name('requests.store');
+            Route::get('/requests/{delivery}/edit', [DeliveryRequestController::class, 'edit'])->name('requests.edit');
+            Route::put('/requests/{delivery}', [DeliveryRequestController::class, 'update'])->name('requests.update');
             Route::post('/{delivery}/request/approve', [DeliveryRequestController::class, 'approve'])->name('requests.approve');
             Route::post('/{delivery}/request/deny', [DeliveryRequestController::class, 'deny'])->name('requests.deny');
             Route::post('/{delivery}/request/propose-reschedule', [DeliveryRequestController::class, 'proposeReschedule'])->name('requests.propose-reschedule');
             Route::post('/{delivery}/request/resubmit', [DeliveryRequestController::class, 'resubmit'])->name('requests.resubmit');
+            Route::post('/{delivery}/request/cancel', [DeliveryRequestController::class, 'cancel'])->name('requests.cancel');
             Route::get('/work-order-details/{workorder}', [DeliveryController::class, 'workOrderDetails'])->name('work-order-details');
             Route::get('/customer-details/{customer}', [DeliveryController::class, 'customerDetails'])->name('customer-details');
             Route::get('/source-items', [DeliveryController::class, 'sourceItems'])->name('source-items');

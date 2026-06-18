@@ -103,8 +103,9 @@
 
   "sublists": [
     {
-      "label": "Checklist",
-      "domain": "DeliveryChecklistItem"
+      "label": "Documents",
+      "domain": "Document",
+      "modelRelationship": "documents"
     },
     {
       "label": "System log",

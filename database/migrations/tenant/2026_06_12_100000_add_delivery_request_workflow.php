@@ -27,9 +27,11 @@ return new class extends Migration
             $table->string('review_decision', 32)->nullable()->after('reviewed_at');
             $table->text('review_notes')->nullable()->after('review_decision');
             $table->timestamp('proposed_scheduled_at')->nullable()->after('review_notes');
+            $table->boolean('pending_request')->default(false);
         });
 
         DB::table('deliveries')->where('status', 'confirmed')->update(['status' => 'scheduled']);
+        DB::table('deliveries')->where('status', 'requested')->update(['pending_request' => true]);
     }
 
     public function down(): void
@@ -43,6 +45,7 @@ return new class extends Migration
                 'review_decision',
                 'review_notes',
                 'proposed_scheduled_at',
+                'pending_request'
             ]);
         });
 

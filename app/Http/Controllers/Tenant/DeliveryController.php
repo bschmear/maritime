@@ -12,7 +12,9 @@ use App\Domain\Delivery\Actions\SwapDeliveryFleetAssignments;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
+use App\Domain\Delivery\Actions\ReviewDeliveryRequest;
 use App\Domain\Delivery\Support\DeliveryApproverResolver;
+use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
 use App\Domain\Delivery\Support\SyncTechnicianDeliveryInProgress;
 use App\Domain\DeliveryChecklistCategory\Models\DeliveryChecklistCategory;
@@ -24,6 +26,7 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Domain\WorkOrder\Models\WorkOrder;
 use App\Enums\Deliveries\Status as DeliveryStatus;
+use App\Enums\RecordType;
 use App\Enums\SMS;
 use App\Mail\DeliverySignatureRequest;
 use App\Models\AccountSettings;
@@ -51,6 +54,32 @@ class DeliveryController extends RecordController
             new DeleteAction,
             'Delivery'
         );
+    }
+
+    /**
+     * Read-only validation POST endpoints are used by delivery request submitters
+     * who have delivery.view but not delivery.create.
+     */
+    protected function authorizeTenantRecordAccess(Request $request): void
+    {
+        $viewOnlyPostRoutes = [
+            'deliveries.check-fleet-schedule',
+            'deliveries.check-technician-schedule',
+            'deliveries.travel-estimate',
+        ];
+
+        if ($request->isMethod('POST') && in_array($request->route()?->getName(), $viewOnlyPostRoutes, true)) {
+            $recordType = RecordType::fromDomainName($this->domainName ?? 'Delivery');
+            if ($recordType === null || ! $recordType->tenantUserCanAccess()) {
+                abort(403);
+            }
+
+            abort_unless(tenant_has_permission('delivery.view'), 403);
+
+            return;
+        }
+
+        parent::authorizeTenantRecordAccess($request);
     }
 
     /*
@@ -95,7 +124,7 @@ class DeliveryController extends RecordController
         $calendarMonthDeliveries = $calendarMonthQuery
             ->where('scheduled_at', '>=', $monthRangeStartUtc)
             ->where('scheduled_at', '<', $monthRangeEndUtc)
-            ->whereNotIn('status', ['requested'])
+            ->where('pending_request', false)
             ->orderBy('scheduled_at')
             ->get()
             ->filter(static function (RecordModel $d) use ($tz, $monthStart): bool {
@@ -201,7 +230,7 @@ class DeliveryController extends RecordController
             'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
             'enumOptions' => $this->getEnumOptions(),
             'canCreateDelivery' => tenant_has_permission('delivery.create'),
-            'pendingRequestCount' => RecordModel::query()->where('status', 'requested')->count(),
+            'pendingRequestCount' => RecordModel::query()->where('pending_request', true)->count(),
         ]);
     }
 
@@ -408,12 +437,11 @@ class DeliveryController extends RecordController
                 'hint' => $signatureSmsOffer['hint'],
             ],
             'logoUrl' => $account->logo_url,
-            'canApproveRequest' => $record->status === 'requested'
+            'canApproveRequest' => $record->pending_request
                 && DeliveryApproverResolver::currentUserCanApprove($record->location),
-            'canResubmitRequest' => $record->status === 'requested' && (
-                (current_tenant_user_id() !== null && (int) $record->requested_by_user_id === (int) current_tenant_user_id())
-                || current_tenant_role_slug() === 'admin'
-            ),
+            'canResubmitRequest' => $this->requesterCanResubmitDeliveryRequest($record),
+            'canUpdateRequest' => $this->requesterCanUpdateDeliveryRequest($record),
+            'canCancelDeniedRequest' => $this->requesterCanCancelDeniedDeliveryRequest($record),
             'canCreateDelivery' => tenant_has_permission('delivery.create'),
         ]);
     }
@@ -674,6 +702,10 @@ class DeliveryController extends RecordController
         $record = RecordModel::with($this->deliveryDetailRelationships())
             ->findOrFail($deliveryId);
 
+        if ($record->pending_request) {
+            return redirect()->route('deliveries.requests.edit', $record->id);
+        }
+
         $account = AccountSettings::getCurrent();
 
         return Inertia::render('Tenant/Delivery/Edit', [
@@ -920,7 +952,8 @@ class DeliveryController extends RecordController
             ->where('scheduled_at', '>=', $dayStartUtc)
             ->where('scheduled_at', '<', $dayEndExclusiveUtc)
             ->whereNotNull('technician_id')
-            ->whereNotIn('status', ['requested', 'cancelled']);
+            ->where('pending_request', false)
+            ->whereNotIn('status', ['cancelled']);
 
         if (! empty($validated['location_id'])) {
             $deliveryQuery->where('location_id', (int) $validated['location_id']);
@@ -1591,5 +1624,58 @@ class DeliveryController extends RecordController
         }
 
         return $relationships;
+    }
+
+    private function requesterCanActOnDeliveryRequest(RecordModel $record): bool
+    {
+        $userId = current_tenant_user_id();
+        if ($userId === null) {
+            return false;
+        }
+
+        return (int) $record->requested_by_user_id === (int) $userId
+            || current_tenant_role_slug() === 'admin';
+    }
+
+    private function requesterCanResubmitDeliveryRequest(RecordModel $record): bool
+    {
+        if (! $this->requesterCanActOnDeliveryRequest($record)) {
+            return false;
+        }
+
+        if ($record->review_decision === ReviewDeliveryRequest::DECISION_DENIED) {
+            return true;
+        }
+
+        if ($record->status === 'cancelled') {
+            return false;
+        }
+
+        return $record->pending_request
+            && $record->review_decision === ReviewDeliveryRequest::DECISION_RESCHEDULE_REQUESTED;
+    }
+
+    private function requesterCanUpdateDeliveryRequest(RecordModel $record): bool
+    {
+        if (! $this->requesterCanActOnDeliveryRequest($record)) {
+            return false;
+        }
+
+        if ($record->review_decision === ReviewDeliveryRequest::DECISION_DENIED) {
+            return true;
+        }
+
+        if ($record->status === 'cancelled') {
+            return false;
+        }
+
+        return $record->pending_request;
+    }
+
+    private function requesterCanCancelDeniedDeliveryRequest(RecordModel $record): bool
+    {
+        return $record->review_decision === ReviewDeliveryRequest::DECISION_DENIED
+            && $record->status !== 'cancelled'
+            && $this->requesterCanActOnDeliveryRequest($record);
     }
 }

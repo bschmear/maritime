@@ -14,7 +14,7 @@ import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { useTimezone } from '@/composables/useTimezone';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -53,10 +53,13 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
     canApproveRequest: { type: Boolean, default: false },
     canResubmitRequest: { type: Boolean, default: false },
+    canUpdateRequest: { type: Boolean, default: false },
+    canCancelDeniedRequest: { type: Boolean, default: false },
     canCreateDelivery: { type: Boolean, default: true },
 });
 
 const page = usePage();
+const inertiaApp = getCurrentInstance();
 const { accountTimezone } = useTimezone();
 const { headerActionsClass } = useMobileActionBar();
 const { externalLinkTarget } = usePwaLinks();
@@ -68,7 +71,9 @@ const deliverySmsEnabledForEnRoute = computed(() => props.deliveryEnRouteSms?.mo
 
 const recordIdentifier = computed(() => props.record?.id ?? props.record?.uuid);
 
-const visibleSublists = computed(() => props.formSchema?.sublists ?? []);
+const visibleSublists = computed(() => (
+    (props.formSchema?.sublists ?? []).filter((sublist) => sublist.domain !== 'DeliveryChecklistItem')
+));
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
@@ -185,6 +190,9 @@ const statusOptionsForSelect = computed(() => {
 });
 
 const recordStatusLabel = computed(() => {
+    if (props.record?.pending_request) {
+        return 'Pending request';
+    }
     const cur = props.record?.status;
     if (cur == null || cur === '') return '—';
     const opts = Array.isArray(deliveryStatusOptions.value) ? deliveryStatusOptions.value : [];
@@ -314,6 +322,15 @@ const itemUnitLabel = (item) => {
     return unit.serial_number ?? unit.hin ?? unit.sku ?? item.serial_number_snapshot ?? null;
 };
 
+const itemHullIdLabel = (item) => {
+    const unit = item.asset_unit ?? item.assetUnit ?? null;
+    if (unit?.hin) {
+        return unit.hin;
+    }
+
+    return item.serial_number_snapshot ?? unit?.serial_number ?? null;
+};
+
 const allItemsDelivered = computed(() => items.value.length > 0 && items.value.every(i => !!i.delivered_at));
 
 /* ─── Related records sidebar ─── */
@@ -370,10 +387,30 @@ const showTravelComputeButton = computed(
         && props.record?.estimated_travel_duration_seconds == null,
 );
 
-const isRequested = computed(() => props.record?.status === 'requested');
+const isPendingRequest = computed(() => props.record?.pending_request === true);
+const isDeniedRequest = computed(() => props.record?.review_decision === 'denied');
+const isCancelled = computed(
+    () => props.record?.status === 'cancelled' && !isDeniedRequest.value,
+);
+const isRequestLimitedView = computed(
+    () => isPendingRequest.value || isDeniedRequest.value || isCancelled.value,
+);
+const canPerformDeliveryActions = computed(() => !isRequestLimitedView.value);
+const isRequestDelete = computed(() => isPendingRequest.value || isDeniedRequest.value);
 const reviewNotes = ref('');
 const proposedScheduledAt = ref('');
 const reviewProcessing = ref(false);
+const showRescheduleFields = ref(false);
+const showDenyModal = ref(false);
+const denyReason = ref('');
+const denyReasonError = ref('');
+const showCancelDeniedModal = ref(false);
+const showFleetConflictModal = ref(false);
+const showDriverConflictModal = ref(false);
+const fleetConflicts = ref([]);
+const driverConflicts = ref([]);
+const driverUpcoming = ref([]);
+const scheduleConflictMessage = ref('');
 
 const serverUtcToLocalInput = (value) => {
     if (!value) return '';
@@ -388,18 +425,143 @@ const accountDatetimeLocalToUtcIso = (value) => {
     return m.isValid() ? m.utc().format() : null;
 };
 
-const approveRequest = () => {
+const approveRequest = async () => {
+    if (!await ensureScheduleAllowsApproval()) {
+        return;
+    }
+
     reviewProcessing.value = true;
     router.post(route('deliveries.requests.approve', props.record.id), {
         review_notes: reviewNotes.value || null,
     }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
 };
 
+const buildApprovalSchedulePayload = () => ({
+    technician_id: props.record?.technician_id,
+    scheduled_at: props.record?.scheduled_at,
+    time_to_leave_by: props.record?.time_to_leave_by,
+    estimated_travel_duration_seconds: props.record?.estimated_travel_duration_seconds,
+    estimated_return_travel_duration_seconds: props.record?.estimated_return_travel_duration_seconds,
+    delivery_duration_minutes: props.record?.delivery_duration_minutes,
+    exclude_delivery_id: props.record?.id,
+});
+
+const ensureScheduleAllowsApproval = async () => {
+    if (!props.record?.technician_id || !props.record?.scheduled_at) {
+        return true;
+    }
+
+    try {
+        const { data } = await axios.post(route('deliveries.check-technician-schedule'), buildApprovalSchedulePayload());
+        if (Array.isArray(data.conflicts) && data.conflicts.length > 0) {
+            driverConflicts.value = data.conflicts;
+            driverUpcoming.value = data.upcoming || [];
+            scheduleConflictMessage.value = 'This driver already has overlapping deliveries at the proposed time. Change the schedule or driver before approving.';
+            showDriverConflictModal.value = true;
+            return false;
+        }
+    } catch {
+        /* non-blocking if check fails */
+    }
+
+    return true;
+};
+
+const openFleetConflictModal = (conflicts, message = '') => {
+    if (!Array.isArray(conflicts) || conflicts.length === 0) {
+        return;
+    }
+    fleetConflicts.value = conflicts;
+    scheduleConflictMessage.value = message || 'Fleet scheduling conflict: truck or trailer is already booked for this window.';
+    showFleetConflictModal.value = true;
+};
+
+const handleScheduleConflictFlash = () => {
+    const conflicts = page.props.flash?.delivery_fleet_conflicts;
+    if (Array.isArray(conflicts) && conflicts.length > 0) {
+        openFleetConflictModal(conflicts, page.props.flash?.error || '');
+        return true;
+    }
+
+    return false;
+};
+
+watch(
+    () => page.props.flash?.delivery_fleet_conflicts,
+    (conflicts) => {
+        if (Array.isArray(conflicts) && conflicts.length > 0) {
+            openFleetConflictModal(conflicts, page.props.flash?.error || '');
+        }
+    },
+    { immediate: true },
+);
+
+watch(
+    () => page.props.flash?.error,
+    (message) => {
+        if (!message || handleScheduleConflictFlash()) {
+            return;
+        }
+        const root = inertiaApp?.appContext?.app?._instance?.proxy;
+        if (typeof root?.createToast === 'function') {
+            root.createToast('error', String(message));
+        }
+    },
+    { immediate: true },
+);
+
+watch(
+    () => page.props.flash?.success,
+    (message) => {
+        if (!message) {
+            return;
+        }
+        const root = inertiaApp?.appContext?.app?._instance?.proxy;
+        if (typeof root?.createToast === 'function') {
+            root.createToast('success', String(message));
+        }
+    },
+    { immediate: true },
+);
+
 const denyRequest = () => {
+    denyReason.value = reviewNotes.value || '';
+    denyReasonError.value = '';
+    showDenyModal.value = true;
+};
+
+const closeDenyModal = () => {
+    showDenyModal.value = false;
+    denyReasonError.value = '';
+};
+
+const confirmDenyRequest = () => {
+    if (!denyReason.value?.trim()) {
+        denyReasonError.value = 'Please enter a reason for denying this request.';
+        return;
+    }
+
     reviewProcessing.value = true;
     router.post(route('deliveries.requests.deny', props.record.id), {
-        review_notes: reviewNotes.value || null,
-    }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
+        review_notes: denyReason.value.trim(),
+    }, {
+        preserveScroll: true,
+        onFinish: () => {
+            reviewProcessing.value = false;
+            closeDenyModal();
+        },
+    });
+};
+
+const cancelDeniedDelivery = () => {
+    reviewProcessing.value = true;
+    router.post(route('deliveries.requests.cancel', props.record.id), {}, {
+        preserveScroll: true,
+        onFinish: () => {
+            reviewProcessing.value = false;
+            showCancelDeniedModal.value = false;
+        },
+    });
 };
 
 const proposeReschedule = () => {
@@ -407,14 +569,99 @@ const proposeReschedule = () => {
     router.post(route('deliveries.requests.propose-reschedule', props.record.id), {
         review_notes: reviewNotes.value || null,
         proposed_scheduled_at: accountDatetimeLocalToUtcIso(proposedScheduledAt.value),
-    }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
+    }, {
+        preserveScroll: true,
+        onFinish: () => {
+            reviewProcessing.value = false;
+            showRescheduleFields.value = false;
+        },
+    });
 };
 
-const resubmitRequest = () => {
-    reviewProcessing.value = true;
+const openProposeReschedule = () => {
+    showRescheduleFields.value = true;
+    if (!proposedScheduledAt.value && props.record?.scheduled_at) {
+        proposedScheduledAt.value = serverUtcToLocalInput(props.record.scheduled_at);
+    }
+};
+
+const cancelProposeReschedule = () => {
+    showRescheduleFields.value = false;
+};
+
+const buildResubmitSchedulePayload = (scheduledAt) => ({
+    scheduled_at: scheduledAt,
+    time_to_leave_by: props.record?.time_to_leave_by ?? null,
+    estimated_travel_duration_seconds: props.record?.estimated_travel_duration_seconds ?? null,
+    estimated_return_travel_duration_seconds: props.record?.estimated_return_travel_duration_seconds ?? null,
+    delivery_duration_minutes: props.record?.delivery_duration_minutes ?? null,
+    exclude_delivery_id: props.record?.id,
+});
+
+const checkResubmitScheduleConflicts = async (scheduledAt) => {
+    if (!scheduledAt) {
+        return true;
+    }
+
+    const truckId = props.record?.fleet_truck_id ?? props.record?.fleetTruck?.id ?? null;
+    const trailerId = props.record?.fleet_trailer_id ?? props.record?.fleetTrailer?.id ?? null;
+
+    if (truckId || trailerId) {
+        try {
+            const { data } = await axios.post(route('deliveries.check-fleet-schedule'), {
+                ...buildResubmitSchedulePayload(scheduledAt),
+                fleet_truck_id: truckId,
+                fleet_trailer_id: trailerId,
+                location_id: props.record?.location_id ?? null,
+            });
+            if (Array.isArray(data.conflicts) && data.conflicts.length > 0) {
+                fleetConflicts.value = data.conflicts;
+                scheduleConflictMessage.value = 'Truck or trailer is already booked for this window. Update the request with a different time or fleet assignments before resubmitting.';
+                showFleetConflictModal.value = true;
+
+                return false;
+            }
+        } catch {
+            /* non-blocking if check fails */
+        }
+    }
+
+    if (props.record?.technician_id) {
+        try {
+            const { data } = await axios.post(route('deliveries.check-technician-schedule'), {
+                ...buildResubmitSchedulePayload(scheduledAt),
+                technician_id: props.record.technician_id,
+            });
+            if (Array.isArray(data.conflicts) && data.conflicts.length > 0) {
+                driverConflicts.value = data.conflicts;
+                driverUpcoming.value = data.upcoming || [];
+                scheduleConflictMessage.value = 'This driver has overlapping deliveries at the selected time. Choose a different time or update the driver before resubmitting.';
+                showDriverConflictModal.value = true;
+
+                return false;
+            }
+        } catch {
+            /* non-blocking if check fails */
+        }
+    }
+
+    return true;
+};
+
+const resubmitRequest = async () => {
     const local = proposedScheduledAt.value || serverUtcToLocalInput(props.record?.proposed_scheduled_at);
+    const scheduledAt = accountDatetimeLocalToUtcIso(local);
+    if (!scheduledAt) {
+        return;
+    }
+
+    if (!await checkResubmitScheduleConflicts(scheduledAt)) {
+        return;
+    }
+
+    reviewProcessing.value = true;
     router.post(route('deliveries.requests.resubmit', props.record.id), {
-        scheduled_at: accountDatetimeLocalToUtcIso(local),
+        scheduled_at: scheduledAt,
     }, { preserveScroll: true, onFinish: () => { reviewProcessing.value = false; } });
 };
 
@@ -423,6 +670,16 @@ watch(
     (v) => {
         if (v && !proposedScheduledAt.value) {
             proposedScheduledAt.value = serverUtcToLocalInput(v);
+        }
+    },
+    { immediate: true },
+);
+
+watch(
+    () => [props.record?.scheduled_at, isDeniedRequest.value],
+    ([scheduledAt, denied]) => {
+        if (denied && scheduledAt && !proposedScheduledAt.value) {
+            proposedScheduledAt.value = serverUtcToLocalInput(scheduledAt);
         }
     },
     { immediate: true },
@@ -540,7 +797,12 @@ const confirmArrivedWithoutSms = () => {
 };
 
 /* ─── Actions ─── */
-const markAsDelivered = () => { showMarkDeliveredModal.value = true; };
+const markAsDelivered = () => {
+    if (!canPerformDeliveryActions.value || props.record?.delivered_at) {
+        return;
+    }
+    showMarkDeliveredModal.value = true;
+};
 
 const markDeliveredWithoutSignature = async () => {
     try {
@@ -562,10 +824,18 @@ const viewSignatureRequest = () => {
     window.open(route('deliveries.review', props.record.uuid), '_blank');
 };
 
-const openPreview = () => { showPreview.value = true; };
+const openPreview = () => {
+    if (!canPerformDeliveryActions.value) {
+        return;
+    }
+    showPreview.value = true;
+};
 const closePreview = () => { showPreview.value = false; };
 
 const openPrint = () => {
+    if (!canPerformDeliveryActions.value) {
+        return;
+    }
     const url = route('deliveries.print', props.record.id);
     if (externalLinkTarget.value === '_self') {
         window.location.assign(url);
@@ -578,8 +848,11 @@ const handleDelete = () => { showDeleteModal.value = true; };
 const cancelDelete = () => { showDeleteModal.value = false; };
 const confirmDelete = () => {
     isDeleting.value = true;
+    const redirectTo = isRequestDelete.value
+        ? route('deliveries.requests.index')
+        : route('deliveries.index');
     router.delete(route('deliveries.destroy', recordIdentifier.value), {
-        onSuccess: () => router.visit(route('deliveries.index')),
+        onSuccess: () => router.visit(redirectTo),
         onError: () => { isDeleting.value = false; },
         onFinish: () => { isDeleting.value = false; showDeleteModal.value = false; },
     });
@@ -765,6 +1038,13 @@ const deliverToSummary = computed(() => {
     return { type: 'Custom Address', name: null };
 });
 
+const addressSummary = computed(() => {
+    const r = props.record;
+    if (!r) return '—';
+    const parts = [r.address_line_1, r.city, r.state, r.postal_code].filter(Boolean);
+    return parts.join(', ') || '—';
+});
+
 const locationRecord = computed(() => props.record?.location ?? null);
 
 const fleetTruckRecord = computed(() => {
@@ -875,6 +1155,25 @@ const googleMapsDirectionsUrl = computed(() => {
                             {{ record?.display_name }}
                         </h2>
                         <div class="flex min-w-0 flex-wrap items-center gap-2">
+                            <span
+                                v-if="isPendingRequest"
+                                class="inline-flex shrink-0 items-center rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                            >
+                                Pending request
+                            </span>
+                            <span
+                                v-else-if="isDeniedRequest"
+                                class="inline-flex shrink-0 items-center rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-900 dark:bg-red-950 dark:text-red-100"
+                            >
+                                Request denied
+                            </span>
+                            <span
+                                v-else-if="isCancelled"
+                                class="inline-flex shrink-0 items-center rounded-full bg-gray-200 px-3 py-1 text-sm font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                            >
+                                Cancelled
+                            </span>
+                            <template v-else>
                             <label for="delivery-status-select" class="sr-only">Delivery status</label>
                             <select
                                 id="delivery-status-select"
@@ -900,9 +1199,67 @@ const googleMapsDirectionsUrl = computed(() => {
                                 v-if="isSigned"
                                 class="shrink-0 text-sm text-gray-500 dark:text-gray-400"
                             >Locked (signed)</span>
+                            </template>
                         </div>
                     </div>
                     <div :class="['flex shrink-0 flex-wrap items-center gap-2', headerActionsClass]">
+                        <template v-if="isPendingRequest">
+                            <Link
+                                v-if="canUpdateRequest"
+                                :href="route('deliveries.requests.edit', record.id)"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
+                            >
+                                <span class="material-icons text-lg">edit</span>
+                                Update request
+                            </Link>
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+                                @click="handleDelete"
+                            >
+                                <span class="material-icons text-lg">delete</span>
+                                Delete
+                            </button>
+                        </template>
+                        <template v-else-if="isDeniedRequest">
+                            <Link
+                                v-if="canUpdateRequest"
+                                :href="route('deliveries.requests.edit', record.id)"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-white bg-primary-600 border border-transparent rounded-md hover:bg-primary-700"
+                            >
+                                <span class="material-icons text-lg">edit</span>
+                                Update request
+                            </Link>
+                            <button
+                                v-if="canCancelDeniedRequest"
+                                type="button"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+                                @click="showCancelDeniedModal = true"
+                            >
+                                <span class="material-icons text-lg">cancel</span>
+                                Cancel delivery
+                            </button>
+                            <button
+                                v-if="canUpdateRequest"
+                                type="button"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+                                @click="handleDelete"
+                            >
+                                <span class="material-icons text-lg">delete</span>
+                                Delete request
+                            </button>
+                        </template>
+                        <template v-else-if="isCancelled">
+                            <button
+                                type="button"
+                                class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+                                @click="handleDelete"
+                            >
+                                <span class="material-icons text-lg">delete</span>
+                                Delete
+                            </button>
+                        </template>
+                        <template v-else-if="canPerformDeliveryActions">
                         <button
                             @click="openPreview"
                             class="inline-flex items-center gap-2 px-3 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
@@ -932,6 +1289,7 @@ const googleMapsDirectionsUrl = computed(() => {
                             <span class="material-icons text-lg">delete</span>
                             Delete
                         </button>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -939,6 +1297,53 @@ const googleMapsDirectionsUrl = computed(() => {
 
         <MobileActionBar>
             <template #actions>
+                <template v-if="isPendingRequest">
+                    <MobileActionBarButton
+                        v-if="canUpdateRequest"
+                        label="Update request"
+                        :href="route('deliveries.requests.edit', record.id)"
+                    >
+                        <span class="material-icons leading-none">edit</span>
+                    </MobileActionBarButton>
+                    <MobileActionBarButton
+                        label="Delete request"
+                        @click="handleDelete"
+                    >
+                        <span class="material-icons leading-none">delete</span>
+                    </MobileActionBarButton>
+                </template>
+                <template v-else-if="isDeniedRequest">
+                    <MobileActionBarButton
+                        v-if="canUpdateRequest"
+                        label="Update request"
+                        :href="route('deliveries.requests.edit', record.id)"
+                    >
+                        <span class="material-icons leading-none">edit</span>
+                    </MobileActionBarButton>
+                    <MobileActionBarButton
+                        v-if="canCancelDeniedRequest"
+                        label="Cancel delivery"
+                        @click="showCancelDeniedModal = true"
+                    >
+                        <span class="material-icons leading-none">cancel</span>
+                    </MobileActionBarButton>
+                    <MobileActionBarButton
+                        v-if="canUpdateRequest"
+                        label="Delete request"
+                        @click="handleDelete"
+                    >
+                        <span class="material-icons leading-none">delete</span>
+                    </MobileActionBarButton>
+                </template>
+                <template v-else-if="isCancelled">
+                    <MobileActionBarButton
+                        label="Delete delivery"
+                        @click="handleDelete"
+                    >
+                        <span class="material-icons leading-none">delete</span>
+                    </MobileActionBarButton>
+                </template>
+                <template v-else-if="canPerformDeliveryActions">
                 <MobileActionBarButton
                     label="Preview delivery"
                     @click="openPreview"
@@ -963,11 +1368,264 @@ const googleMapsDirectionsUrl = computed(() => {
                 >
                     <span class="material-icons leading-none">delete</span>
                 </MobileActionBarButton>
+                </template>
             </template>
 
         <div class="grid min-w-0 max-w-full grid-cols-1 gap-6 lg:grid-cols-12">
             <!-- Main content -->
             <div class="min-w-0 space-y-6 lg:col-span-8">
+                <!-- Pending request summary -->
+                <div
+                    v-if="isPendingRequest"
+                    class="overflow-hidden rounded-lg border border-amber-200 bg-amber-50 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30"
+                >
+                    <div class="border-b border-amber-200 px-6 py-4 dark:border-amber-800/50">
+                        <h3 class="text-lg font-semibold text-amber-950 dark:text-amber-100">Pending delivery request</h3>
+                        <p class="mt-1 text-sm text-amber-900/80 dark:text-amber-200/80">
+                            Requested by {{ record.requested_by?.display_name ?? '—' }}
+                            <span v-if="record.requested_at"> on {{ formatDateTime(record.requested_at) }}</span>
+                        </p>
+                    </div>
+                    <dl class="divide-y divide-amber-200/80 dark:divide-amber-800/40">
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-amber-900/70 dark:text-amber-200/70">Customer</dt>
+                            <dd class="sm:col-span-2 text-sm font-medium text-amber-950 dark:text-amber-50">
+                                {{ record.customer?.display_name ?? record.customer?.contact?.display_name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-amber-900/70 dark:text-amber-200/70">Depart from</dt>
+                            <dd class="sm:col-span-2 text-sm text-amber-950 dark:text-amber-50">
+                                {{ record.location?.display_name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-amber-900/70 dark:text-amber-200/70">Deliver to</dt>
+                            <dd class="sm:col-span-2 text-sm text-amber-950 dark:text-amber-50">
+                                {{ deliverToSummary?.type ?? 'Custom address' }}
+                                <span v-if="deliverToSummary?.name"> · {{ deliverToSummary.name }}</span>
+                                <div v-if="record.address_line_1" class="mt-1 font-normal text-amber-900/80 dark:text-amber-200/80">
+                                    {{ addressSummary }}
+                                </div>
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-amber-900/70 dark:text-amber-200/70">Scheduled</dt>
+                            <dd class="sm:col-span-2 text-sm font-semibold text-amber-950 dark:text-amber-50">
+                                {{ formatDateTimeWithZoneId(record.scheduled_at) }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-amber-900/70 dark:text-amber-200/70">Driver</dt>
+                            <dd class="sm:col-span-2 text-sm text-amber-950 dark:text-amber-50">
+                                {{ record.technician?.display_name ?? record.technician?.name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-amber-900/70 dark:text-amber-200/70">Assets</dt>
+                            <dd class="sm:col-span-2 text-sm text-amber-950 dark:text-amber-50">
+                                <span v-if="!items.length">No assets listed</span>
+                                <ul v-else class="space-y-1">
+                                    <li v-for="item in items" :key="item.id">{{ itemName(item) }}</li>
+                                </ul>
+                            </dd>
+                        </div>
+                    </dl>
+                    <div
+                        v-if="record.review_decision === 'reschedule_requested'"
+                        class="border-t border-amber-200 px-6 py-4 dark:border-amber-800/50"
+                    >
+                        <p class="text-sm font-medium text-amber-950 dark:text-amber-100">Approver requested a new time</p>
+                        <p v-if="record.proposed_scheduled_at" class="mt-1 text-sm text-amber-900/80 dark:text-amber-200/80">
+                            Proposed: {{ formatDateTime(record.proposed_scheduled_at) }}
+                        </p>
+                        <p v-if="record.review_notes" class="mt-1 text-sm text-amber-900/80 dark:text-amber-200/80">{{ record.review_notes }}</p>
+                    </div>
+                </div>
+
+                <!-- Denied request summary -->
+                <div
+                    v-if="isDeniedRequest"
+                    class="overflow-hidden rounded-lg border border-red-200 bg-red-50 shadow-sm dark:border-red-800/50 dark:bg-red-950/30"
+                >
+                    <div class="border-b border-red-200 px-6 py-4 dark:border-red-800/50">
+                        <h3 class="text-lg font-semibold text-red-950 dark:text-red-100">Delivery request denied</h3>
+                        <p class="mt-1 text-sm text-red-900/80 dark:text-red-200/80">
+                            Denied by {{ record.reviewed_by?.display_name ?? '—' }}
+                            <span v-if="record.reviewed_at"> on {{ formatDateTime(record.reviewed_at) }}</span>
+                        </p>
+                        <p
+                            v-if="record.status === 'cancelled'"
+                            class="mt-2 text-sm text-red-900/90 dark:text-red-100/90"
+                        >
+                            This request is marked cancelled, but you can update the schedule, driver, or fleet assignments and resubmit for approval.
+                        </p>
+                    </div>
+                    <div class="border-b border-red-200 px-6 py-4 dark:border-red-800/50">
+                        <p class="text-sm font-medium text-red-950 dark:text-red-100">Reason</p>
+                        <p class="mt-1 whitespace-pre-line text-sm text-red-900/90 dark:text-red-100/90">
+                            {{ record.review_notes || 'No reason provided.' }}
+                        </p>
+                    </div>
+                    <dl class="divide-y divide-red-200/80 dark:divide-red-800/40">
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Customer</dt>
+                            <dd class="sm:col-span-2 text-sm font-medium text-red-950 dark:text-red-50">
+                                {{ record.customer?.display_name ?? record.customer?.contact?.display_name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Depart from</dt>
+                            <dd class="sm:col-span-2 text-sm text-red-950 dark:text-red-50">
+                                {{ record.location?.display_name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Deliver to</dt>
+                            <dd class="sm:col-span-2 text-sm text-red-950 dark:text-red-50">
+                                {{ deliverToSummary?.type ?? 'Custom address' }}
+                                <span v-if="deliverToSummary?.name"> · {{ deliverToSummary.name }}</span>
+                                <div v-if="record.address_line_1" class="mt-1 font-normal text-red-900/80 dark:text-red-200/80">
+                                    {{ addressSummary }}
+                                </div>
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Requested time</dt>
+                            <dd class="sm:col-span-2 text-sm font-semibold text-red-950 dark:text-red-50">
+                                {{ formatDateTimeWithZoneId(record.scheduled_at) }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Driver</dt>
+                            <dd class="sm:col-span-2 text-sm text-red-950 dark:text-red-50">
+                                {{ record.technician?.display_name ?? record.technician?.name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Truck</dt>
+                            <dd class="sm:col-span-2 text-sm text-red-950 dark:text-red-50">
+                                {{ fleetTruckLabel || '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Trailer</dt>
+                            <dd class="sm:col-span-2 text-sm text-red-950 dark:text-red-50">
+                                {{ fleetTrailerLabel || '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-red-900/70 dark:text-red-200/70">Assets</dt>
+                            <dd class="sm:col-span-2 text-sm text-red-950 dark:text-red-50">
+                                <span v-if="!items.length">No assets listed</span>
+                                <ul v-else class="space-y-2">
+                                    <li v-for="item in items" :key="item.id">
+                                        <div class="font-medium">{{ itemName(item) }}</div>
+                                        <div
+                                            v-if="itemVariantLabel(item) || itemHullIdLabel(item)"
+                                            class="mt-0.5 text-xs font-normal text-red-900/75 dark:text-red-200/75"
+                                        >
+                                            <span v-if="itemVariantLabel(item)">{{ itemVariantLabel(item) }}</span>
+                                            <template v-if="itemVariantLabel(item) && itemHullIdLabel(item)"> · </template>
+                                            <span v-if="itemHullIdLabel(item)">Hull ID: {{ itemHullIdLabel(item) }}</span>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </dd>
+                        </div>
+                    </dl>
+                    <div v-if="canResubmitRequest || canUpdateRequest || canCancelDeniedRequest" class="space-y-3 border-t border-red-200 px-6 py-4 dark:border-red-800/50">
+                        <p class="text-sm font-medium text-red-950 dark:text-red-100">
+                            Update the schedule, driver, truck, or trailer and resubmit for approval.
+                        </p>
+                        <Link
+                            v-if="canUpdateRequest"
+                            :href="route('deliveries.requests.edit', record.id)"
+                            class="btn-primary inline-flex items-center justify-center gap-2"
+                        >
+                            <span class="material-icons text-lg">edit</span>
+                            Update &amp; resubmit request
+                        </Link>
+                        <div v-if="canResubmitRequest" class="space-y-2 rounded-lg border border-red-200/80 bg-white/60 p-4 dark:border-red-800/50 dark:bg-red-950/20">
+                            <p class="text-xs font-medium uppercase tracking-wide text-red-900/70 dark:text-red-200/70">
+                                Quick resubmit — new time only
+                            </p>
+                            <input
+                                v-model="proposedScheduledAt"
+                                type="datetime-local"
+                                class="input-style w-full text-sm"
+                                placeholder="New proposed schedule"
+                            />
+                            <button
+                                type="button"
+                                class="btn-primary w-full sm:w-auto"
+                                :disabled="reviewProcessing || !proposedScheduledAt"
+                                @click="resubmitRequest"
+                            >
+                                Resubmit for approval
+                            </button>
+                        </div>
+                        <button
+                            v-if="canCancelDeniedRequest"
+                            type="button"
+                            class="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100 dark:hover:bg-red-900/40"
+                            :disabled="reviewProcessing"
+                            @click="showCancelDeniedModal = true"
+                        >
+                            Cancel delivery
+                        </button>
+                        <button
+                            v-if="canUpdateRequest"
+                            type="button"
+                            class="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100 dark:hover:bg-red-900/40"
+                            @click="handleDelete"
+                        >
+                            Delete request
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cancelled delivery summary -->
+                <div
+                    v-if="isCancelled"
+                    class="overflow-hidden rounded-lg border border-gray-300 bg-gray-50 shadow-sm dark:border-gray-700 dark:bg-gray-900/40"
+                >
+                    <div class="border-b border-gray-300 px-6 py-4 dark:border-gray-700">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Delivery cancelled</h3>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            This delivery is no longer active. Preview, print, and completion actions are unavailable.
+                        </p>
+                    </div>
+                    <div
+                        v-if="record.review_notes"
+                        class="border-b border-gray-300 px-6 py-4 dark:border-gray-700"
+                    >
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Notes</p>
+                        <p class="mt-1 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{{ record.review_notes }}</p>
+                    </div>
+                    <dl class="divide-y divide-gray-200 dark:divide-gray-700">
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Customer</dt>
+                            <dd class="sm:col-span-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {{ record.customer?.display_name ?? record.customer?.contact?.display_name ?? '—' }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Scheduled</dt>
+                            <dd class="sm:col-span-2 text-sm text-gray-900 dark:text-gray-100">
+                                {{ formatDateTimeWithZoneId(record.scheduled_at) }}
+                            </dd>
+                        </div>
+                        <div class="grid gap-1 px-6 py-4 sm:grid-cols-3">
+                            <dt class="text-sm font-medium text-gray-500 dark:text-gray-400">Driver</dt>
+                            <dd class="sm:col-span-2 text-sm text-gray-900 dark:text-gray-100">
+                                {{ record.technician?.display_name ?? record.technician?.name ?? '—' }}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
+
+                <template v-if="!isRequestLimitedView">
                 <!-- Summary card -->
                 <div class="min-w-0 overflow-hidden divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
 
@@ -1305,12 +1963,7 @@ const googleMapsDirectionsUrl = computed(() => {
                     </div>
                 </div>
 
-                <Sublist
-                    v-if="visibleSublists.length > 0 && domainName"
-                    :parent-record="record"
-                    :parent-domain="domainName"
-                    :sublists="visibleSublists"
-                />
+                </template>
 
             </div>
 
@@ -1318,14 +1971,10 @@ const googleMapsDirectionsUrl = computed(() => {
             <div class="min-w-0 space-y-6 lg:col-span-4">
                 <!-- Request approval -->
                 <div
-                    v-if="isRequested"
+                    v-if="isPendingRequest"
                     class="rounded-lg border border-amber-200 bg-amber-50 p-6 shadow-sm dark:border-amber-800/50 dark:bg-amber-950/30"
                 >
-                    <h3 class="mb-2 text-lg font-semibold text-amber-950 dark:text-amber-100">Delivery request</h3>
-                    <p class="mb-4 text-sm text-amber-900/80 dark:text-amber-200/80">
-                        Requested by {{ record.requested_by?.display_name ?? '—' }}
-                        <span v-if="record.requested_at"> on {{ formatDateTime(record.requested_at) }}</span>
-                    </p>
+                    <h3 class="mb-4 text-lg font-semibold text-amber-950 dark:text-amber-100">Review request</h3>
                     <div v-if="record.review_decision === 'reschedule_requested'" class="mb-4 rounded-lg border border-amber-300 bg-white/70 p-3 text-sm dark:border-amber-700 dark:bg-gray-900/40">
                         <p class="font-medium text-amber-950 dark:text-amber-100">Approver requested a new time</p>
                         <p v-if="record.proposed_scheduled_at" class="mt-1">Proposed: {{ formatDateTime(record.proposed_scheduled_at) }}</p>
@@ -1338,36 +1987,64 @@ const googleMapsDirectionsUrl = computed(() => {
                             class="input-style w-full text-sm"
                             placeholder="Optional note to requester"
                         />
-                        <input
-                            v-model="proposedScheduledAt"
-                            type="datetime-local"
-                            class="input-style w-full text-sm"
-                            placeholder="Proposed schedule (for reschedule)"
-                        />
-                        <button
-                            type="button"
-                            class="btn-primary w-full"
-                            :disabled="reviewProcessing"
-                            @click="approveRequest"
-                        >
-                            Approve & schedule
-                        </button>
-                        <button
-                            type="button"
-                            class="w-full rounded-lg border border-amber-400 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900/40"
-                            :disabled="reviewProcessing || !proposedScheduledAt"
-                            @click="proposeReschedule"
-                        >
-                            Propose reschedule
-                        </button>
-                        <button
-                            type="button"
-                            class="btn-danger w-full"
-                            :disabled="reviewProcessing"
-                            @click="denyRequest"
-                        >
-                            Deny request
-                        </button>
+                        <template v-if="showRescheduleFields">
+                            <div>
+                                <label for="review-proposed-scheduled-at" class="mb-1 block text-sm font-medium text-amber-950 dark:text-amber-100">
+                                    Proposed date &amp; time
+                                </label>
+                                <input
+                                    id="review-proposed-scheduled-at"
+                                    v-model="proposedScheduledAt"
+                                    type="datetime-local"
+                                    class="input-style w-full text-sm"
+                                />
+                                <p class="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">
+                                    Suggest a new departure time for the requester to accept or revise.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                class="w-full rounded-lg border border-amber-400 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900/40"
+                                :disabled="reviewProcessing || !proposedScheduledAt"
+                                @click="proposeReschedule"
+                            >
+                                Send reschedule proposal
+                            </button>
+                            <button
+                                type="button"
+                                class="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                                :disabled="reviewProcessing"
+                                @click="cancelProposeReschedule"
+                            >
+                                Cancel
+                            </button>
+                        </template>
+                        <template v-else>
+                            <button
+                                type="button"
+                                class="btn-primary w-full"
+                                :disabled="reviewProcessing"
+                                @click="approveRequest"
+                            >
+                                Approve & schedule
+                            </button>
+                            <button
+                                type="button"
+                                class="w-full rounded-lg border border-amber-400 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-900/40"
+                                :disabled="reviewProcessing"
+                                @click="openProposeReschedule"
+                            >
+                                Propose reschedule
+                            </button>
+                            <button
+                                type="button"
+                                class="w-full rounded-lg border border-red-300 bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-700 dark:hover:bg-red-600"
+                                :disabled="reviewProcessing"
+                                @click="denyRequest"
+                            >
+                                Deny request
+                            </button>
+                        </template>
                     </div>
                     <div v-else-if="canResubmitRequest" class="space-y-3">
                         <input
@@ -1388,8 +2065,59 @@ const googleMapsDirectionsUrl = computed(() => {
                     <p v-else class="text-sm text-amber-800 dark:text-amber-200">Awaiting review by the location delivery approver.</p>
                 </div>
 
+                <!-- Denied request actions -->
+                <div
+                    v-if="isDeniedRequest && (canResubmitRequest || canUpdateRequest || canCancelDeniedRequest)"
+                    class="rounded-lg border border-red-200 bg-red-50 p-6 shadow-sm dark:border-red-800/50 dark:bg-red-950/30"
+                >
+                    <h3 class="mb-4 text-lg font-semibold text-red-950 dark:text-red-100">Next steps</h3>
+                    <div class="space-y-3">
+                        <Link
+                            v-if="canUpdateRequest"
+                            :href="route('deliveries.requests.edit', record.id)"
+                            class="btn-primary inline-flex w-full items-center justify-center gap-2"
+                        >
+                            <span class="material-icons text-lg">edit</span>
+                            Update &amp; resubmit request
+                        </Link>
+                        <input
+                            v-if="canResubmitRequest"
+                            v-model="proposedScheduledAt"
+                            type="datetime-local"
+                            class="input-style w-full text-sm"
+                            placeholder="New proposed schedule"
+                        />
+                        <button
+                            v-if="canResubmitRequest"
+                            type="button"
+                            class="w-full rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-800 hover:bg-red-50 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100 dark:hover:bg-red-900/40"
+                            :disabled="reviewProcessing || !proposedScheduledAt"
+                            @click="resubmitRequest"
+                        >
+                            Quick resubmit (time only)
+                        </button>
+                        <button
+                            v-if="canCancelDeniedRequest"
+                            type="button"
+                            class="w-full rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:bg-red-950/40 dark:text-red-100 dark:hover:bg-red-900/40"
+                            :disabled="reviewProcessing"
+                            @click="showCancelDeniedModal = true"
+                        >
+                            Cancel delivery
+                        </button>
+                        <button
+                            v-if="canUpdateRequest"
+                            type="button"
+                            class="w-full rounded-lg border border-red-400 bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 dark:border-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                            @click="handleDelete"
+                        >
+                            Delete request
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Actions -->
-                <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
+                <div v-if="canPerformDeliveryActions" class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Actions</h3>
                     <div class="space-y-3">
                         <button
@@ -1430,12 +2158,12 @@ const googleMapsDirectionsUrl = computed(() => {
                             Arrived at delivery
                         </button>
                         <button
+                            v-if="!record.delivered_at"
                             @click="markAsDelivered"
-                            :disabled="record.delivered_at"
                             class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-md font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg"
                         >
                             <span class="material-icons text-lg">check_circle</span>
-                            {{ record.delivered_at ? 'Delivered' : 'Complete Delivery' }}
+                            Complete Delivery
                         </button>
                         <button
                             @click="viewSignatureRequest"
@@ -1448,7 +2176,7 @@ const googleMapsDirectionsUrl = computed(() => {
                 </div>
 
                 <!-- Info -->
-                <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
+                <div v-if="canPerformDeliveryActions" class="bg-white dark:bg-gray-800 shadow sm:rounded-lg p-6">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Delivery Info</h3>
                     <dl class="text-md space-y-3">
                         <div>
@@ -1529,15 +2257,36 @@ const googleMapsDirectionsUrl = computed(() => {
                     </ul>
                 </div>
             </div>
+
+            <!-- Related records (full width below main + sidebar) -->
+            <div
+                v-if="!isPendingRequest && !isDeniedRequest && visibleSublists.length > 0 && domainName"
+                class="min-w-0 lg:col-span-12"
+            >
+                <Sublist
+                    :parent-record="record"
+                    :parent-domain="domainName"
+                    :sublists="visibleSublists"
+                />
+            </div>
         </div>
         </MobileActionBar>
 
         <!-- Delete Confirmation Modal -->
         <Modal :show="showDeleteModal" @close="cancelDelete" max-width="md">
             <div class="p-6 text-center">
-                <h3 class="text-xl font-medium text-gray-900 dark:text-white">Delete Delivery</h3>
+                <h3 class="text-xl font-medium text-gray-900 dark:text-white">
+                    {{ isRequestDelete ? 'Delete delivery request' : 'Delete delivery' }}
+                </h3>
                 <p class="mt-2 text-md text-gray-500 dark:text-gray-400">
-                    Are you sure you want to delete {{ record?.display_name }}? This cannot be undone.
+                    <template v-if="isRequestDelete">
+                        This will permanently delete the delivery request and the delivery record
+                        for <strong class="font-medium text-gray-700 dark:text-gray-200">{{ record?.display_name }}</strong>.
+                        This cannot be undone.
+                    </template>
+                    <template v-else>
+                        Are you sure you want to delete {{ record?.display_name }}? This cannot be undone.
+                    </template>
                 </p>
                 <div class="mt-6 flex justify-center gap-3">
                     <button
@@ -1545,13 +2294,163 @@ const googleMapsDirectionsUrl = computed(() => {
                         :disabled="isDeleting"
                         class="px-4 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
                     >
-                        {{ isDeleting ? 'Deleting...' : 'Delete' }}
+                        {{ isDeleting ? 'Deleting...' : 'Confirm' }}
                     </button>
                     <button
                         @click="cancelDelete"
-                        class="px-4 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md"
+                        class="px-4 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
                     >
                         Cancel
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Deny request modal -->
+        <Modal :show="showDenyModal" max-width="md" @close="closeDenyModal">
+            <div class="p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Deny delivery request</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    Tell the requester why this delivery cannot be approved as submitted.
+                </p>
+                <div class="mt-4">
+                    <label for="deny-reason" class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Reason <span class="text-red-600">*</span>
+                    </label>
+                    <textarea
+                        id="deny-reason"
+                        v-model="denyReason"
+                        rows="4"
+                        class="input-style w-full text-sm"
+                        placeholder="e.g. Need to reschedule — driver unavailable at that time."
+                    />
+                    <p v-if="denyReasonError" class="mt-2 text-sm text-red-600">{{ denyReasonError }}</p>
+                </div>
+                <div class="mt-6 flex justify-end gap-3">
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                        @click="closeDenyModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
+                        :disabled="reviewProcessing"
+                        @click="confirmDenyRequest"
+                    >
+                        {{ reviewProcessing ? 'Denying...' : 'Deny request' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Cancel denied request modal -->
+        <Modal :show="showCancelDeniedModal" max-width="md" @close="showCancelDeniedModal = false">
+            <div class="p-6 text-center">
+                <h3 class="text-xl font-medium text-gray-900 dark:text-white">Cancel delivery request</h3>
+                <p class="mt-2 text-md text-gray-500 dark:text-gray-400">
+                    This will cancel the delivery request. You can submit a new request later if needed.
+                </p>
+                <div class="mt-6 flex justify-center gap-3">
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-md font-medium text-white bg-red-600 hover:bg-red-700 rounded-md disabled:opacity-50"
+                        :disabled="reviewProcessing"
+                        @click="cancelDeniedDelivery"
+                    >
+                        {{ reviewProcessing ? 'Cancelling...' : 'Cancel delivery' }}
+                    </button>
+                    <button
+                        type="button"
+                        class="px-4 py-2 text-md font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-md dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                        @click="showCancelDeniedModal = false"
+                    >
+                        Keep request
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Driver schedule conflict (approve) -->
+        <Modal :show="showDriverConflictModal" max-width="2xl" @close="showDriverConflictModal = false">
+            <div class="p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Driver schedule conflict</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {{ scheduleConflictMessage || 'This driver has overlapping deliveries at the proposed time.' }}
+                </p>
+                <ul class="mt-4 space-y-2">
+                    <li
+                        v-for="conflict in driverConflicts"
+                        :key="conflict.id"
+                        class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700 dark:bg-amber-950/40"
+                    >
+                        <Link :href="route('deliveries.show', conflict.id)" class="font-medium text-primary-700 hover:underline dark:text-primary-300">
+                            {{ conflict.display_name }}
+                        </Link>
+                        <span class="ml-2 capitalize text-gray-600 dark:text-gray-400">{{ conflict.status?.replace('_', ' ') }}</span>
+                    </li>
+                </ul>
+                <div class="mt-6 flex flex-wrap justify-end gap-3">
+                    <Link
+                        :href="route('deliveries.requests.edit', record.id)"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        @click="showDriverConflictModal = false"
+                    >
+                        Edit request schedule
+                    </Link>
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                        @click="showDriverConflictModal = false"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Fleet schedule conflict (approve) -->
+        <Modal :show="showFleetConflictModal" max-width="2xl" @close="showFleetConflictModal = false">
+            <div class="p-6">
+                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Fleet scheduling conflict</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    {{ scheduleConflictMessage || 'Truck or trailer is already booked for this window.' }}
+                </p>
+                <ul class="mt-4 space-y-2">
+                    <li
+                        v-for="conflict in fleetConflicts"
+                        :key="conflict.id"
+                        class="flex flex-col gap-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm dark:border-amber-700 dark:bg-amber-950/40 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                        <span class="font-medium text-gray-900 dark:text-gray-100">
+                            {{ conflict.display_name }}
+                            <span class="ml-2 font-normal capitalize text-gray-600 dark:text-gray-400">{{ conflict.status }}</span>
+                        </span>
+                        <Link
+                            :href="route('deliveries.show', conflict.id)"
+                            class="text-sm font-semibold text-primary-700 hover:underline dark:text-primary-300"
+                            @click="showFleetConflictModal = false"
+                        >
+                            View conflicting delivery
+                        </Link>
+                    </li>
+                </ul>
+                <div class="mt-6 flex flex-wrap justify-end gap-3">
+                    <Link
+                        :href="route('deliveries.requests.edit', record.id)"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        @click="showFleetConflictModal = false"
+                    >
+                        Edit request to resolve
+                    </Link>
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                        @click="showFleetConflictModal = false"
+                    >
+                        Close
                     </button>
                 </div>
             </div>
@@ -2039,7 +2938,7 @@ const googleMapsDirectionsUrl = computed(() => {
 
         <!-- Preview -->
         <Teleport to="body">
-            <div v-if="showPreview" class="delivery-preview-overlay fixed inset-0 z-[100] overflow-y-auto">
+            <div v-if="showPreview && canPerformDeliveryActions" class="delivery-preview-overlay fixed inset-0 z-[100] overflow-y-auto">
                 <DeliveryPreview
                     :record="record"
                     :account="account"

@@ -2,9 +2,11 @@
 namespace App\Domain\Location\Actions;
 
 use App\Domain\Location\Models\Location as RecordModel;
+use App\Enums\Locations\LocationType;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class CreateLocation
@@ -13,8 +15,11 @@ class CreateLocation
     {
 
         try {
+            $locationTypeIds = array_map(static fn (array $option) => (int) $option['id'], LocationType::options());
+
             $validated = Validator::make($data, [
                 'display_name' => ['nullable', 'string', 'max:255'],
+                'location_type' => ['nullable', 'integer', Rule::in($locationTypeIds)],
                 'email' => ['nullable', 'email', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
                 'notes' => ['nullable', 'string'],

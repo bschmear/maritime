@@ -37,7 +37,7 @@ class AccountDeliveryManagementController extends Controller
             ->map(function (Location $location) {
                 $effective = DeliveryApproverResolver::forLocation($location);
                 $pendingCount = Delivery::query()
-                    ->where('status', 'requested')
+                    ->where('pending_request', true)
                     ->where('location_id', $location->id)
                     ->count();
 

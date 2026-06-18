@@ -60,6 +60,11 @@ const emit = defineEmits(['save', 'close']);
 /** Hides all pricing UI; pickAssetOnly also hides notes (service tickets). */
 const noPricing = computed(() => props.pickAssetOnly || props.isDelivery);
 
+/** Service tickets and deliveries: search customer units by hull ID before catalog browse. */
+const useCustomerUnitSearch = computed(
+    () => (props.pickAssetOnly || props.isDelivery) && props.customerId,
+);
+
 const debounce = (fn, delay) => {
     let timer;
     return (...args) => {
@@ -119,9 +124,7 @@ const fetchUnitsForCustomer = async () => {
         const url = new URL(route('records.lookup'), window.location.origin);
         url.searchParams.append('type', 'assetunit');
         url.searchParams.append('per_page', '25');
-        url.searchParams.append('filters', JSON.stringify([
-            { field: 'customer_id', operator: 'equals', value: props.customerId },
-        ]));
+        url.searchParams.append('customer_id', String(props.customerId));
         if (unitSearchQuery.value.trim()) {
             url.searchParams.append('search', unitSearchQuery.value.trim());
         }
@@ -173,7 +176,7 @@ watch(open, (isOpen) => {
         return;
     }
     if (!model.value?.itemable_id) {
-        if (props.pickAssetOnly && props.customerId) {
+        if (useCustomerUnitSearch.value) {
             unitSearchQuery.value = '';
             showCatalogBrowse.value = false;
             fetchUnitsForCustomer();
@@ -316,8 +319,8 @@ const save = async () => {
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-6 space-y-5">
-                    <!-- Service ticket: search customer units by hull / serial / variant -->
-                    <div v-if="!model.itemable_id && props.pickAssetOnly && props.customerId && !showCatalogBrowse">
+                    <!-- Search customer units by hull / serial / variant -->
+                    <div v-if="!model.itemable_id && useCustomerUnitSearch && !showCatalogBrowse">
                         <div class="relative mb-3">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,15 +377,21 @@ const save = async () => {
 
                     <!-- Search catalog assets (shown when no asset selected) -->
                     <div v-else-if="!model.itemable_id">
-                        <div v-if="props.pickAssetOnly && props.customerId" class="mb-3">
+                        <div v-if="useCustomerUnitSearch" class="mb-3">
                             <button
                                 type="button"
                                 class="text-xs text-primary-600 dark:text-primary-400 hover:underline"
                                 @click="showCatalogBrowse = false"
                             >
-                                ← Search customer equipment
+                                ← Search customer equipment by hull ID
                             </button>
                         </div>
+                        <p
+                            v-else-if="props.isDelivery && !props.customerId"
+                            class="mb-3 text-xs text-amber-700 dark:text-amber-400"
+                        >
+                            Select a customer on the delivery form to search equipment by hull ID.
+                        </p>
                         <div class="relative mb-3">
                             <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

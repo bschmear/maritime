@@ -3,6 +3,7 @@
 namespace App\Domain\Document\Models;
 
 use App\Domain\Contact\Models\Contact;
+use App\Domain\Delivery\Models\Delivery;
 use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\InventoryUnit\Models\InventoryUnit;
 use App\Domain\Lead\Models\Lead;
@@ -94,6 +95,11 @@ class Document extends Model
     public function serviceTickets()
     {
         return $this->morphedByMany(ServiceTicket::class, 'documentable')->withTimestamps();
+    }
+
+    public function deliveries()
+    {
+        return $this->morphedByMany(Delivery::class, 'documentable')->withTimestamps();
     }
 
     public function inventory_items()

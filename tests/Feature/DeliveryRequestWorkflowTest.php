@@ -7,6 +7,7 @@ namespace Tests\Feature;
 use App\Domain\Delivery\Actions\CreateDeliveryRequest;
 use App\Domain\Delivery\Actions\ResubmitDeliveryRequest;
 use App\Domain\Delivery\Actions\ReviewDeliveryRequest;
+use App\Domain\Delivery\Actions\UpdatePendingDeliveryRequest;
 use App\Domain\Delivery\Support\DeliveryApproverResolver;
 use App\Enums\Deliveries\Status;
 use App\Http\Controllers\Tenant\AccountDeliveryManagementController;
@@ -39,7 +40,7 @@ class DeliveryRequestWorkflowTest extends TestCase
     {
         $ref = new ReflectionClass(DeliveryRequestController::class);
 
-        foreach (['index', 'create', 'store', 'approve', 'deny', 'proposeReschedule', 'resubmit'] as $method) {
+        foreach (['index', 'create', 'store', 'edit', 'update', 'approve', 'deny', 'proposeReschedule', 'resubmit', 'cancel'] as $method) {
             $this->assertTrue($ref->hasMethod($method), "Missing method: {$method}");
         }
     }
@@ -48,7 +49,7 @@ class DeliveryRequestWorkflowTest extends TestCase
     {
         $this->assertTrue(class_exists(CreateDeliveryRequest::class));
         $this->assertTrue(class_exists(ReviewDeliveryRequest::class));
-        $this->assertTrue(class_exists(ResubmitDeliveryRequest::class));
+        $this->assertTrue(class_exists(UpdatePendingDeliveryRequest::class));
     }
 
     public function test_account_delivery_management_controller_exists(): void

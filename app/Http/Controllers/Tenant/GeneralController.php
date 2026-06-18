@@ -217,6 +217,15 @@ class GeneralController extends BaseController
             }
         }
 
+        if ($typeKey === 'assetunit' && $request->filled('customer_id')) {
+            $cid = (int) $request->get('customer_id');
+            $table = $recordModel->getTable();
+            $query->where(function ($q) use ($cid, $table) {
+                $q->where("{$table}.customer_id", $cid)
+                    ->orWhereNull("{$table}.customer_id");
+            });
+        }
+
         // Apply filters if provided
         $filters = $request->get('filters');
         if ($filters) {

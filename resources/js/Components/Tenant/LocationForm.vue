@@ -185,7 +185,7 @@ const submit = () => {
                             <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                 Location type <span class="text-red-500">*</span>
                             </label>
-                            <select v-model="form.location_type" required class="input-style">
+                            <select v-model.number="form.location_type" required class="input-style">
                                 <option v-for="opt in locationTypeOptions" :key="opt.id ?? opt.value" :value="opt.id ?? opt.value">
                                     {{ opt.name ?? opt.label }}
                                 </option>

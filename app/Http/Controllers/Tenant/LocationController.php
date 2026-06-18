@@ -120,7 +120,7 @@ class LocationController extends BaseController
 
         $effectiveApprover = DeliveryApproverResolver::forLocation($record);
         $pendingCount = Delivery::query()
-            ->where('status', 'requested')
+            ->where('pending_request', true)
             ->where('location_id', $record->id)
             ->count();
 

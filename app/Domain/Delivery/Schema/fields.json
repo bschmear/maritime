@@ -94,6 +94,13 @@
       "required": true,
       "default": "scheduled"
     },
+
+    "pending_request": {
+      "label": "Pending request",
+      "type": "boolean",
+      "readOnly": true,
+      "default": false
+    },
   
     "recipient_name": {
       "label": "Recipient Name",
