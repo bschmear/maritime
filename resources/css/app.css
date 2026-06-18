@@ -4,6 +4,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Sticky panels below tenant navbar + secondary nav.
+ * Apply as sticky-below-nav or lg:sticky-below-nav on sidebars / summary cards.
+ */
+@layer utilities {
+    .sticky-below-nav {
+        position: sticky;
+        top: 150px;
+    }
+}
+
 @layer components {
     /* Signatures must stay on a white surface in light and dark UI themes. */
     .signature-surface {
