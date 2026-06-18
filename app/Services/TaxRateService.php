@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domain\Location\Models\Location;
+use App\Services\Tax\TaxJurisdictionRateStore;
 use Carbon\Carbon;
 use Stripe\StripeClient;
 
@@ -33,23 +34,6 @@ class TaxRateService
      */
     public function lookupByLocation(Location $location): array
     {
-        if ($location->tax_rate && $location->tax_last_fetched_at) {
-            if (Carbon::parse($location->tax_last_fetched_at)->gt(now()->subDay())) {
-                $code = $this->normalizeStateCode((string) ($location->state ?? ''));
-
-                return $this->formatLookupResult(
-                    $location->tax_rate,
-                    $code,
-                    $this->buildJurisdictionLabel([
-                        'city' => $location->city ?? '',
-                        'state' => $location->state ?? '',
-                        'postal_code' => $location->postal_code ?? '',
-                        'country' => $location->country ?? 'US',
-                    ]) ?: ($code !== null ? $this->stateLabel($code) : null),
-                );
-            }
-        }
-
         $lookup = $this->lookupByAddress([
             'line1' => $location->address_line1 ?? $location->address ?? '',
             'city' => $location->city ?? '',
@@ -60,7 +44,7 @@ class TaxRateService
 
         if ($lookup['tax_rate_decimal'] !== null) {
             $location->tax_rate = $lookup['tax_rate_decimal'];
-            $location->tax_last_fetched_at = now()->startOfDay()->addDay();
+            $location->tax_last_fetched_at = now();
             $location->save();
         }
 
@@ -100,20 +84,12 @@ class TaxRateService
         $stateInput = (string) ($address['state'] ?? '');
         $jurisdictionCode = $this->normalizeStateCode($stateInput);
 
-        $stripe = $this->fetchFromStripe($address);
-
-        $label = $this->buildJurisdictionLabel($address);
-
-        if ($stripe['rate_decimal'] !== null) {
-            $code = $stripe['jurisdiction_code'] ?? $jurisdictionCode;
-
-            return $this->formatLookupResult(
-                $stripe['rate_decimal'],
-                $code,
-                $label !== '' ? $label : ($code !== null ? $this->stateLabel($code) : null),
-            );
+        $stored = app(TaxJurisdictionRateStore::class)->resolve($address);
+        if ($stored !== null) {
+            return $stored;
         }
 
+        $label = $this->buildJurisdictionLabel($address);
         $fallbackPercent = $this->fallbackStateRate($stateInput);
         $code = $jurisdictionCode ?? $this->normalizeStateCode($this->stateCodeFromName($stateInput));
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\Tax\TaxJurisdictionRateStore;
 use App\Services\TaxRateService;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -38,55 +39,67 @@ class TaxRateServiceTest extends TestCase
     }
 
     #[Test]
-    public function lookup_by_address_normalizes_country_and_state_for_stripe(): void
+    public function lookup_by_address_uses_stored_jurisdiction_rate_when_available(): void
     {
-        $service = new class extends TaxRateService
-        {
-            public ?array $capturedAddress = null;
+        $this->mock(TaxJurisdictionRateStore::class, function ($mock): void {
+            $mock->shouldReceive('resolve')->once()->andReturn([
+                'tax_rate' => 6.0,
+                'tax_rate_decimal' => 0.06,
+                'jurisdiction_code' => 'FL',
+                'jurisdiction_label' => 'Naples, FL, 34112 (Collier County)',
+            ]);
+        });
 
-            protected function fetchFromStripe(array $address): array
-            {
-                $this->capturedAddress = $address;
-
-                return [
-                    'rate_decimal' => 0.07,
-                    'jurisdiction_code' => 'FL',
-                    'jurisdiction_label' => 'Florida',
-                ];
-            }
-        };
+        $service = app(TaxRateService::class);
 
         $lookup = $service->lookupByAddress([
-            'state' => 'Florida',
-            'city' => 'Fort Lauderdale',
-            'postal_code' => '33316',
-            'country' => 'United States',
+            'state' => 'FL',
+            'city' => 'Naples',
+            'postal_code' => '34112',
+            'country' => 'US',
         ]);
 
-        $this->assertSame('US', $service->capturedAddress['country'] ?? null);
-        $this->assertSame('FL', $service->capturedAddress['state'] ?? null);
-        $this->assertSame(7.0, $lookup['tax_rate']);
+        $this->assertSame(6.0, $lookup['tax_rate']);
+        $this->assertSame('FL', $lookup['jurisdiction_code']);
+        $this->assertStringContainsString('Collier County', (string) $lookup['jurisdiction_label']);
     }
 
     #[Test]
-    public function lookup_by_address_fallback_uses_state_code(): void
+    public function lookup_by_address_falls_back_to_state_rate_when_ai_unavailable(): void
     {
-        $service = new class extends TaxRateService
-        {
-            protected function fetchFromStripe(array $address): array
-            {
-                return ['rate_decimal' => null, 'jurisdiction_code' => null, 'jurisdiction_label' => null];
-            }
-        };
+        $this->mock(TaxJurisdictionRateStore::class, function ($mock): void {
+            $mock->shouldReceive('resolve')->once()->andReturn(null);
+        });
+
+        $service = app(TaxRateService::class);
+
+        $lookup = $service->lookupByAddress([
+            'state' => 'California',
+            'city' => 'Los Angeles',
+            'postal_code' => '90001',
+            'country' => 'United States',
+        ]);
+
+        $this->assertSame('CA', $lookup['jurisdiction_code']);
+        $this->assertSame(7.25, $lookup['tax_rate']);
+    }
+
+    #[Test]
+    public function lookup_by_address_fallback_uses_state_rate_without_zip(): void
+    {
+        $this->mock(TaxJurisdictionRateStore::class, function ($mock): void {
+            $mock->shouldReceive('resolve')->once()->andReturn(null);
+        });
+
+        $service = app(TaxRateService::class);
 
         $lookup = $service->lookupByAddress([
             'state' => 'FL',
             'city' => 'Fort Lauderdale',
-            'postal_code' => '33316',
         ]);
 
         $this->assertSame('FL', $lookup['jurisdiction_code']);
-        $this->assertSame('Fort Lauderdale, FL, 33316', $lookup['jurisdiction_label']);
+        $this->assertSame('Fort Lauderdale, FL', $lookup['jurisdiction_label']);
         $this->assertSame(6.0, $lookup['tax_rate']);
     }
 }

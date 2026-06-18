@@ -243,6 +243,12 @@ const findTaxRateFromBillingAddress = async () => {
         latitude: form.billing_latitude ?? undefined,
         longitude: form.billing_longitude ?? undefined,
     });
+
+    if (!lookup?.tax_rate && lookup?.tax_rate !== 0) {
+        window.alert('Could not determine tax rate for this address. Check the billing address and try again.');
+        return;
+    }
+
     applyTaxLookupToForm(form, lookup, {
         state,
         city: form.billing_city,
@@ -258,6 +264,12 @@ const findTaxRateFromLocation = async () => {
     }
 
     const lookup = await fetchTaxRateByLocation(form.location_id);
+
+    if (!lookup?.tax_rate && lookup?.tax_rate !== 0) {
+        window.alert('Could not determine tax rate for this location. Ensure the location has a complete address.');
+        return;
+    }
+
     applyTaxLookupToForm(form, lookup);
 };
 
@@ -1158,7 +1170,7 @@ const handleCancel = () => emit('cancelled');
                                             </button>
                                         </div>
                                         <p v-if="mode !== 'view'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                            Sets tax jurisdiction and looks up the sales tax rate from Stripe Tax.
+                                            Sets tax jurisdiction and looks up the sales tax rate (cached by ZIP, refreshed monthly).
                                         </p>
                                     </div>
                                 </div>

@@ -1380,7 +1380,7 @@ const handleCancel = () => emit('cancel');
                                     </button>
                                 </div>
                                 <p v-if="mode !== 'show'" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                    Sets tax jurisdiction and looks up the sales tax rate from Stripe Tax.
+                                    Sets tax jurisdiction and looks up the sales tax rate (cached by ZIP, refreshed monthly).
                                 </p>
                             </div>
 
