@@ -11,12 +11,15 @@ use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Lead\Actions\DeleteLead;
 use App\Domain\Lead\Actions\UpdateLead;
 use App\Domain\Lead\Models\Lead;
+use App\Domain\User\Models\User;
 use App\Enums\Entity\ContactStage;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
+use App\Services\Leads\LeadOverviewDataService;
 use App\Support\ContactDocumentLinker;
+use App\Support\Survey\SurveyResponsesForRecord;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\RedirectResponse;
@@ -42,6 +45,7 @@ class LeadController extends BaseController
         protected CreateLead $createLead,
         protected UpdateLead $updateLead,
         protected DeleteLead $deleteLead,
+        protected LeadOverviewDataService $leadOverview,
     ) {
         $this->middleware('auth');
         $this->recordModel = new Lead;
@@ -106,7 +110,35 @@ class LeadController extends BaseController
         }
     }
 
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
+  /**
+     * @return list<array{id: int, name: string, email: string}>
+     */
+    protected function assignableUserOptions(): array
+    {
+        return User::query()
+            ->orderBy('display_name')
+            ->orderBy('first_name')
+            ->get(['id', 'display_name', 'first_name', 'last_name', 'email'])
+            ->map(function (User $user) {
+                $name = $user->display_name;
+                if ($name === null || $name === '') {
+                    $name = trim(implode(' ', array_filter([$user->first_name, $user->last_name])));
+                }
+                if ($name === '') {
+                    $name = (string) $user->email;
+                }
+
+                return [
+                    'id' => $user->id,
+                    'name' => $name,
+                    'email' => (string) $user->email,
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = [], array $overview = []): array
     {
         return [
             'records' => $records,
@@ -118,6 +150,11 @@ class LeadController extends BaseController
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'appliedFilters' => $appliedFilters,
+            'stats' => $overview['stats'] ?? [],
+            'charts' => $overview['charts'] ?? [],
+            'openLeads' => $overview['openLeads'] ?? [],
+            'kanbanLeads' => $overview['kanbanLeads'] ?? [],
+            'assignableUsers' => $this->assignableUserOptions(),
         ];
     }
 
@@ -193,11 +230,19 @@ class LeadController extends BaseController
         $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 
+        $overview = [
+            'stats' => $this->leadOverview->buildStats(),
+            'charts' => $this->leadOverview->buildCharts(),
+            'openLeads' => $this->leadOverview->openLeadsPreview(),
+            'kanbanLeads' => $this->leadOverview->kanbanLeads(),
+        ];
+
         if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
                 'records' => $records->items(),
                 'schema' => $schema,
                 'fieldsSchema' => $fieldsSchema,
+                'stats' => $overview['stats'],
                 'meta' => [
                     'current_page' => $records->currentPage(),
                     'last_page' => $records->lastPage(),
@@ -209,7 +254,7 @@ class LeadController extends BaseController
 
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
-            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters)
+            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters, $overview)
         );
     }
 
@@ -336,6 +381,14 @@ class LeadController extends BaseController
         if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
             foreach ($formSchema['sublists'] as $sublist) {
                 if (isset($sublist['modelRelationship'])) {
+                    if ($sublist['modelRelationship'] === 'systemLogs') {
+                        $relationships['systemLogs'] = fn ($query) => $query
+                            ->with(['user' => fn ($userQuery) => $userQuery->select(['id', 'display_name'])])
+                            ->orderByDesc('created_at');
+
+                        continue;
+                    }
+
                     $relationships[$sublist['modelRelationship']] = function ($query) {
                         $query->select('*');
                     };
@@ -356,6 +409,7 @@ class LeadController extends BaseController
         $record->hydrateLinkedCustomerProfile();
 
         ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
+        SurveyResponsesForRecord::hydrate($record, 'lead');
 
         $scores = $record->scores;
         $record->unsetRelation('scores');
@@ -407,6 +461,10 @@ class LeadController extends BaseController
         if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
             foreach ($formSchema['sublists'] as $sublist) {
                 if (isset($sublist['modelRelationship'])) {
+                    if ($sublist['modelRelationship'] === 'systemLogs') {
+                        continue;
+                    }
+
                     $relationships[$sublist['modelRelationship']] = function ($query) {
                         $query->select('*');
                     };

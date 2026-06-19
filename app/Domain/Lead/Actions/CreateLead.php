@@ -27,6 +27,9 @@ class CreateLead
             $forImport = filter_var($data['for_import'] ?? false, FILTER_VALIDATE_BOOLEAN);
             unset($data['for_import']);
 
+            $systemLogActor = trim((string) ($data['system_log_actor'] ?? '')) ?: null;
+            unset($data['system_log_actor']);
+
             $nameRules = $forImport
                 ? ['nullable', 'string', 'max:255']
                 : ['required', 'string', 'max:255'];
@@ -90,7 +93,7 @@ class CreateLead
                 return RecordModel::query()->create($profileData);
             });
 
-            LogSystemEvent::record($record, SystemLogAction::Created);
+            LogSystemEvent::record($record, SystemLogAction::Created, $systemLogActor);
 
             if ($record->contact_id && QuickBooksSettings::forCurrentTenant()->isSyncContactsEnabled()) {
                 $contact = Contact::query()->find($record->contact_id);

@@ -352,7 +352,7 @@ const recentResponses = computed(() =>
                     <ul class="space-y-3">
                         <li v-for="(label, key) in {
                             anonymous: 'Anonymous Responses',
-                            require_email: 'Require Email',
+                            require_email: 'Require Name and Email',
                             one_response_per_user: 'One Response Per User',
                             show_results: 'Show Results',
                         }" :key="key" class="flex items-center justify-between text-sm">

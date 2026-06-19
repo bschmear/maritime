@@ -138,6 +138,12 @@
       "readOnly": true
     },
     {
+      "label": "Surveys",
+      "domain": "SurveyResponse",
+      "sublistKind": "surveyResponses",
+      "readOnly": true
+    },
+    {
       "label": "Activity",
       "domain": "Communication",
       "modelRelationship": "communications",

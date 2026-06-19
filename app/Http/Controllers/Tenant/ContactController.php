@@ -20,6 +20,7 @@ use App\Mail\ContactPortalLink;
 use App\Models\AccountSettings;
 use App\Services\Mail\TenantMailService;
 use App\Support\ContactDocumentLinker;
+use App\Support\Survey\SurveyResponsesForRecord;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\JsonResponse;
@@ -138,6 +139,10 @@ class ContactController extends Controller
                 }
 
                 $relationshipName = $sublist['modelRelationship'];
+
+                if ($relationshipName === 'systemLogs') {
+                    continue;
+                }
 
                 if ($relationshipName === 'payments') {
                     $relationships[$relationshipName] = function ($query): void {
@@ -391,6 +396,7 @@ class ContactController extends Controller
         $record = Contact::query()->with($relationships)->findOrFail($contact);
 
         ContactDocumentLinker::hydrateDocumentsRelationIfApplicable($record);
+        SurveyResponsesForRecord::hydrate($record, 'contact');
 
         $formGroups = $formSchema['form'] ?? $formSchema;
         $hasSpecsGroup = is_array($formGroups) && collect($formGroups)
@@ -739,6 +745,12 @@ class ContactController extends Controller
             $relationships['leads'] = function ($query): void {
                 $query->select(['id', 'contact_id']);
             };
+        }
+
+        if (! isset($relationships['systemLogs'])) {
+            $relationships['systemLogs'] = fn ($query) => $query
+                ->with(['user' => fn ($userQuery) => $userQuery->select(['id', 'display_name'])])
+                ->orderByDesc('created_at');
         }
     }
 

@@ -956,6 +956,14 @@ class RecordController extends BaseController
         if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
             foreach ($formSchema['sublists'] as $sublist) {
                 if (isset($sublist['modelRelationship'])) {
+                    if ($sublist['modelRelationship'] === 'systemLogs') {
+                        $relationships['systemLogs'] = fn ($query) => $query
+                            ->with(['user' => fn ($userQuery) => $userQuery->select(['id', 'display_name'])])
+                            ->orderByDesc('created_at');
+
+                        continue;
+                    }
+
                     $relationships[$sublist['modelRelationship']] = function ($query) {
                         // Load basic fields for the related records
                         $query->select('*');
@@ -1108,6 +1116,14 @@ class RecordController extends BaseController
         if (isset($formSchema['sublists']) && is_array($formSchema['sublists'])) {
             foreach ($formSchema['sublists'] as $sublist) {
                 if (isset($sublist['modelRelationship'])) {
+                    if ($sublist['modelRelationship'] === 'systemLogs') {
+                        $relationships['systemLogs'] = fn ($query) => $query
+                            ->with(['user' => fn ($userQuery) => $userQuery->select(['id', 'display_name'])])
+                            ->orderByDesc('created_at');
+
+                        continue;
+                    }
+
                     $relationships[$sublist['modelRelationship']] = function ($query) {
                         $query->select('*');
                     };

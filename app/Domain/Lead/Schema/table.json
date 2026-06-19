@@ -67,9 +67,13 @@
     ],
     "filters": [
         {
-            "field": "status",
+            "field": "status_id",
             "label": "Status",
-            "type": "multi-select"
+            "type": "multi-select",
+            "enum": "App\\Enums\\Leads\\Status",
+            "operator": "any_of",
+            "apply_as_default": true,
+            "default_value": [1,2,3]
         },
         {
             "field": "source_id",
@@ -81,6 +85,31 @@
             "label": "Priority",
             "type": "multi-select"
         }
+    ],
+    "stats": [
+        {
+            "key": "open",
+            "label": "Open",
+            "badge_label": "Open",
+            "color": "blue"
+        },
+        {
+            "key": "contacted",
+            "label": "Contacted",
+            "badge_label": "Contacted",
+            "color": "teal"
+        },
+        {
+            "key": "qualified",
+            "label": "Qualified",
+            "badge_label": "Qualified",
+            "color": "green"
+        },
+        {
+            "key": "follow_up_due",
+            "label": "Follow-up due",
+            "badge_label": "Follow-up due",
+            "color": "amber"
+        }
     ]
-  }
-  
+}

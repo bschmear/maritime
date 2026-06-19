@@ -8,6 +8,7 @@ use App\Mail\DocumentRequestMail;
 use App\Mail\InvoiceViewRequest;
 use App\Mail\ServiceTicketApprovalNotification;
 use App\Mail\ServiceTicketApproved;
+use App\Mail\SurveyInvitationMail;
 use App\Mail\VendorPortalLink;
 use App\Services\Mail\TenantMailService;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -28,6 +29,7 @@ class TenantMailServiceTest extends TestCase
         $this->assertFalse($service->isExemptMailableClass(VendorPortalLink::class));
         $this->assertFalse($service->isExemptMailableClass(DocumentRequestMail::class));
         $this->assertFalse($service->isExemptMailableClass(InvoiceViewRequest::class));
+        $this->assertFalse($service->isExemptMailableClass(SurveyInvitationMail::class));
         $this->assertFalse($service->isExemptMailableClass(ServiceTicketApproved::class));
     }
 

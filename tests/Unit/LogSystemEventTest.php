@@ -59,6 +59,7 @@ class LogSystemEventTest extends TestCase
             $table->morphs('loggable');
             $table->unsignedTinyInteger('action');
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('actor_label', 100)->nullable();
             $table->timestamp('created_at');
         });
     }
@@ -89,7 +90,24 @@ class LogSystemEventTest extends TestCase
         $this->assertSame($asset->id, $log->loggable_id);
         $this->assertSame(SystemLogAction::Created->value, $log->action);
         $this->assertSame($user->id, $log->user_id);
+        $this->assertNull($log->actor_label);
         $this->assertNotNull($log->created_at);
+    }
+
+    public function test_record_stores_actor_label_for_system_actions(): void
+    {
+        $asset = Asset::query()->create([
+            'type' => 1,
+            'display_name' => 'Test Boat',
+        ]);
+
+        LogSystemEvent::record($asset, SystemLogAction::Created, 'System User');
+
+        $log = SystemLog::query()->first();
+
+        $this->assertNotNull($log);
+        $this->assertNull($log->user_id);
+        $this->assertSame('System User', $log->actor_label);
     }
 
     public function test_asset_system_logs_relationship_returns_ordered_entries(): void

@@ -15,6 +15,7 @@ class SmsNotificationPreference extends Model
         'notify_delivery',
         'notify_contract',
         'notify_service_ticket',
+        'notify_survey',
     ];
 
     protected $casts = [
@@ -23,6 +24,7 @@ class SmsNotificationPreference extends Model
         'notify_delivery' => 'boolean',
         'notify_contract' => 'boolean',
         'notify_service_ticket' => 'boolean',
+        'notify_survey' => 'boolean',
     ];
 
     public function accountSettings(): BelongsTo

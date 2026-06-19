@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Tenant\Surveys;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\Survey\Models\Survey;
+use App\Domain\Survey\Models\SurveyQuestion;
 use App\Domain\User\Models\User;
 use App\Domain\Vendor\Models\Vendor;
 use App\Http\Controllers\Controller;
@@ -12,6 +13,7 @@ use App\Jobs\ProcessSurveyResponse;
 use App\Models\AccountSettings;
 use App\Support\SafeRedirectUrl;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -291,7 +293,7 @@ class PublicSurveyController extends Controller
         ];
     }
 
-    public function submit(Request $request): JsonResponse|\Illuminate\Http\RedirectResponse
+    public function submit(Request $request): JsonResponse|RedirectResponse
     {
         $startTime = $request->input('start_time');
         if ($startTime) {
@@ -350,17 +352,17 @@ class PublicSurveyController extends Controller
 
             [$ownerType, $ownerId] = $this->resolveOwnerFromSession($request, $survey);
 
-            $assignedTo = $survey->user_id;
-            if (! empty($validated['aid'])) {
-                $aid = (int) $validated['aid'];
-                if (User::query()->whereKey($aid)->exists()) {
-                    $assignedTo = $aid;
-                }
-            }
+            $assignedTo = $this->resolveAssignedTo($request, $survey, $validated, $ownerType, $ownerId);
 
             $matchedContact = ! empty($validated['email'])
                 ? Contact::findByEmailCaseInsensitive($validated['email'])
                 : null;
+
+            [$sourceableType, $sourceableId] = $this->resolveSourceableFromOwnerAndContact(
+                $ownerType,
+                $ownerId,
+                $matchedContact,
+            );
 
             $surveyResponse = $survey->responses()->create([
                 'email' => $validated['email'] ?? null,
@@ -369,8 +371,8 @@ class PublicSurveyController extends Controller
                 'owner_type' => $ownerType,
                 'owner_id' => $ownerId,
                 'assigned_to' => $assignedTo,
-                'sourceable_type' => $matchedContact ? Contact::class : null,
-                'sourceable_id' => $matchedContact?->id,
+                'sourceable_type' => $sourceableType,
+                'sourceable_id' => $sourceableId,
                 'submitted_at' => now(),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -488,7 +490,7 @@ class PublicSurveyController extends Controller
     /**
      * Matches {@see \resources\js\Pages\Tenant\Public\SurveyIntake.vue} conditional visibility (sorted question index).
      *
-     * @param  Collection<int, \App\Domain\Survey\Models\SurveyQuestion>  $sortedQuestions
+     * @param  Collection<int, SurveyQuestion>  $sortedQuestions
      * @param  array<string|int, mixed>  $answers
      */
     protected function isSurveyQuestionVisible(object $question, Collection $sortedQuestions, array $answers): bool
@@ -579,6 +581,81 @@ class PublicSurveyController extends Controller
         }
 
         return [$modelClass, $recipientId];
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?int}
+     */
+    protected function resolveSourceableFromOwnerAndContact(
+        ?string $ownerType,
+        ?int $ownerId,
+        ?Contact $matchedContact,
+    ): array {
+        if ($matchedContact) {
+            return [Contact::class, (int) $matchedContact->id];
+        }
+
+        if ($ownerType === Contact::class && $ownerId) {
+            return [Contact::class, $ownerId];
+        }
+
+        if ($ownerType === Lead::class && $ownerId) {
+            $contactId = Lead::query()->whereKey($ownerId)->value('contact_id');
+            if ($contactId) {
+                return [Contact::class, (int) $contactId];
+            }
+        }
+
+        return [null, null];
+    }
+
+    protected function resolveAssignedTo(
+        Request $request,
+        Survey $survey,
+        array $validated,
+        ?string $ownerType,
+        ?int $ownerId,
+    ): int {
+        if (! empty($validated['aid'])) {
+            $aid = (int) $validated['aid'];
+            if (User::query()->whereKey($aid)->exists()) {
+                return $aid;
+            }
+        }
+
+        $session = $request->session()->get($this->recipientSessionKey($survey));
+        if (is_array($session) && ! empty($session['agent_id'])) {
+            $aid = (int) $session['agent_id'];
+            if (User::query()->whereKey($aid)->exists()) {
+                return $aid;
+            }
+        }
+
+        if ($ownerType && $ownerId) {
+            $fromOwner = $this->assignedUserIdFromOwner($ownerType, $ownerId);
+            if ($fromOwner !== null) {
+                return $fromOwner;
+            }
+        }
+
+        return (int) $survey->user_id;
+    }
+
+    protected function assignedUserIdFromOwner(string $ownerType, int $ownerId): ?int
+    {
+        if ($ownerType === Contact::class) {
+            $id = Contact::query()->whereKey($ownerId)->value('assigned_user_id');
+
+            return $id ? (int) $id : null;
+        }
+
+        if ($ownerType === Lead::class) {
+            $id = Lead::query()->whereKey($ownerId)->value('assigned_user_id');
+
+            return $id ? (int) $id : null;
+        }
+
+        return null;
     }
 
     /**

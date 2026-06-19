@@ -5,6 +5,7 @@ import Sublist from '@/Components/Tenant/Sublist.vue';
 import ScorePanel from '@/Components/Tenant/ScorePanel.vue';
 import LeadSchemaShowSections from '@/Components/Tenant/Lead/LeadSchemaShowSections.vue';
 import Modal from '@/Components/Modal.vue';
+import SendSurveyModal from '@/Components/Tenant/SendSurveyModal.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -26,6 +27,7 @@ const props = defineProps({
 });
 
 const showDeleteModal = ref(false);
+const showSendSurveyModal = ref(false);
 const isDeleting = ref(false);
 const isConverting = ref(false);
 
@@ -37,6 +39,11 @@ const leadLabel = computed(() => {
         || r.company
         || `Lead #${r.id}`
     );
+});
+
+const surveyRecipientEmail = computed(() => {
+    const r = props.record;
+    return (r.email || r.contact?.email || '').trim();
 });
 
 const indexHref = computed(() => route(`${props.recordType}.index`));
@@ -183,6 +190,16 @@ const convertToCustomer = () => {
                         >
                             <span class="material-icons text-[16px]">delete</span>
                             Delete
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            :disabled="!surveyRecipientEmail"
+                            title="Send a survey invitation by email"
+                            @click="showSendSurveyModal = true"
+                        >
+                            <span class="material-icons text-[16px]">assignment</span>
+                            Send survey
                         </button>
                         <Link
                             v-if="!hasCustomerProfile"
@@ -489,6 +506,15 @@ const convertToCustomer = () => {
                 :sublists="sublists"
             />
         </div>
+
+        <SendSurveyModal
+            :show="showSendSurveyModal"
+            record-type="lead"
+            :record-id="record.id"
+            :recipient-email="surveyRecipientEmail"
+            :recipient-name="leadLabel"
+            @close="showSendSurveyModal = false"
+        />
 
         <Modal :show="showDeleteModal" max-width="md" @close="showDeleteModal = false">
             <div class="p-6 text-center">

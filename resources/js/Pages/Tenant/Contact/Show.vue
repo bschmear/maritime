@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
+import SendSurveyModal from '@/Components/Tenant/SendSurveyModal.vue';
 import ContactAddressAutocomplete from '@/Components/ContactAddressAutocomplete.vue';
 import DriverLicenseUpload from '@/Components/Tenant/Contact/DriverLicenseUpload.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -25,6 +26,7 @@ const props = defineProps({
 });
 
 const showDeleteModal = ref(false);
+const showSendSurveyModal = ref(false);
 const isDeleting      = ref(false);
 const postingAddress  = ref(false);
 const sendingPortal   = ref(false);
@@ -38,6 +40,8 @@ const contactLabel = computed(() => {
         || `Contact #${r.id}`
     );
 });
+
+const surveyRecipientEmail = computed(() => props.record.email?.trim() || '');
 
 const indexHref = computed(() => route(`${props.recordType}.index`));
 const editHref  = computed(() => route(`${props.recordType}.edit`, props.record.id));
@@ -215,6 +219,16 @@ const confirmDelete = () => {
                         <button type="button" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:text-red-700 transition-colors" @click="showDeleteModal = true">
                             <span class="material-icons text-[16px]">delete</span>
                             Delete
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            :disabled="!surveyRecipientEmail"
+                            title="Send a survey invitation by email"
+                            @click="showSendSurveyModal = true"
+                        >
+                            <span class="material-icons text-[16px]">assignment</span>
+                            Send survey
                         </button>
                      <!--    <button
                             v-if="record.email"
@@ -590,6 +604,15 @@ const confirmDelete = () => {
             />
 
         </div>
+
+        <SendSurveyModal
+            :show="showSendSurveyModal"
+            record-type="contact"
+            :record-id="record.id"
+            :recipient-email="surveyRecipientEmail"
+            :recipient-name="contactLabel"
+            @close="showSendSurveyModal = false"
+        />
 
         <!-- Delete modal -->
         <Modal :show="showDeleteModal" max-width="md" @close="showDeleteModal = false">

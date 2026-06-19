@@ -10,6 +10,8 @@ use App\Domain\Customer\Models\Customer as RecordModel;
 use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
+use App\Support\Survey\SurveyResponsesForRecord;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -196,6 +198,15 @@ class CustomerController extends RecordController
             'Tenant/'.$this->domainName.'/Index',
             $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters)
         );
+    }
+
+    protected function hydrateRecordAfterLoad(Model $record): void
+    {
+        parent::hydrateRecordAfterLoad($record);
+
+        if ($record instanceof RecordModel) {
+            SurveyResponsesForRecord::hydrate($record, 'customer');
+        }
     }
 
     protected function showPageExtraProps($record): array

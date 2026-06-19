@@ -7,11 +7,13 @@ namespace App\Domain\DocumentRequest\Actions;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\DocumentRequest\Enums\DocumentRequestStatus;
 use App\Domain\DocumentRequest\Models\DocumentRequest;
+use App\Domain\SystemLog\Support\LogSystemEvent;
+use App\Enums\System\SystemLogAction;
 use App\Mail\DocumentRequestMail;
 use App\Models\AccountSettings;
 use App\Services\Mail\TenantMailService;
+use App\Services\TenantStaffResolver;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 
 final class SendDocumentRequest
@@ -61,20 +63,32 @@ final class SendDocumentRequest
         ]);
 
         $settings = AccountSettings::getCurrent();
-        $this->tenantMail->send(
-            $email,
-            new DocumentRequestMail(
-                $contact,
-                $settings,
-                $request,
-                $portalUrl,
-            ),
-            Auth::user(),
+        $mailable = new DocumentRequestMail(
+            $contact,
+            $settings,
+            $request,
+            $portalUrl,
         );
+        $mailActor = TenantStaffResolver::webUserForMail();
+
+        try {
+            $this->tenantMail->send($email, $mailable, $mailActor);
+        } catch (\InvalidArgumentException $e) {
+            throw ValidationException::withMessages([
+                'email' => $e->getMessage(),
+            ]);
+        }
+
+        LogSystemEvent::record($contact, SystemLogAction::Updated);
 
         return [
             'success' => true,
             'record' => $request->fresh(['requestedBy:id,display_name']),
+            'email' => [
+                'sandbox_mode' => $this->tenantMail->shouldRedirectToSandboxActor($mailable, $mailActor),
+                'intended_recipient' => $email,
+                'delivery_recipient' => $this->tenantMail->displayRecipient($email, $mailable, $mailActor),
+            ],
         ];
     }
 }

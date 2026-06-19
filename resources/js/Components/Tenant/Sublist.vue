@@ -98,6 +98,14 @@ const documentRequestHasCustomer = computed(() => {
     return !!props.parentRecord.contact_id;
 });
 
+const documentRequestContactEmail = computed(() => {
+    if (props.parentDomain === 'Contact') {
+        return props.parentRecord.email ?? '';
+    }
+
+    return props.parentRecord.email ?? props.parentRecord.contact?.email ?? '';
+});
+
 // Sublist Edit Modal State
 const showSublistEditModal = ref(false);
 const sublistEditRecord = ref(null);
@@ -382,6 +390,12 @@ const loadSublistIndexSchema = async (sublist) => {
         return;
     }
 
+    if (sublist.sublistKind === 'surveyResponses') {
+        applySurveyResponseSublistSchemas();
+
+        return;
+    }
+
     const routePlural = getDomainPlural(sublist.domain);
     const schemaResponse = await axios.get(route(`${routePlural}.index`), {
         params: { per_page: 1, page: 1 },
@@ -403,8 +417,50 @@ const applySystemLogSublistSchemas = () => {
         ],
     };
     sublistFieldsSchema.value = sublistCreateFormData.value?.fieldsSchema
-        ?? sublistFieldsSchema.value
-        ?? {};
+        ?? {
+            action: {
+                label: 'Action',
+                type: 'select',
+                enum: 'App\\Enums\\System\\SystemLogAction',
+                readOnly: true,
+            },
+            user_id: {
+                label: 'User',
+                type: 'record',
+                typeDomain: 'User',
+                relationship: 'user',
+                readOnly: true,
+            },
+            created_at: {
+                label: 'When',
+                type: 'datetime',
+                readOnly: true,
+            },
+        };
+};
+
+const applySurveyResponseSublistSchemas = () => {
+    sublistTableSchema.value = {
+        columns: [
+            { key: 'survey_id', label: 'Survey', sortable: false, isKey: true },
+            { key: 'submitted_at', label: 'Submitted', sortable: true },
+        ],
+    };
+    sublistFieldsSchema.value = {
+        survey_id: {
+            label: 'Survey',
+            type: 'record',
+            typeDomain: 'Survey',
+            relationship: 'survey',
+            displayField: 'title',
+            readOnly: true,
+        },
+        submitted_at: {
+            label: 'Submitted',
+            type: 'datetime',
+            readOnly: true,
+        },
+    };
 };
 
 const getRelatedRecord = (item, relationshipName) => {
@@ -435,6 +491,28 @@ const getRecordDisplayValue = (item, fieldKey) => {
     return displayValue || relatedRecord.display_name || null;
 };
 
+const getSystemLogActorDisplay = (item, fieldKey) => {
+    if (activeTab.value?.domain !== 'SystemLog' || fieldKey !== 'user_id') {
+        return null;
+    }
+
+    const label = item?.actor_label ?? item?.actorLabel;
+    if (label) {
+        return label;
+    }
+
+    const userDisplay = getRecordDisplayValue(item, fieldKey);
+    if (userDisplay) {
+        return userDisplay;
+    }
+
+    if (item?.user_id == null || item?.user_id === '') {
+        return 'System User';
+    }
+
+    return null;
+};
+
 // Get the URL for a record
 const getRecordUrl = (item, fieldKey) => {
     const fieldDef = getFieldDef(fieldKey);
@@ -447,6 +525,19 @@ const getRecordUrl = (item, fieldKey) => {
     if (!relatedRecord || !relatedRecord.id) return null;
     
     const domain = fieldDef.typeDomain;
+
+    if (domain === 'Survey') {
+        const survey = item.survey;
+        if (!survey?.uuid) {
+            return null;
+        }
+        try {
+            return route('surveysShow', { id: survey.uuid });
+        } catch (e) {
+            console.error('Could not generate route for surveysShow:', e);
+            return null;
+        }
+    }
 
     // Nested tenant routes (not `{plural}.show`) — e.g. AssetVariant → assets.variants.show
     if (domain === 'AssetVariant') {
@@ -486,6 +577,8 @@ const applyFilters = (filters) => {
         && !(activeTab.value.modelRelationship && activeTab.value.domain === 'InventoryImage') 
         && activeTab.value.domain !== 'Document' 
         && activeTab.value.sublistKind !== 'morphCommunication'
+        && activeTab.value.sublistKind !== 'surveyResponses'
+        && activeTab.value.sublistKind !== 'documentRequests'
         && !(activeTab.value.modelRelationship && activeTab.value.relationshipType === 'ManyToMany')
         && !activeTab.value.readOnly) {
         fetchSublistData(activeTab.value);
@@ -714,7 +807,22 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
         return;
     }
 
-    // Handle document relationships specially
+    if (sublist.sublistKind === 'surveyResponses') {
+        isLoadingSublist.value = true;
+        try {
+            const rows = props.parentRecord.survey_responses ?? props.parentRecord.surveyResponses ?? [];
+            sublistData.value = Array.isArray(rows) ? [...rows] : [];
+            sublistPagination.value = null;
+            sublistUsesApiSource.value = false;
+            applySurveyResponseSublistSchemas();
+        } catch (error) {
+            console.error('Error loading survey responses:', error);
+            sublistData.value = [];
+        } finally {
+            isLoadingSublist.value = false;
+        }
+        return;
+    }
     if (sublist.domain === 'Document') {
         isLoadingSublist.value = true;
         try {
@@ -914,6 +1022,11 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
  * Find the field key that references the parent domain from a fields schema
  */
 const findParentReferenceFieldFromSchema = (fieldsSchema) => {
+    const customSublistKind = activeTab.value?.sublistKind;
+    if (['surveyResponses', 'morphCommunication', 'documentRequests'].includes(customSublistKind)) {
+        return null;
+    }
+
     // Handle wrapped schema structure
     const fields = fieldsSchema.fields || fieldsSchema;
 
@@ -1269,6 +1382,12 @@ const handleTabChange = async (sublist) => {
     // System logs: select-form for enum options, embedded table schema, parent relationship for rows
     if (sublist.domain === 'SystemLog') {
         await loadSublistSchema(sublist);
+        fetchSublistData(sublist);
+        return;
+    }
+
+    if (sublist.sublistKind === 'surveyResponses') {
+        await loadSublistIndexSchema(sublist);
         fetchSublistData(sublist);
         return;
     }
@@ -1684,6 +1803,14 @@ const getItemUrl = (item) => {
     if (!activeTab.value) return null;
 
     try {
+        if (activeTab.value.sublistKind === 'surveyResponses') {
+            const survey = item.survey;
+            if (!survey?.uuid || !item.id) {
+                return null;
+            }
+            return route('surveyResponseShow', { sid: survey.uuid, rid: item.id });
+        }
+
         if (activeTab.value.routes?.show) {
             return route(activeTab.value.routes.show, {
                 asset: props.parentRecord.id,
@@ -1917,6 +2044,7 @@ watch(
                     <DocumentRequestPanel
                         :contact-id="documentRequestContactId"
                         :has-customer="documentRequestHasCustomer"
+                        :contact-email="documentRequestContactEmail"
                         :parent-type="parentDomain"
                         :parent-id="parentRecord.id"
                     />
@@ -2033,10 +2161,10 @@ watch(
                                             class="text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 hover:underline"
                                             target="_blank"
                                         >
-                                            {{ getRecordDisplayValue(item, column.key) || '—' }}
+                                            {{ getSystemLogActorDisplay(item, column.key) || getRecordDisplayValue(item, column.key) || '—' }}
                                         </a>
                                         <span v-else>
-                                            {{ getRecordDisplayValue(item, column.key) || '—' }}
+                                            {{ getSystemLogActorDisplay(item, column.key) || getRecordDisplayValue(item, column.key) || '—' }}
                                         </span>
                                     </template>
                                     <template v-else-if="getFieldType(column.key) === 'boolean'">

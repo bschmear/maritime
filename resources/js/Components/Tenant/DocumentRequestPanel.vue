@@ -20,7 +20,7 @@
             Create a customer profile for this contact before sending document requests.
         </p>
 
-        <div v-else-if="loading" class="text-sm text-gray-500">Loading…</div>
+        <div v-else-if="loading" class="text-sm text-gray-500 dark:text-gray-400">Loading…</div>
 
         <div v-else-if="requests.length === 0" class="text-sm text-gray-500 dark:text-gray-400 py-8 text-center border border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
             No document requests yet.
@@ -65,7 +65,7 @@
                                 type="text"
                                 required
                                 maxlength="255"
-                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm"
+                                class="input-style dark:!bg-gray-900 dark:!text-white"
                                 placeholder="e.g. Driver's License"
                             />
                         </div>
@@ -75,13 +75,25 @@
                                 v-model="form.description"
                                 rows="3"
                                 maxlength="5000"
-                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-900 px-3 py-2 text-sm"
+                                class="input-style dark:!bg-gray-900 dark:!text-white"
                                 placeholder="Please upload your DL…"
                             />
                         </div>
+                        <p
+                            v-if="sandboxMode"
+                            class="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                        >
+                            <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                            <span>Uses your login email for the message and your staff user profile phone for SMS (matched by email).</span>
+                        </p>
+                        <p v-if="emailPreview" class="text-sm text-gray-500 dark:text-gray-400">
+                            <template v-if="sandboxMode">Email will be sent to you at </template>
+                            <template v-else>Email goes to </template>
+                            <span class="font-medium text-gray-800 dark:text-gray-200">{{ emailPreview }}</span>
+                        </p>
                         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
                         <div class="flex justify-end gap-2 pt-2">
-                            <button type="button" class="px-4 py-2 text-sm text-gray-600" @click="closeModal">Cancel</button>
+                            <button type="button" class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200" @click="closeModal">Cancel</button>
                             <button
                                 type="submit"
                                 class="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50"
@@ -99,9 +111,21 @@
 
 <script setup>
 import axios from 'axios';
-import { getCurrentInstance, onMounted, ref } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 
+const page = usePage();
 const inertiaApp = getCurrentInstance();
+
+const sandboxMode = computed(() => Boolean(page.props.tenant_sandbox_mode));
+const staffEmail = computed(() => page.props.auth?.user?.email ?? '');
+const emailPreview = computed(() => {
+    if (sandboxMode.value && staffEmail.value) {
+        return staffEmail.value;
+    }
+
+    return props.contactEmail ?? '';
+});
 
 function showToast(type, message) {
     if (!message) {
@@ -121,6 +145,7 @@ function showToast(type, message) {
 const props = defineProps({
     contactId: { type: Number, required: true },
     hasCustomer: { type: Boolean, default: true },
+    contactEmail: { type: String, default: '' },
     parentType: { type: String, required: true },
     parentId: { type: Number, required: true },
 });

@@ -773,8 +773,11 @@ Route::middleware([
             Route::post('/delete-selected', [SurveyController::class, 'deleteSelected'])->name('surveysDeleteSelected');
             Route::post('/clone', [SurveyController::class, 'clone'])->name('surveysClone');
             Route::get('/get-active-surveys', [SurveyController::class, 'getActiveSurveys'])->name('surveysGetActive');
+            Route::get('/send-options', [SurveyController::class, 'sendOptions'])->name('surveysSendOptions');
+            Route::get('/invitations', [SurveyController::class, 'listInvitations'])->name('surveysInvitations');
+            Route::post('/invitations/{invitation}/cancel', [SurveyController::class, 'cancelInvitation'])->name('surveysInvitationCancel');
+            Route::delete('/invitations/{invitation}', [SurveyController::class, 'destroyInvitation'])->name('surveysInvitationDestroy');
 
-            // Stubs — pending implementation
             Route::post('/send-to-deal', [SurveyController::class, 'sendToDeal'])->name('surveysSendToDeal');
             Route::post('/send-to-contact', [SurveyController::class, 'sendToContact'])->name('surveysSendToContact');
             Route::post('/send-to-record', [SurveyController::class, 'sendToRecord'])->name('surveysSendToRecord');

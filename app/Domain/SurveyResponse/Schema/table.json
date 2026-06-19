@@ -1,0 +1,6 @@
+{
+  "columns": [
+    { "key": "survey_id", "label": "Survey", "sortable": false, "isKey": true },
+    { "key": "submitted_at", "label": "Submitted", "sortable": true }
+  ]
+}

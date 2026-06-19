@@ -324,7 +324,7 @@
                 </li>
 
                 <li class="flex items-center justify-between">
-                    <span class="text-gray-500 dark:text-gray-400">Require Email</span>
+                    <span class="text-gray-500 dark:text-gray-400">Require Name and Email</span>
                     <i class="fas {{ ($privacy['require_email'] ?? false) ? 'fa-check-circle text-green-500 dark:text-green-400' : 'fa-times-circle text-gray-300 dark:text-gray-600' }}"></i>
                 </li>
 

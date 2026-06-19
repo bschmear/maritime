@@ -16,10 +16,12 @@ use App\Domain\Task\Models\Task;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
 use App\Models\Concerns\HasSystemLogs;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class Lead extends Model
 {
@@ -401,7 +403,7 @@ class Lead extends Model
     /**
      * Eager-load contact with columns required for flat accessors (table rows, forms).
      *
-     * @return \Closure(\Illuminate\Database\Eloquent\Relations\Relation|\Illuminate\Database\Eloquent\Builder): void
+     * @return \Closure(Relation|Builder): void
      */
     public static function eagerContactSelect(): \Closure
     {
@@ -489,6 +491,14 @@ class Lead extends Model
 
         if ($this->relationLoaded('contact') && $this->contact) {
             $array['contact'] = $this->contact->toArray();
+        }
+
+        if ($this->relationLoaded('surveyResponses')) {
+            $array['survey_responses'] = $this->surveyResponses->toArray();
+        }
+
+        if ($this->relationLoaded('systemLogs')) {
+            $array['system_logs'] = $this->systemLogs->toArray();
         }
 
         return $array;

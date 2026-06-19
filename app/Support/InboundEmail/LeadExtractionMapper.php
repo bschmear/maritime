@@ -86,6 +86,7 @@ class LeadExtractionMapper
             'campaign' => $route->address,
             'source_details' => 'AI Inbox ingestion #'.$ingestion->id,
             'for_import' => true,
+            'system_log_actor' => 'System User',
         ];
 
         return array_filter(

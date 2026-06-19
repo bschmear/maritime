@@ -145,8 +145,8 @@ class CreateContact
 
                 continue;
             }
-            $id = $enumClass::toStoredId($v);
-            $validated[$key] = $id === null ? null : (string) $id;
+            $storedEnumId = $enumClass::toStoredId($v);
+            $validated[$key] = $storedEnumId === null ? null : (string) $storedEnumId;
         }
 
         if (array_key_exists('stage_id', $validated)) {

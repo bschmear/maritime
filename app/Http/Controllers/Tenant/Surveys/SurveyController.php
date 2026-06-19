@@ -6,18 +6,27 @@ use App\Domain\Contact\Actions\CreateContact;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Survey\Models\Survey;
+use App\Domain\Survey\Models\SurveyInvitation;
 use App\Domain\Survey\Models\SurveyResponse;
 use App\Domain\User\Models\User;
+use App\Enums\Surveys\InvitationStatus;
 use App\Enums\Surveys\Status;
 use App\Enums\Surveys\Type;
 use App\Http\Controllers\Controller;
+use App\Jobs\SendSurveyInvitationJob;
+use App\Models\AccountSettings;
+use App\Services\SMS\SmsService;
 use App\Support\SafeRedirectUrl;
+use App\Support\Survey\SurveyRecordResolver;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -554,13 +563,20 @@ class SurveyController extends Controller
     {
         $tenantUserId = $this->tenantUserId();
 
-        $surveys = Survey::where('status', true)
+        $query = Survey::where('status', true)
             ->where(function ($q) use ($tenantUserId) {
                 $q->where('visibility', 'public')
                     ->orWhere(function ($q) use ($tenantUserId) {
                         $q->where('visibility', 'private')->where('user_id', $tenantUserId);
                     });
-            })
+            });
+
+        $filterType = $request->get('type');
+        if (is_string($filterType) && $filterType !== '' && in_array($filterType, ['feedback', 'lead', 'followup', 'custom'], true)) {
+            $query->where('type', $filterType);
+        }
+
+        $surveys = $query
             ->select('id', 'uuid', 'title', 'description', 'type', 'automation_config', 'user_id', 'visibility')
             ->orderBy('created_at', 'desc')
             ->get()
@@ -707,7 +723,7 @@ class SurveyController extends Controller
             }
 
             return redirect()->back()->with('success', $message);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
             Log::error('Survey response conversion failed: '.$e->getMessage(), [
@@ -752,9 +768,126 @@ class SurveyController extends Controller
         return response()->json(['message' => 'Not implemented.'], 501);
     }
 
-    public function sendToContact(Request $request): JsonResponse
+    public function sendToContact(Request $request, SurveyRecordResolver $resolver, SmsService $smsService): JsonResponse
     {
-        return response()->json(['message' => 'Not implemented.'], 501);
+        $request->merge([
+            'record_type' => 'contact',
+            'record_id' => $request->input('contact_id') ?? $request->input('record_id'),
+        ]);
+
+        return $this->sendToRecord($request, $resolver, $smsService);
+    }
+
+    public function sendOptions(Request $request, SurveyRecordResolver $resolver, SmsService $smsService): JsonResponse
+    {
+        $validated = $request->validate([
+            'record_type' => 'required|in:contact,lead,customer',
+            'record_id' => 'required|integer|min:1',
+        ]);
+
+        $target = $resolver->resolve($validated['record_type'], (int) $validated['record_id']);
+        if (! $target) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Record not found.',
+            ], 404);
+        }
+
+        $contact = Contact::query()->find($target->contactId);
+        $smsOffer = $smsService->surveyInvitationSmsCanBeOffered($contact, $request->user(), $target->mobile);
+        $sandboxMode = AccountSettings::getCurrent()->sandbox_mode;
+        $deliveryEmail = $target->email;
+        if ($sandboxMode && $request->user()?->email) {
+            $deliveryEmail = $request->user()->email;
+        }
+
+        return response()->json([
+            'success' => true,
+            'recipient' => [
+                'email' => $target->email,
+                'mobile' => $target->mobile,
+                'display_name' => $target->displayName,
+            ],
+            'email' => [
+                'sandbox_mode' => (bool) $sandboxMode,
+                'intended_recipient' => $target->email,
+                'delivery_recipient' => $deliveryEmail,
+            ],
+            'sms' => $smsOffer,
+        ]);
+    }
+
+    public function listInvitations(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'record_type' => 'required|in:contact,lead,customer',
+            'record_id' => 'required|integer|min:1',
+        ]);
+
+        $invitations = SurveyInvitation::query()
+            ->with(['survey:id,uuid,title,type'])
+            ->where('record_type', $validated['record_type'])
+            ->where('record_id', $validated['record_id'])
+            ->orderByDesc('created_at')
+            ->limit(25)
+            ->get()
+            ->map(fn (SurveyInvitation $inv) => [
+                'id' => $inv->id,
+                'status' => $inv->status?->value ?? $inv->status,
+                'scheduled_at' => $inv->scheduled_at?->toIso8601String(),
+                'sent_at' => $inv->sent_at?->toIso8601String(),
+                'send_email' => $inv->send_email,
+                'send_sms' => $inv->send_sms,
+                'error_message' => $inv->error_message,
+                'survey' => $inv->survey ? [
+                    'uuid' => $inv->survey->uuid,
+                    'title' => $inv->survey->title,
+                    'type' => $inv->survey->type,
+                ] : null,
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'invitations' => $invitations,
+        ]);
+    }
+
+    public function cancelInvitation(int $invitation): JsonResponse
+    {
+        $record = SurveyInvitation::query()->findOrFail($invitation);
+
+        if (! $record->isCancellable()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only scheduled invitations can be cancelled.',
+            ], 422);
+        }
+
+        $record->update(['status' => InvitationStatus::Cancelled]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Scheduled survey send cancelled.',
+        ]);
+    }
+
+    public function destroyInvitation(int $invitation): JsonResponse
+    {
+        $record = SurveyInvitation::query()->findOrFail($invitation);
+
+        if (! $record->isDeletable()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only cancelled invitations can be deleted.',
+            ], 422);
+        }
+
+        $record->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cancelled invitation removed.',
+        ]);
     }
 
     /**
@@ -767,8 +900,83 @@ class SurveyController extends Controller
         }
     }
 
-    public function sendToRecord(Request $request): JsonResponse
+    public function sendToRecord(Request $request, SurveyRecordResolver $resolver, SmsService $smsService): JsonResponse
     {
-        return response()->json(['message' => 'Not implemented.'], 501);
+        $validated = $request->validate([
+            'survey_uuid' => 'required|uuid|exists:surveys,uuid',
+            'record_type' => 'required|in:contact,lead,customer',
+            'record_id' => 'required|integer|min:1',
+            'send_at' => 'nullable|date|after:now',
+            'delivery' => 'required|in:email,email_sms',
+        ]);
+
+        $survey = Survey::query()
+            ->where('uuid', $validated['survey_uuid'])
+            ->where('status', true)
+            ->first();
+
+        if (! $survey) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Survey not found or is not active.',
+            ], 404);
+        }
+
+        $target = $resolver->resolve($validated['record_type'], (int) $validated['record_id']);
+        if (! $target || ! $target->email) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This record does not have an email address.',
+            ], 422);
+        }
+
+        $sendSms = $validated['delivery'] === 'email_sms';
+        if ($sendSms) {
+            $contact = Contact::query()->find($target->contactId);
+            $offer = $smsService->surveyInvitationSmsCanBeOffered($contact, $request->user(), $target->mobile);
+            if (! ($offer['offered'] ?? false)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $offer['hint'] ?? 'SMS is not available for this send.',
+                ], 422);
+            }
+        }
+
+        $scheduledAt = ! empty($validated['send_at'])
+            ? Carbon::parse($validated['send_at'])
+            : null;
+
+        $invitation = SurveyInvitation::query()->create([
+            'survey_id' => $survey->id,
+            'record_type' => $target->recordType,
+            'record_id' => $target->recordId,
+            'contact_id' => $target->contactId,
+            'recipient_email' => $target->email,
+            'recipient_mobile' => $target->mobile,
+            'assigned_to_user_id' => $target->assignedUserId,
+            'sent_by_user_id' => $this->tenantUserId(),
+            'sent_by_web_user_id' => Auth::id(),
+            'scheduled_at' => $scheduledAt,
+            'status' => InvitationStatus::Scheduled,
+            'send_email' => true,
+            'send_sms' => $sendSms,
+        ]);
+
+        $job = SendSurveyInvitationJob::dispatch($invitation->id);
+        if ($scheduledAt) {
+            $job->delay($scheduledAt);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $scheduledAt
+                ? 'Survey send scheduled.'
+                : 'Survey invitation queued.',
+            'invitation' => [
+                'id' => $invitation->id,
+                'status' => $invitation->status?->value ?? $invitation->status,
+                'scheduled_at' => $invitation->scheduled_at?->toIso8601String(),
+            ],
+        ]);
     }
 }

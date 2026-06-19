@@ -83,6 +83,12 @@
       "modelRelationship": "serviceTickets"
     },
     {
+      "label": "Surveys",
+      "domain": "SurveyResponse",
+      "sublistKind": "surveyResponses",
+      "readOnly": true
+    },
+    {
       "label": "System log",
       "domain": "SystemLog",
       "modelRelationship": "systemLogs",

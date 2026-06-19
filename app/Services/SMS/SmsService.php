@@ -8,6 +8,7 @@ use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Survey\Models\Survey;
 use App\Domain\User\Models\User as TenantUser;
 use App\Enums\SMS;
 use App\Models\AccountSettings;
@@ -529,6 +530,83 @@ class SmsService
 
         $label = trim($contractLabel) !== '' ? $contractLabel : 'Contract';
         $message = "Your contract {$label} is ready to review and sign: {$reviewUrl}";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
+    }
+
+    /**
+     * @return array{offered: bool, hint: ?string}
+     */
+    public function surveyInvitationSmsCanBeOffered(?Contact $contact, WebUser|TenantUser|null $authUser, ?string $mobile = null): array
+    {
+        if (! $this->tenantWantsSms(SMS::Survey)) {
+            return ['offered' => false, 'hint' => null];
+        }
+
+        if ($authUser === null) {
+            return ['offered' => false, 'hint' => 'Sign in to send SMS.'];
+        }
+
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            if ($tenantStaff === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'No staff user in this tenant matches your login email; create or link your staff profile to send sandbox SMS.',
+                ];
+            }
+
+            $to = $this->normalizePhoneForSms($tenantStaff->mobile_phone ?? $tenantStaff->office_phone ?? null);
+            if ($to === null) {
+                return [
+                    'offered' => false,
+                    'hint' => 'Sandbox mode sends texts to you: add a mobile or office phone on your staff user profile.',
+                ];
+            }
+
+            return ['offered' => true, 'hint' => null];
+        }
+
+        $raw = $mobile ?? $contact?->mobile ?? $contact?->phone ?? null;
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return [
+                'offered' => false,
+                'hint' => 'Add a mobile or phone number on the contact record to send SMS.',
+            ];
+        }
+
+        return ['offered' => true, 'hint' => null];
+    }
+
+    public function sendSurveyInvitationSms(
+        WebUser|TenantUser $authUser,
+        ?Contact $contact,
+        Survey $survey,
+        string $surveyUrl,
+        ?string $mobile = null,
+    ): SmsResult {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $mobile ?? $contact?->mobile ?? $contact?->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $title = $survey->title ?? 'Survey';
+        $message = "Please complete our survey \"{$title}\": {$surveyUrl}";
         if (strlen($message) > 480) {
             $message = substr($message, 0, 477).'…';
         }

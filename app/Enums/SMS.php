@@ -15,6 +15,7 @@ enum SMS: string
     case Delivery = 'delivery';
     case Contract = 'contract';
     case ServiceTicket = 'service_ticket';
+    case Survey = 'survey';
 
     /** Database column on `sms_notification_preferences` (e.g. notify_invoice). */
     public function notifyColumn(): string
@@ -30,6 +31,7 @@ enum SMS: string
             self::Delivery => 'Delivery',
             self::Contract => 'Contract',
             self::ServiceTicket => 'Service ticket',
+            self::Survey => 'Survey',
         };
     }
 
@@ -41,6 +43,7 @@ enum SMS: string
             self::Delivery => 'SMS related to deliveries.',
             self::Contract => 'SMS when sending a contract for review and signature.',
             self::ServiceTicket => 'SMS when sending a service ticket for customer approval.',
+            self::Survey => 'SMS when sending a survey invitation from a contact, lead, or customer record.',
         };
     }
 }

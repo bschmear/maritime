@@ -11,11 +11,14 @@ class SystemLog extends Model
 {
     public const UPDATED_AT = null;
 
+    protected $connection = 'tenant';
+
     protected $fillable = [
         'loggable_type',
         'loggable_id',
         'action',
         'user_id',
+        'actor_label',
         'created_at',
     ];
 

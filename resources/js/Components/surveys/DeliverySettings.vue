@@ -191,7 +191,7 @@
           <label class="flex items-start gap-3 cursor-pointer select-none"
             :class="localData.privacy_settings.anonymous ? 'opacity-50 cursor-not-allowed' : ''">
             <input
-              v-model="localData.privacy_settings.require_identity"
+              v-model="localData.privacy_settings.require_email"
               type="checkbox"
               :disabled="localData.privacy_settings.anonymous"
               class="w-4 h-4 mt-0.5 rounded border-gray-300 dark:border-gray-600 accent-blue-600 shrink-0"
@@ -302,10 +302,12 @@ export default {
       if (!data.privacy_settings) {
         data.privacy_settings = {
           anonymous: false,
-          require_identity: false,
+          require_email: false,
           one_response_per_user: false,
           show_results: false,
         };
+      } else if (!data.privacy_settings.require_email && data.privacy_settings.require_identity) {
+        data.privacy_settings.require_email = data.privacy_settings.require_identity;
       }
       return data;
     },
@@ -316,7 +318,7 @@ export default {
       if (!val) this.localData.redirect_url = '';
     },
     'localData.privacy_settings.anonymous'(val) {
-      if (val) this.localData.privacy_settings.require_identity = false;
+      if (val) this.localData.privacy_settings.require_email = false;
     },
   },
 };

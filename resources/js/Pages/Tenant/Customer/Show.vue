@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import CustomerForm from '@/Components/Tenant/CustomerForm.vue';
 import Modal from '@/Components/Modal.vue';
+import SendSurveyModal from '@/Components/Tenant/SendSurveyModal.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
@@ -25,6 +26,7 @@ const props = defineProps({
 
 const isEditMode = ref(false);
 const showDeleteModal = ref(false);
+const showSendSurveyModal = ref(false);
 const isDeleting = ref(false);
 const sendingPortal = ref(false);
 const removingShareId = ref(null);
@@ -37,6 +39,8 @@ const displayName = computed(
         [props.record.first_name, props.record.last_name].filter(Boolean).join(' ') ||
         `Customer #${props.record.id}`,
 );
+
+const surveyRecipientEmail = computed(() => (props.record.email || '').trim());
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -66,15 +70,32 @@ function formatDate(d) {
     }
 }
 
+function resolveCurrencyCode(raw) {
+    if (raw == null || raw === '') return 'USD';
+    const enumKey = props.fieldsSchema?.currency?.enum;
+    const opts = enumKey ? props.enumOptions?.[enumKey] || [] : [];
+    if (typeof raw === 'number' || (typeof raw === 'string' && /^\d+$/.test(String(raw)))) {
+        const hit = opts.find((o) => String(o.id) === String(raw));
+        return hit?.value ?? 'USD';
+    }
+    const hit = opts.find((o) => o.value === raw);
+    return hit?.value ?? (typeof raw === 'string' && raw.length <= 3 ? raw : 'USD');
+}
+
 function formatMoney(value, currency) {
     if (value === null || value === undefined || value === '') return null;
     const num = parseFloat(value);
     if (isNaN(num)) return null;
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency || props.record?.currency || 'USD',
-        minimumFractionDigits: 2,
-    }).format(num);
+    const code = resolveCurrencyCode(currency ?? props.record?.currency);
+    try {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: code,
+            minimumFractionDigits: 2,
+        }).format(num);
+    } catch {
+        return `${code} ${num.toFixed(2)}`;
+    }
 }
 
 function formatNumber(value) {
@@ -187,6 +208,16 @@ const confirmDelete = () => {
                         {{ displayName }}
                     </h2>
                     <div v-if="!isEditMode" class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                            :disabled="!surveyRecipientEmail"
+                            title="Send a survey invitation by email"
+                            @click="showSendSurveyModal = true"
+                        >
+                            <span class="material-icons text-[16px]">assignment</span>
+                            Send survey
+                        </button>
                         <button
                             class="inline-flex items-center px-4 py-2 text-md font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
                             @click="isEditMode = true"
@@ -895,6 +926,15 @@ const confirmDelete = () => {
                 <Sublist :parent-record="record" :parent-domain="domainName" :sublists="sublists" />
             </div>
         </template>
+
+        <SendSurveyModal
+            :show="showSendSurveyModal"
+            record-type="customer"
+            :record-id="record.id"
+            :recipient-email="surveyRecipientEmail"
+            :recipient-name="displayName"
+            @close="showSendSurveyModal = false"
+        />
 
         <!-- Delete modal -->
         <Modal :show="showDeleteModal" max-width="md" @close="showDeleteModal = false">

@@ -2,11 +2,12 @@
 
 namespace App\Domain\Survey\Models;
 
+use App\Domain\Survey\Casts\PrivacySettingsCast;
 use App\Domain\User\Models\User;
 use App\Models\AccountSettings;
+use App\Support\Survey\SurveyPublicUrl;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class Survey extends Model
@@ -37,7 +38,7 @@ class Survey extends Model
     protected $casts = [
         'status' => 'boolean',
         'automation_config' => 'array',
-        'privacy_settings' => 'array',
+        'privacy_settings' => PrivacySettingsCast::class,
     ];
 
     protected static function booted(): void
@@ -69,12 +70,7 @@ class Survey extends Model
 
     public function getPublicUrl(?int $agentId = null): string
     {
-        $url = route('surveysPublicShow', ['id' => $this->uuid], absolute: true);
-        if ($agentId) {
-            $url .= (str_contains($url, '?') ? '&' : '?').'aid='.$agentId;
-        }
-
-        return $url;
+        return SurveyPublicUrl::unsignedShowUrl($this->uuid, $agentId);
     }
 
     public function signedRecipientShowUrl(string $recipientType, int $recipientId, ?int $agentId = null): string
@@ -89,7 +85,7 @@ class Survey extends Model
             $params['aid'] = $agentId;
         }
 
-        return URL::signedRoute('surveysPublicShow', $params);
+        return SurveyPublicUrl::signedShowUrl($params);
     }
 
     public function getEmbedUrl(): string

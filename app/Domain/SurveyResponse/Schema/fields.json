@@ -1,0 +1,15 @@
+{
+  "survey_id": {
+    "label": "Survey",
+    "type": "record",
+    "typeDomain": "Survey",
+    "relationship": "survey",
+    "displayField": "title",
+    "readOnly": true
+  },
+  "submitted_at": {
+    "label": "Submitted",
+    "type": "datetime",
+    "readOnly": true
+  }
+}

@@ -20,6 +20,11 @@ const props = defineProps({
         type: Number,
         default: 320,
     },
+    /** 'currency' (default) or 'number' — controls y-axis and tooltip value formatting */
+    valueFormat: {
+        type: String,
+        default: 'currency',
+    },
 });
 
 const chartEl = ref(null);
@@ -29,6 +34,15 @@ let themeObserver = null;
 const formatMoney = (value) => {
     const n = Number(value) || 0;
     return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+};
+
+const formatValue = (value) => {
+    const n = Number(value) || 0;
+    if (props.valueFormat === 'number') {
+        return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+
+    return formatMoney(value);
 };
 
 const isDark = () => document.documentElement.classList.contains('dark');
@@ -108,7 +122,7 @@ function buildChartOptions() {
                     fontSize: '14px',
                     fontWeight: 500,
                 },
-                formatter: (val) => formatMoney(val),
+                formatter: (val) => formatValue(val),
             },
         },
         legend: {
@@ -125,7 +139,7 @@ function buildChartOptions() {
             intersect: false,
             theme: isDark() ? 'dark' : 'light',
             y: {
-                formatter: (val) => formatMoney(val),
+                formatter: (val) => formatValue(val),
             },
         },
         markers: {
@@ -192,7 +206,7 @@ const handleThemeChange = () => {
 };
 
 watch(
-    () => [props.categories, props.series, props.colors, props.height],
+    () => [props.categories, props.series, props.colors, props.height, props.valueFormat],
     () => {
         renderChart();
     },
