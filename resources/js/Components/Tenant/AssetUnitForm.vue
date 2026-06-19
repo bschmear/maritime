@@ -577,7 +577,7 @@ const relatedRecordShowUrl = (fieldKey) => {
 
 <template>
     <div class="w-full flex flex-col space-y-6">
-        <form novalidate @submit.prevent="submit">
+        <form id="asset-unit-form" novalidate class="pb-24" @submit.prevent="submit">
             <div
                 v-if="formErrorMessages.length"
                 data-asset-unit-form-error
@@ -592,7 +592,7 @@ const relatedRecordShowUrl = (fieldKey) => {
                 </ul>
             </div>
             <div class="grid gap-6 lg:grid-cols-12">
-                <div :class="showActionSidebar ? 'lg:col-span-8' : 'lg:col-span-12'" class="space-y-6">
+                <div :class="showActionSidebar && record?.asset ? 'lg:col-span-8' : 'lg:col-span-12'" class="space-y-6">
                     <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
                         <div
                             class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4 dark:from-primary-700 dark:to-primary-800"
@@ -927,35 +927,8 @@ const relatedRecordShowUrl = (fieldKey) => {
                     </div>
                 </div>
 
-                <aside v-if="showActionSidebar" class="lg:col-span-4 space-y-6">
-                    <div class="sticky top-[140px] overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-                        <div
-                            class="flex items-center justify-between border-b border-gray-600 bg-gray-700 px-5 py-4 dark:border-gray-600"
-                        >
-                            <span class="text-sm font-semibold text-white">Actions</span>
-                        </div>
-                        <div class="space-y-3 p-5">
-                            <button
-                                type="submit"
-                                :disabled="form.processing"
-                                class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <span v-if="form.processing" class="material-icons animate-spin text-base">refresh</span>
-                                <span v-else class="material-icons text-base">save</span>
-                                {{ form.processing ? 'Saving…' : isCreate ? 'Create unit' : 'Save changes' }}
-                            </button>
-                            <button
-                                type="button"
-                                :disabled="form.processing"
-                                class="inline-flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                                @click="handleCancel"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-
-                    <div v-if="record?.asset" class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
+                <aside v-if="showActionSidebar && record?.asset" class="lg:col-span-4 space-y-6">
+                    <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
                         <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                             <span class="text-sm font-semibold text-gray-900 dark:text-white">Parent asset</span>
                         </div>
@@ -979,6 +952,31 @@ const relatedRecordShowUrl = (fieldKey) => {
                     </div>
                 </aside>
             </div>
+
+            <Teleport v-if="!isView" to="body">
+                <div class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90 dark:border-gray-700 dark:bg-gray-900/95 dark:supports-[backdrop-filter]:bg-gray-900/90">
+                    <div class="flex w-full items-center justify-end gap-3">
+                        <button
+                            type="button"
+                            :disabled="form.processing"
+                            class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                            @click="handleCancel"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="asset-unit-form"
+                            :disabled="form.processing"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <span v-if="form.processing" class="material-icons animate-spin text-base">refresh</span>
+                            <span v-else class="material-icons text-base">save</span>
+                            {{ form.processing ? 'Saving…' : isCreate ? 'Create unit' : 'Save changes' }}
+                        </button>
+                    </div>
+                </div>
+            </Teleport>
         </form>
     </div>
 </template>

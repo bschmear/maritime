@@ -98,6 +98,11 @@
       "default_value": true
     },
     {
+      "field": "is_financed",
+      "operator": "is_true",
+      "label": "Financed"
+    },
+    {
       "field": "make_id",
       "label": "Brand",
       "type": "record",

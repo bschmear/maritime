@@ -1,5 +1,62 @@
 {
-    "columns": [
-
-    ]
+  "allow_create_modal": false,
+  "hide_header": true,
+  "hide_create_button": true,
+  "columns": [
+    { "key": "display_name", "label": "Financing", "sortable": true, "isKey": true },
+    { "key": "serial_vin", "label": "Serial/VIN", "sortable": true },
+    { "key": "lender_invoice_number", "label": "Invoice Number", "sortable": true },
+    { "key": "asset_unit_id", "label": "Asset unit", "sortable": true },
+    { "key": "vendor_id", "label": "Lender", "sortable": true },
+    { "key": "current_balance", "label": "Current Balance", "sortable": true },
+    { "key": "aging_days", "label": "Aging (Days)", "sortable": true },
+    { "key": "lender_status", "label": "Status", "sortable": true },
+    { "key": "status", "label": "Financing status", "sortable": true }
+  ],
+  "filters": [
+    {
+      "field": "status",
+      "label": "Financing status",
+      "type": "multi-select",
+      "enum": "App\\Enums\\Financing\\Status",
+      "operator": "any_of",
+      "apply_as_default": true,
+      "default_value": ["active"]
+    }
+  ],
+  "stats": [
+    {
+      "key": "active",
+      "label": "Active",
+      "badge_label": "Active",
+      "description": "Active financings with the lender",
+      "color": "blue",
+      "scope": "active"
+    },
+    {
+      "key": "in_stock",
+      "label": "In stock",
+      "badge_label": "In stock",
+      "description": "Active financings marked in-stock by the lender",
+      "color": "teal",
+      "scope": "in_stock"
+    },
+    {
+      "key": "high_aging",
+      "label": "High aging",
+      "badge_label": "High aging",
+      "description": "Past days alert threshold when configured",
+      "color": "amber",
+      "scope": "high_aging"
+    },
+    {
+      "key": "paid_off",
+      "label": "Paid off",
+      "badge_label": "Paid off",
+      "description": "Paid off in the last 30 days",
+      "color": "green",
+      "scope": "paid_off"
+    }
+  ],
+  "settings": {}
 }

@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\Financing\Models\Financing;
 use App\Domain\InventoryItem\Models\InventoryItem;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Domain\Location\Models\Location;
 use App\Domain\Reports\Support\CollectSalesTaxReportRows;
 use App\Domain\Subsidiary\Models\Subsidiary;
+use App\Domain\Vendor\Models\Vendor;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Enums\Financing\Status as FinancingStatus;
 use App\Enums\ServiceTicketServiceItem\WarrantyCoverageType;
 use Carbon\Carbon;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -1188,6 +1191,128 @@ class ReportsController extends Controller
                     });
             });
         }
+    }
+
+    // ─── Financing Report ─────────────────────────────────────────────────────
+
+    public function financingReport(Request $request)
+    {
+        $statusFilter   = $request->input('status');
+        $vendorId       = $request->integer('vendor_id') ?: null;
+        $linkedFilter   = $request->input('linked');   // 'yes' | 'no' | null
+        $dateFrom       = $request->input('date_from');
+        $dateTo         = $request->input('date_to');
+        $agingMin       = $request->integer('aging_min') ?: null;
+        $agingMax       = $request->integer('aging_max') ?: null;
+        $search         = trim((string) $request->input('search', ''));
+        $sortBy         = $request->input('sort_by', 'aging_days');
+        $sortDir        = $request->input('sort_dir', 'desc') === 'asc' ? 'asc' : 'desc';
+
+        $query = Financing::query()
+            ->with([
+                'vendor:id,display_name',
+                'assetUnit:id,serial_number,hin',
+            ])
+            ->when($statusFilter, fn ($q) => $q->where('status', $statusFilter))
+            ->when($vendorId,     fn ($q) => $q->where('vendor_id', $vendorId))
+            ->when($linkedFilter === 'yes', fn ($q) => $q->whereNotNull('asset_unit_id'))
+            ->when($linkedFilter === 'no',  fn ($q) => $q->whereNull('asset_unit_id'))
+            ->when($dateFrom, fn ($q) => $q->whereDate('financed_at', '>=', $dateFrom))
+            ->when($dateTo,   fn ($q) => $q->whereDate('financed_at', '<=', $dateTo))
+            ->when($agingMin !== null, fn ($q) => $q->where('aging_days', '>=', $agingMin))
+            ->when($agingMax !== null, fn ($q) => $q->where('aging_days', '<=', $agingMax))
+            ->when($search !== '', function ($q) use ($search) {
+                $like = '%'.strtolower($search).'%';
+                $q->where(function ($inner) use ($like) {
+                    $inner->whereRaw('lower(serial_vin) like ?', [$like])
+                        ->orWhereRaw('lower(model_number) like ?', [$like])
+                        ->orWhereRaw('lower(dealer_name) like ?', [$like])
+                        ->orWhereRaw('lower(supplier_name) like ?', [$like])
+                        ->orWhereRaw('lower(lender_invoice_number) like ?', [$like]);
+                });
+            });
+
+        $allowedSorts = ['aging_days', 'financed_at', 'current_balance', 'principal_amount', 'model_year', 'interest_start_date'];
+        if (in_array($sortBy, $allowedSorts, true)) {
+            $query->orderBy($sortBy, $sortDir);
+        }
+
+        $rows = $query->get()->map(function (Financing $f): array {
+            $principal = (float) ($f->principal_amount ?? 0);
+            $balance   = (float) ($f->current_balance ?? 0);
+            $paidOff   = max(0.0, $principal - $balance);
+            $paidPct   = $principal > 0 ? round(($paidOff / $principal) * 100, 1) : null;
+
+            return [
+                'id'                     => $f->id,
+                'display_name'           => $f->display_name,
+                'status'                 => $f->status instanceof FinancingStatus ? $f->status->value : $f->status,
+                'lender_status'          => $f->lender_status,
+                'dealer_name'            => $f->dealer_name,
+                'supplier_name'          => $f->supplier_name,
+                'vendor_name'            => $f->vendor?->display_name,
+                'serial_vin'             => $f->serial_vin,
+                'model_year'             => $f->model_year,
+                'model_number'           => $f->model_number,
+                'lender_invoice_number'  => $f->lender_invoice_number,
+                'principal_amount'       => $principal,
+                'current_balance'        => $balance,
+                'paid_off_amount'        => round($paidOff, 2),
+                'paid_off_pct'           => $paidPct,
+                'aging_days'             => $f->aging_days,
+                'financed_at'            => $f->financed_at?->toDateString(),
+                'interest_start_date'    => $f->interest_start_date?->toDateString(),
+                'next_payment_date'      => $f->next_payment_date?->toDateString(),
+                'curtailment_current_due' => (float) ($f->curtailment_current_due ?? 0),
+                'past_due_curtailment'   => (float) ($f->past_due_curtailment ?? 0),
+                'asset_unit_id'          => $f->asset_unit_id,
+                'asset_unit_serial'      => $f->assetUnit?->serial_number ?? $f->assetUnit?->hin,
+                'last_imported_at'       => $f->last_imported_at?->toDateString(),
+            ];
+        })->values()->all();
+
+        // Summary totals
+        $totalPrincipal = round(array_sum(array_column($rows, 'principal_amount')), 2);
+        $totalBalance   = round(array_sum(array_column($rows, 'current_balance')), 2);
+        $totalPaidOff   = round(array_sum(array_column($rows, 'paid_off_amount')), 2);
+        $overallPct     = $totalPrincipal > 0 ? round(($totalPaidOff / $totalPrincipal) * 100, 1) : null;
+        $unlinkedCount  = count(array_filter($rows, fn ($r) => !$r['asset_unit_id']));
+
+        // Lender options for filter dropdown
+        $lenders = Vendor::query()
+            ->whereIn('id', Financing::query()->select('vendor_id')->whereNotNull('vendor_id')->distinct())
+            ->orderBy('display_name')
+            ->get(['id', 'display_name'])
+            ->map(fn ($v) => ['id' => $v->id, 'name' => $v->display_name])
+            ->values()
+            ->all();
+
+        return Inertia::render('Tenant/Reports/FinancingReport', [
+            'recordTitle' => 'Financing Report',
+            'rows'        => $rows,
+            'summary'     => [
+                'total_rows'       => count($rows),
+                'total_principal'  => $totalPrincipal,
+                'total_balance'    => $totalBalance,
+                'total_paid_off'   => $totalPaidOff,
+                'overall_paid_pct' => $overallPct,
+                'unlinked_count'   => $unlinkedCount,
+            ],
+            'filters' => [
+                'status'     => $statusFilter,
+                'vendor_id'  => $vendorId,
+                'linked'     => $linkedFilter,
+                'date_from'  => $dateFrom,
+                'date_to'    => $dateTo,
+                'aging_min'  => $agingMin,
+                'aging_max'  => $agingMax,
+                'search'     => $search,
+                'sort_by'    => $sortBy,
+                'sort_dir'   => $sortDir,
+            ],
+            'lenders'       => $lenders,
+            'statusOptions' => array_map(fn ($s) => ['value' => $s->value, 'label' => ucfirst($s->value)], FinancingStatus::cases()),
+        ]);
     }
 
     private function paymentsWithInvoicesBase(Carbon $from, Carbon $to, ?int $subsidiaryId, ?int $locationId): QueryBuilder

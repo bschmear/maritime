@@ -13,6 +13,9 @@ use Throwable;
 
 class UpdateAssetUnit
 {
+    public function __construct(
+        private readonly LinkFinancingsToAssetUnit $linker,
+    ) {}
     public function __invoke(int $id, array $data): array
     {
         $validator = Validator::make($data, [
@@ -26,6 +29,7 @@ class UpdateAssetUnit
             'inactive' => 'nullable|boolean',
             'is_customer_owned' => 'nullable|boolean',
             'is_consignment' => 'nullable|boolean',
+            'is_financed' => 'nullable|boolean',
             'engine_hours' => 'nullable|numeric|min:0',
             'last_service_at' => 'nullable|date',
             'warranty_expires_at' => 'nullable|date',
@@ -98,7 +102,19 @@ class UpdateAssetUnit
                 unset($recordData['asset_variant_id']);
             }
 
+            // Detect if serial/HIN is changing so we can re-run auto-link
+            $serialChanged = array_key_exists('serial_number', $recordData)
+                && $recordData['serial_number'] !== $record->serial_number;
+            $hinChanged = array_key_exists('hin', $recordData)
+                && $recordData['hin'] !== $record->hin;
+
             $record->update($recordData);
+
+            // Auto-link unlinked financings if a serial identifier was added/changed
+            if ($serialChanged || $hinChanged) {
+                $record->refresh();
+                ($this->linker)($record);
+            }
 
             return [
                 'success' => true,

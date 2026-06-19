@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetUnitForm from '@/Components/Tenant/AssetUnitForm.vue';
+import FinancingSection from '@/Components/Tenant/FinancingSection.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -14,6 +15,7 @@ const props = defineProps({
     enumOptions: { type: Object, default: () => ({}) },
     timezones: { type: Array, default: () => [] },
     account: { type: Object, default: null },
+    financingContext: { type: Object, default: null },
 });
 
 const unitLabel = computed(() =>
@@ -51,6 +53,12 @@ const handleCancel = () => {
         </template>
 
         <div class="mx-auto flex w-full flex-col space-y-6">
+            <FinancingSection
+                v-if="financingContext && (record?.is_financed || financingContext?.financing)"
+                :context="financingContext"
+                :record="record"
+            />
+
             <AssetUnitForm
                 :schema="formSchema"
                 :fields-schema="fieldsSchema"

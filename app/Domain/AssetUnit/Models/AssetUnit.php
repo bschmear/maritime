@@ -8,6 +8,7 @@ use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Document\Models\Document;
+use App\Domain\Financing\Models\Financing;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Domain\Location\Models\Location;
 use App\Domain\MsoRecord\Models\MsoRecord;
@@ -17,11 +18,13 @@ use App\Domain\Transaction\Models\Transaction;
 use App\Domain\Transaction\Models\TransactionLineItem;
 use App\Domain\Vendor\Models\Vendor;
 use App\Domain\WorkOrder\Models\WorkOrder;
+use App\Enums\Financing\Status as FinancingStatus;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class AssetUnit extends Model
 {
@@ -39,6 +42,7 @@ class AssetUnit extends Model
         'inactive',
         'is_customer_owned',
         'is_consignment',
+        'is_financed',
         'engine_hours',
         'last_service_at',
         'warranty_expires_at',
@@ -63,6 +67,7 @@ class AssetUnit extends Model
         'inactive' => 'boolean',
         'is_customer_owned' => 'boolean',
         'is_consignment' => 'boolean',
+        'is_financed' => 'boolean',
         'engine_hours' => 'decimal:1',
         'last_service_at' => 'date',
         'warranty_expires_at' => 'date',
@@ -178,6 +183,18 @@ class AssetUnit extends Model
     public function consignmentAgreements(): HasMany
     {
         return $this->hasMany(ConsignmentAgreement::class, 'asset_unit_id');
+    }
+
+    public function financings(): HasMany
+    {
+        return $this->hasMany(Financing::class, 'asset_unit_id');
+    }
+
+    public function activeFinancing(): HasOne
+    {
+        return $this->hasOne(Financing::class, 'asset_unit_id')
+            ->where('status', FinancingStatus::Active->value)
+            ->latestOfMany();
     }
 
     public function serviceTickets(): HasMany

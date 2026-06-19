@@ -1,5 +1,130 @@
 {
-    "fields": [
-
-    ]
+  "display_name": {
+    "label": "Financing",
+    "type": "text",
+    "readOnly": true
+  },
+  "asset_unit_id": {
+    "label": "Asset unit",
+    "type": "record",
+    "typeDomain": "AssetUnit",
+    "relationship": "assetUnit",
+    "create": true
+  },
+  "vendor_id": {
+    "label": "Lender",
+    "type": "record",
+    "typeDomain": "Vendor",
+    "relationship": "vendor",
+    "create": true,
+    "required": true,
+    "record_filter_field": "vendor_type",
+    "filter": {
+      "vendor_type": 3
+    }
+  },
+  "status": {
+    "label": "Financing status",
+    "type": "select",
+    "enum": "App\\Enums\\Financing\\Status",
+    "default": "active",
+    "required": true
+  },
+  "dealer_name": {
+    "label": "Dealer Name",
+    "type": "text"
+  },
+  "dealer_cin": {
+    "label": "Dealer CIN",
+    "type": "text"
+  },
+  "supplier_name": {
+    "label": "Supplier Name",
+    "type": "text"
+  },
+  "supplier_cin": {
+    "label": "Supplier CIN",
+    "type": "text"
+  },
+  "lender_invoice_number": {
+    "label": "Invoice Number",
+    "type": "text"
+  },
+  "financed_at": {
+    "label": "Invoice Date",
+    "type": "date"
+  },
+  "aging_days": {
+    "label": "Aging (Days)",
+    "type": "number"
+  },
+  "interest_start_date": {
+    "label": "Interest Start Date",
+    "type": "date"
+  },
+  "lender_status": {
+    "label": "Status",
+    "type": "text",
+    "help": "Lender inventory status (e.g. In-Stock, Transfer)"
+  },
+  "model_year": {
+    "label": "Model Year",
+    "type": "text"
+  },
+  "model_number": {
+    "label": "Model Number",
+    "type": "text"
+  },
+  "serial_vin": {
+    "label": "Serial/VIN",
+    "type": "text"
+  },
+  "principal_amount": {
+    "label": "Original Balance",
+    "type": "currency"
+  },
+  "current_balance": {
+    "label": "Current Balance",
+    "type": "currency"
+  },
+  "curtailment_current_due": {
+    "label": "Curtailment Current Due",
+    "type": "currency"
+  },
+  "past_due_curtailment": {
+    "label": "Past Due Curtailment",
+    "type": "currency"
+  },
+  "annual_interest_rate": {
+    "label": "Interest rate (%)",
+    "type": "number"
+  },
+  "loan_term_months": {
+    "label": "Loan term (months)",
+    "type": "number",
+    "min": 1,
+    "help": "Total months of the loan — used to estimate total interest and payments (e.g. 60 for 5 years)"
+  },
+  "next_payment_date": {
+    "label": "Next payment date",
+    "type": "date"
+  },
+  "monthly_payment_amount": {
+    "label": "Monthly payment estimate",
+    "type": "currency"
+  },
+  "days_alert_threshold": {
+    "label": "Days alert threshold",
+    "type": "number",
+    "help": "Override account default for this unit"
+  },
+  "interest_alert_threshold": {
+    "label": "Interest alert threshold",
+    "type": "currency",
+    "help": "Override account default for this unit"
+  },
+  "notes": {
+    "label": "Notes",
+    "type": "textarea"
+  }
 }

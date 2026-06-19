@@ -14,6 +14,10 @@ use Throwable;
 
 class CreateAssetUnit
 {
+    public function __construct(
+        private readonly LinkFinancingsToAssetUnit $linker,
+    ) {}
+
     public function __invoke(array $data): array
     {
         $validator = Validator::make($data, [
@@ -33,6 +37,7 @@ class CreateAssetUnit
             'inactive' => 'nullable|boolean',
             'is_customer_owned' => 'nullable|boolean',
             'is_consignment' => 'nullable|boolean',
+            'is_financed' => 'nullable|boolean',
             'engine_hours' => 'nullable|numeric|min:0',
             'last_service_at' => 'nullable|date',
             'warranty_expires_at' => 'nullable|date',
@@ -100,6 +105,9 @@ class CreateAssetUnit
             }
 
             $record = RecordModel::create($recordData);
+
+            // Auto-link any unlinked financing records whose serial_vin matches
+            ($this->linker)($record);
 
             return [
                 'success' => true,

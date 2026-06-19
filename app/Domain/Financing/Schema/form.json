@@ -3,17 +3,78 @@
     "max_width": "4xl"
   },
   "form": {
-    "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+    "links": {
+      "label": "Linked records",
+      "fields": [
+        { "key": "asset_unit_id" },
+        { "key": "vendor_id", "required": true },
+        { "key": "status", "required": true }
+      ]
     },
-    "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+    "dealer": {
+      "label": "Dealer",
+      "fields": [
+        { "key": "dealer_name" },
+        { "key": "dealer_cin" }
+      ]
+    },
+    "supplier": {
+      "label": "Supplier",
+      "fields": [
+        { "key": "supplier_name" },
+        { "key": "supplier_cin" }
+      ]
+    },
+    "invoice": {
+      "label": "Invoice",
+      "fields": [
+        { "key": "lender_invoice_number" },
+        { "key": "financed_at" },
+        { "key": "interest_start_date" },
+        { "key": "aging_days" },
+        { "key": "lender_status" }
+      ]
+    },
+    "unit": {
+      "label": "Unit details",
+      "fields": [
+        { "key": "model_year" },
+        { "key": "model_number" },
+        { "key": "serial_vin" }
+      ]
+    },
+    "balances": {
+      "label": "Balances",
+      "fields": [
+        { "key": "principal_amount" },
+        { "key": "current_balance" },
+        { "key": "curtailment_current_due" },
+        { "key": "past_due_curtailment" },
+        { "key": "annual_interest_rate" },
+        { "key": "loan_term_months" },
+        { "key": "monthly_payment_amount" },
+        { "key": "next_payment_date" }
+      ]
+    },
+    "alerts": {
+      "label": "Alert overrides",
+      "fields": [
+        { "key": "days_alert_threshold" },
+        { "key": "interest_alert_threshold" }
+      ]
+    },
+    "notes": {
+      "label": "Notes",
+      "fields": [
+        { "key": "notes" }
+      ]
     }
-  }
+  },
+  "sublists": [
+    {
+      "label": "Bills",
+      "domain": "Bill",
+      "modelRelationship": "bills"
+    }
+  ]
 }

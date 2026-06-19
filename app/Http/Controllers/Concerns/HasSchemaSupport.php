@@ -58,6 +58,21 @@ trait HasSchemaSupport
         return $schema;
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    protected function getUnwrappedFieldsSchema(): array
+    {
+        $fieldsSchemaRaw = $this->getFieldsSchema();
+        if (! is_array($fieldsSchemaRaw)) {
+            return [];
+        }
+
+        $unwrapped = isset($fieldsSchemaRaw['fields']) ? $fieldsSchemaRaw['fields'] : $fieldsSchemaRaw;
+
+        return is_array($unwrapped) ? $unwrapped : [];
+    }
+
     protected function getSchemaColumns()
     {
         $tableSchema = $this->getTableSchema();

@@ -8,8 +8,10 @@ use App\Domain\Bill\Support\BillStatusResolver;
 use App\Domain\BillItem\Models\BillItem;
 use App\Domain\BillPayment\Models\BillPaymentLine;
 use App\Domain\ChartOfAccount\Models\ChartOfAccount;
+use App\Domain\Financing\Models\Financing;
 use App\Domain\Vendor\Models\Vendor;
 use App\Enums\Bill\Status;
+use App\Enums\Financing\BillType as FinancingBillType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -31,6 +33,8 @@ class Bill extends Model
         'quickbooks_bill_id',
         'quickbooks_sync_token',
         'vendor_id',
+        'financing_id',
+        'financing_bill_type',
         'quickbooks_vendor_id',
         'chart_of_account_id',
         'doc_number',
@@ -58,6 +62,7 @@ class Bill extends Model
             'balance' => 'decimal:2',
             'exchange_rate' => 'decimal:6',
             'meta' => 'array',
+            'financing_bill_type' => FinancingBillType::class,
         ];
     }
 
@@ -82,6 +87,11 @@ class Bill extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);
+    }
+
+    public function financing(): BelongsTo
+    {
+        return $this->belongsTo(Financing::class, 'financing_id');
     }
 
     public function chartOfAccount(): BelongsTo

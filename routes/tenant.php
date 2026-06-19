@@ -41,6 +41,7 @@ use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\DocumentRequestController;
 use App\Http\Controllers\Tenant\EstimateController;
 use App\Http\Controllers\Tenant\EventChecklistController;
+use App\Http\Controllers\Tenant\FinancingController;
 use App\Http\Controllers\Tenant\FleetController;
 use App\Http\Controllers\Tenant\FleetMaintenanceController;
 use App\Http\Controllers\Tenant\GeneralController;
@@ -728,6 +729,17 @@ Route::middleware([
             Route::resource('/', MaintenanceTypeController::class)->parameters(['' => 'maintenanceType']);
         });
 
+        Route::prefix('financings')->name('financings.')->group(function () {
+            Route::get('/import', [FinancingController::class, 'import'])->name('import');
+            Route::post('/import/parse', [FinancingController::class, 'importParse'])->name('import.parse');
+            Route::post('/import/confirm-header', [FinancingController::class, 'importConfirmHeader'])->name('import.confirm-header');
+            Route::post('/import/preview', [FinancingController::class, 'importPreview'])->name('import.preview');
+            Route::post('/import/run', [FinancingController::class, 'importRun'])->name('import.run');
+            Route::post('{financing}/link-asset-unit', [FinancingController::class, 'linkAssetUnit'])->name('link-asset-unit');
+            Route::post('{financing}/interest-rate', [FinancingController::class, 'updateInterestRate'])->name('interest-rate');
+            Route::resource('/', FinancingController::class)->parameters(['' => 'financing']);
+        });
+
         Route::prefix('bills')->name('bills.')->group(function () {
             Route::post('/{bill}/push-to-quickbooks', [BillController::class, 'pushToQuickbooks'])->name('push-to-quickbooks');
             Route::post('/{bill}/pay', [BillController::class, 'payBill'])->name('pay');
@@ -841,6 +853,9 @@ Route::middleware([
                 ->name('sales-by-customer.invoices');
             Route::get('/sales-by-item-summary', [ReportsController::class, 'salesByItemSummary'])->name('sales-by-item-summary');
             Route::get('/sales-by-item-detail', [ReportsController::class, 'salesByItemDetail'])->name('sales-by-item-detail');
+
+            // Financing
+            Route::get('/financing', [ReportsController::class, 'financingReport'])->name('financing');
 
         });
 

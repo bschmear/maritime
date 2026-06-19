@@ -72,6 +72,13 @@
     "description": "Indicates this unit is owned by a customer"
   },
 
+  "is_financed": {
+    "label": "Financed",
+    "type": "boolean",
+    "default": false,
+    "description": "When enabled, link a financing record on the unit page or import from lender CSV"
+  },
+
   "is_consignment": {
     "label": "Consignment",
     "type": "boolean",

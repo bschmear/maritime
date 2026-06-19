@@ -12,6 +12,15 @@ use App\Support\Tenant\TenantPermissionsCache;
 class PermissionGenerator
 {
     /**
+     * Record type keys (domain) restricted to admin and manager roles by default.
+     */
+    private const ADMIN_AND_MANAGER_RECORD_TYPE_KEYS = [
+        'financing',
+        'bill',
+        'billpayment',
+    ];
+
+    /**
      * Permission keys managers must not have (cannot add/remove tenant users).
      */
     private const MANAGER_EXCLUDED_PERMISSION_KEYS = [
@@ -69,9 +78,9 @@ class PermissionGenerator
     /**
      * Apply default permission sets for seeded roles:
      * admin — all permissions
-     * manager — all except creating/deleting users
-     * employee — view + edit only (all domains)
-     * guest — view only (all domains)
+     * manager — all except creating/deleting users (includes financing, bills, bill payments)
+     * employee — view + edit only (excludes financing, bills, bill payments)
+     * guest — view only (excludes financing, bills, bill payments)
      */
     public function assignDefaultRolePermissions(): void
     {
@@ -90,6 +99,7 @@ class PermissionGenerator
         if ($employee) {
             $ids = Permission::query()
                 ->whereIn('action', ['view', 'edit'])
+                ->whereNotIn('domain', self::ADMIN_AND_MANAGER_RECORD_TYPE_KEYS)
                 ->pluck('id')
                 ->all();
             $employee->permissions()->sync($ids);
@@ -99,6 +109,7 @@ class PermissionGenerator
         if ($guest) {
             $ids = Permission::query()
                 ->where('action', 'view')
+                ->whereNotIn('domain', self::ADMIN_AND_MANAGER_RECORD_TYPE_KEYS)
                 ->pluck('id')
                 ->all();
             $guest->permissions()->sync($ids);

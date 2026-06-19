@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('sitemap:generate')->daily();
+Schedule::command('financing:check-thresholds --all-tenants')->daily();

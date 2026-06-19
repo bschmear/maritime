@@ -41,6 +41,9 @@ class AccountSettings extends Model
         'allow_overlap',
         'consignment_fee_percent',
         'consignment_terms',
+        'financing_max_days_in_inventory',
+        'financing_interest_alert_amount',
+        'financing_csv_column_map',
         'sms_enabled',
         'sandbox_mode',
         /** When true, the tenant setup wizard is finished and should not show on the dashboard. */
@@ -60,6 +63,8 @@ class AccountSettings extends Model
         'settings' => 'array',
         'default_payment_term' => PaymentTermsCast::class,
         'consignment_fee_percent' => 'decimal:2',
+        'financing_interest_alert_amount' => 'decimal:2',
+        'financing_csv_column_map' => 'array',
         'sms_enabled' => 'boolean',
         'sandbox_mode' => 'boolean',
         'onboarding_complete' => 'boolean',

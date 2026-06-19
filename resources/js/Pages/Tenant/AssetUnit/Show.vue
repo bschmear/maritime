@@ -2,6 +2,7 @@
 import AssetCatalogOptionsSection from '@/Components/Tenant/AssetCatalogOptionsSection.vue';
 import AssetUnitOriginalMsoCard from '@/Components/Tenant/AssetUnitOriginalMsoCard.vue';
 import ConsignmentAgreementSection from '@/Components/Tenant/ConsignmentAgreementSection.vue';
+import FinancingSection from '@/Components/Tenant/FinancingSection.vue';
 import AssetUnitForm from '@/Components/Tenant/AssetUnitForm.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
@@ -24,6 +25,7 @@ const props = defineProps({
     catalogResolvedOptions: { type: Array, default: () => [] },
     catalogContext: { type: Object, default: null },
     consignmentAgreementContext: { type: Object, default: null },
+    financingContext: { type: Object, default: null },
     msoRecords: { type: Array, default: () => [] },
 });
 
@@ -112,6 +114,12 @@ const sublists = computed(() => props.formSchema?.sublists ?? []);
                                 Consignment
                             </span>
                             <span
+                                v-if="record?.is_financed"
+                                class="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-medium text-blue-900 dark:bg-blue-900/40 dark:text-blue-200"
+                            >
+                                Financed
+                            </span>
+                            <span
                                 v-if="record?.is_customer_owned"
                                 class="inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-sm font-medium text-blue-900 dark:bg-blue-900/40 dark:text-blue-200"
                             >
@@ -157,6 +165,12 @@ const sublists = computed(() => props.formSchema?.sublists ?? []);
                     <ConsignmentAgreementSection
                         v-if="record?.is_consignment && consignmentAgreementContext"
                         :context="consignmentAgreementContext"
+                        :record="record"
+                    />
+
+                    <FinancingSection
+                        v-if="record?.is_financed || financingContext?.financing"
+                        :context="financingContext"
                         :record="record"
                     />
 

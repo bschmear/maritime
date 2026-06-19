@@ -30,5 +30,17 @@ return [
             // 'admin',
             // 'manager',
         ],
+        'financing' => [
+            'admin',
+            'manager',
+        ],
+        'bill' => [
+            'admin',
+            'manager',
+        ],
+        'billpayment' => [
+            'admin',
+            'manager',
+        ],
     ],
 ];

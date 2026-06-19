@@ -10,6 +10,7 @@ use App\Domain\Document\Actions\CreateDocument;
 use App\Domain\Document\Models\Document;
 use App\Domain\DocumentRequest\Models\DocumentRequest;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Financing\Models\Financing;
 use App\Domain\Notification\Models\Notification;
 use App\Domain\Opportunity\Models\Opportunity;
 use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
@@ -668,6 +669,39 @@ class NotificationService
             ]);
 
             return null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Financing
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * @param  array<string, mixed>  $metrics
+     */
+    public function notifyFinancingAtRisk(Financing $financing, array $metrics, int $userId): void
+    {
+        try {
+            $financing->loadMissing(['assetUnit', 'vendor']);
+            $unitLabel = $financing->assetUnit?->display_name ?? "Unit #{$financing->asset_unit_id}";
+            $lender = $financing->vendor?->display_name ?? 'lender';
+            $days = (int) ($metrics['days_financed'] ?? 0);
+            $interestCost = number_format((float) ($metrics['total_interest_cost'] ?? 0), 2);
+
+            Notification::create([
+                'assigned_to_user_id' => $userId,
+                'type' => 'financing_at_risk',
+                'title' => 'Financing at risk — sell or pay off',
+                'message' => "{$unitLabel} ({$lender}) has been financed {$days} days with \${$interestCost} total interest cost. Consider selling or paying off to protect margin.",
+                'route' => 'financings.show',
+                'route_params' => ['financing' => $financing->id],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to create financing at-risk notification', [
+                'financing_id' => $financing->id,
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 

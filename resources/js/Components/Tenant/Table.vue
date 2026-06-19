@@ -31,6 +31,8 @@ const props = defineProps({
     quickbooksApSync:        { type: Object, default: null },
     /** Merged with page.props.stats; used with schema.stats for optional stat cards */
     stats:               { type: Object, default: () => ({}) },
+    /** When true, hides the title / add row above search (page provides its own header). */
+    hideHeader:          { type: Boolean, default: false },
     /**
      * 'table' (default) or 'grid': when 'grid' and a #grid slot is provided, it replaces the
      * data table (search/filters/stats/pagination stay the same). Use for e.g. service tickets.
@@ -1174,7 +1176,10 @@ defineExpose({
         <div class="flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 grow">
 
             <!-- Header -->
-            <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
+            <div
+                v-if="!hideHeader && !schema?.hide_header"
+                class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3"
+            >
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ pluralTitle }}</h2>
                 <div class="flex flex-wrap items-center gap-2">
                     <slot name="headerActions" />

@@ -29,8 +29,8 @@ class AssetUnitController extends RecordController
             $recordType->plural(),
             $recordType->title(),
             new RecordModel,
-            new CreateAction,
-            new UpdateAction,
+            app(CreateAction::class),
+            app(UpdateAction::class),
             new DeleteAction,
             $recordType->domainName()
         );
@@ -144,6 +144,47 @@ class AssetUnitController extends RecordController
             }
         }
 
+        $hin = trim((string) $request->query('hin', ''));
+        if ($hin !== '') {
+            $prefill['hin'] = $hin;
+        }
+
+        $serialNumber = trim((string) $request->query('serial_number', ''));
+        if ($serialNumber !== '') {
+            $prefill['serial_number'] = $serialNumber;
+        }
+
+        $linkFinancingId = (int) $request->query('link_financing_id', 0) ?: null;
+
+        $linkFinancing = null;
+        if ($linkFinancingId) {
+            $fin = \App\Domain\Financing\Models\Financing::query()
+                ->with(['vendor:id,display_name'])
+                ->select([
+                    'id', 'sequence', 'serial_vin', 'model_year', 'model_number',
+                    'supplier_name', 'lender_invoice_number', 'dealer_name', 'principal_amount',
+                    'current_balance', 'financed_at', 'vendor_id',
+                ])
+                ->find($linkFinancingId);
+
+            if ($fin) {
+                $linkFinancing = [
+                    'id' => $fin->id,
+                    'display_name' => $fin->display_name,
+                    'serial_vin' => $fin->serial_vin,
+                    'model_year' => $fin->model_year,
+                    'model_number' => $fin->model_number,
+                    'supplier_name' => $fin->supplier_name,
+                    'lender_invoice_number' => $fin->lender_invoice_number,
+                    'dealer_name' => $fin->dealer_name,
+                    'principal_amount' => $fin->principal_amount,
+                    'current_balance' => $fin->current_balance,
+                    'financed_at' => $fin->financed_at?->toDateString(),
+                    'vendor_name' => $fin->vendor?->display_name,
+                ];
+            }
+        }
+
         return inertia('Tenant/AssetUnit/Create', [
             'recordType' => $this->recordType,
             'recordTitle' => $this->recordTitle,
@@ -153,6 +194,9 @@ class AssetUnitController extends RecordController
             'account' => $account,
             'timezones' => Timezone::options(),
             'prefill' => $prefill,
+            'linkFinancingId' => $linkFinancingId,
+            'linkFinancing' => $linkFinancing,
+            'returnUrl' => trim((string) $request->query('return_url', '')) ?: null,
         ]);
     }
 
@@ -195,10 +239,12 @@ class AssetUnitController extends RecordController
         }
 
         $msoRecords = $this->serializeMsoRecordsForUnit($record);
+        $financingContext = $this->buildFinancingContext($record);
 
         if (! $record->is_consignment) {
             return array_merge($base, $catalog, [
                 'msoRecords' => $msoRecords,
+                'financingContext' => $financingContext,
             ]);
         }
 
@@ -229,7 +275,36 @@ class AssetUnitController extends RecordController
                     'signed_at',
                 ]) : null,
             ],
+            'financingContext' => $financingContext,
         ]);
+    }
+
+    /**
+     * @param  AssetUnit  $record
+     */
+    protected function editPageExtraProps($record): array
+    {
+        return [
+            'financingContext' => $this->buildFinancingContext($record),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildFinancingContext(AssetUnit $record): array
+    {
+        $financing = $record->activeFinancing()
+            ->with(['vendor:id,display_name'])
+            ->first();
+
+        $metrics = $financing?->metrics()->toArray();
+
+        return [
+            'financing' => $financing,
+            'metrics' => $metrics,
+            'create_url' => URL::route('financings.create', ['asset_unit_id' => $record->id]),
+        ];
     }
 
     /**

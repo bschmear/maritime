@@ -9,11 +9,14 @@ use App\Domain\Role\Models\Role;
 use App\Enums\RecordType;
 use App\Services\PermissionGenerator;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class PermissionGeneratorTest extends TestCase
 {
+    private const RESTRICTED_DOMAINS = ['financing', 'bill', 'billpayment'];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -24,7 +27,7 @@ class PermissionGeneratorTest extends TestCase
                 ['database' => ':memory:']
             ),
         ]);
-        \Illuminate\Support\Facades\DB::purge('tenant');
+        DB::purge('tenant');
 
         Schema::connection('tenant')->create('permissions', function (Blueprint $table) {
             $table->id();
@@ -91,25 +94,38 @@ class PermissionGeneratorTest extends TestCase
         $generator->assignDefaultRolePermissions();
 
         $total = Permission::query()->count();
+        $restrictedCount = count(self::RESTRICTED_DOMAINS) * 4;
 
         $admin = Role::query()->where('slug', 'admin')->first();
         $this->assertSame($total, $admin->permissions()->count());
+        $this->assertTrue($admin->hasPermission('financing.view'));
+        $this->assertTrue($admin->hasPermission('bill.view'));
+        $this->assertTrue($admin->hasPermission('billpayment.create'));
 
         $manager = Role::query()->where('slug', 'manager')->first();
         $this->assertFalse($manager->hasPermission('user.create'));
         $this->assertFalse($manager->hasPermission('user.delete'));
         $this->assertTrue($manager->hasPermission('user.view'));
+        $this->assertTrue($manager->hasPermission('financing.view'));
+        $this->assertTrue($manager->hasPermission('bill.edit'));
+        $this->assertTrue($manager->hasPermission('billpayment.delete'));
         $this->assertSame($total - 2, $manager->permissions()->count());
 
         $employee = Role::query()->where('slug', 'employee')->first();
         $this->assertTrue($employee->hasPermission('invoice.view'));
         $this->assertTrue($employee->hasPermission('invoice.edit'));
         $this->assertFalse($employee->hasPermission('invoice.create'));
-        $this->assertSame(count(RecordType::cases()) * 2, $employee->permissions()->count());
+        $this->assertFalse($employee->hasPermission('financing.view'));
+        $this->assertFalse($employee->hasPermission('bill.view'));
+        $this->assertFalse($employee->hasPermission('billpayment.view'));
+        $this->assertSame((count(RecordType::cases()) * 2) - ($restrictedCount / 4 * 2), $employee->permissions()->count());
 
         $guest = Role::query()->where('slug', 'guest')->first();
         $this->assertTrue($guest->hasPermission('invoice.view'));
         $this->assertFalse($guest->hasPermission('invoice.edit'));
-        $this->assertSame(count(RecordType::cases()), $guest->permissions()->count());
+        $this->assertFalse($guest->hasPermission('financing.view'));
+        $this->assertFalse($guest->hasPermission('bill.view'));
+        $this->assertFalse($guest->hasPermission('billpayment.view'));
+        $this->assertSame(count(RecordType::cases()) - count(self::RESTRICTED_DOMAINS), $guest->permissions()->count());
     }
 }

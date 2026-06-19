@@ -32,6 +32,9 @@ enum RecordType: string
     case Delivery = 'delivery';
     case WarrantyClaim = 'warrantyclaim';
     case MsoRecord = 'msorecord';
+    case Financing = 'financing';
+    case Bill = 'bill';
+    case BillPayment = 'billpayment';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -67,6 +70,9 @@ enum RecordType: string
             self::Delivery => 'Delivery',
             self::WarrantyClaim => 'WarrantyClaim',
             self::MsoRecord => 'MsoRecord',
+            self::Financing => 'Financing',
+            self::Bill => 'Bill',
+            self::BillPayment => 'BillPayment',
         };
     }
 
@@ -104,6 +110,9 @@ enum RecordType: string
             self::Delivery => 'App\\Domain\\Delivery',
             self::WarrantyClaim => 'App\\Domain\\WarrantyClaim',
             self::MsoRecord => 'App\\Domain\\MsoRecord',
+            self::Financing => 'App\\Domain\\Financing',
+            self::Bill => 'App\\Domain\\Bill',
+            self::BillPayment => 'App\\Domain\\BillPayment',
         };
     }
 
@@ -141,6 +150,9 @@ enum RecordType: string
             self::Delivery => 'Delivery',
             self::WarrantyClaim => 'Warranty Claim',
             self::MsoRecord => 'MSO',
+            self::Financing => 'Financing',
+            self::Bill => 'Bill',
+            self::BillPayment => 'Bill Payment',
         };
     }
 
@@ -178,6 +190,9 @@ enum RecordType: string
             self::Delivery => 'deliveries',
             self::WarrantyClaim => 'warrantyclaims',
             self::MsoRecord => 'msorecords',
+            self::Financing => 'financings',
+            self::Bill => 'bills',
+            self::BillPayment => 'bill-payments',
         };
     }
 

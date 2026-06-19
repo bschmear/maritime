@@ -206,7 +206,8 @@ const secondaryNavItems = ref([
                     { name: 'Profit & Loss', href: 'reports.pnl' },
                     { name: 'Cash Flow', href: 'reports.cash-flow' },
                     { name: 'Sales Tax Liability', href: 'reports.sales-tax-liability' },
-                    { name: 'Sales Tax Payable', href: 'reports.sales-tax-payable' }
+                    { name: 'Sales Tax Payable', href: 'reports.sales-tax-payable' },
+                    { name: 'Financing Report', href: 'reports.financing' }
                 ]
             },
             {
@@ -261,6 +262,7 @@ const secondaryNavItems = ref([
                 children: [
                     { name: 'All Assets', href: 'assets.index' },
                     { name: 'All Units', href: 'assets.units.global-index' },
+                    { name: 'Financing', href: 'financings.index' },
                     { name: 'Consignment agreements', href: 'consignmentagreements.index' },
                     { name: 'Asset Brands', href: 'boatmakes.index' },
                     { name: 'Asset Options', href: 'asset-options.index' },
