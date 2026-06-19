@@ -31,6 +31,21 @@
       "sortable": false
     },
     {
+      "key": "open_balance",
+      "label": "Open Balance",
+      "sortable": true
+    },
+    {
+      "key": "overdue_balance",
+      "label": "Overdue",
+      "sortable": true
+    },
+    {
+      "key": "vendor_1099",
+      "label": "1099",
+      "sortable": true
+    },
+    {
       "key": "status_id",
       "label": "Status",
       "sortable": true
@@ -50,5 +65,10 @@
       "label": "Created",
       "sortable": true
     }
-  ]
+  ],
+  "settings": {
+    "bulk_actions": [
+      { "label": "Import from QuickBooks", "action": "importFromQuickbooks" }
+    ]
+  }
 }

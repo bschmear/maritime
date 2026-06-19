@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import Navbar from '@/Components/Tenant/Navbar.vue';
 import FavoritesNavControl from '@/Components/Tenant/FavoritesNavControl.vue';
 import AccountSetupWidget from '@/Components/Tenant/AccountSetup/AccountSetupWidget.vue';
@@ -19,14 +19,56 @@ const showNestedDropdown = ref(null);
 const hideTimeout = ref(null);
 const mobileMenuOpen = ref(false);
 const mobileExpandedItems = ref([]);
+const navOverlayOpen = ref(false);
+const navOverlaySearch = ref('');
+const navOverlaySearchInput = ref(null);
 
-const page = usePage();
-const deliveryEnRouteBanner = computed(() => page.props.delivery_en_route_banner ?? null);
-const supportWorkspaceBanner = computed(() => page.props.support_workspace_banner ?? null);
-
-const exitSupportSession = () => {
-    router.post(supportWorkspaceBanner.value.exit_url);
+const openNavOverlay = async () => {
+    navOverlaySearch.value = '';
+    navOverlayOpen.value = true;
+    await nextTick();
+    navOverlaySearchInput.value?.focus();
 };
+
+const closeNavOverlay = () => {
+    navOverlayOpen.value = false;
+    navOverlaySearch.value = '';
+};
+
+const onNavOverlayKeydown = (event) => {
+    if (event.key !== 'Escape' || !navOverlayOpen.value) {
+        return;
+    }
+
+    if (navOverlaySearch.value.trim() !== '') {
+        navOverlaySearch.value = '';
+        return;
+    }
+
+    closeNavOverlay();
+};
+
+const clearNavOverlaySearch = () => {
+    navOverlaySearch.value = '';
+};
+
+watch(navOverlayOpen, (open) => {
+    if (typeof document === 'undefined') {
+        return;
+    }
+    document.body.style.overflow = open ? 'hidden' : '';
+});
+
+onUnmounted(() => {
+    if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+    }
+    window.removeEventListener('keydown', onNavOverlayKeydown);
+});
+
+onMounted(() => {
+    window.addEventListener('keydown', onNavOverlayKeydown);
+});
 
 // Helper functions for navigation state
 const isCurrentRoute = (item) => {
@@ -49,6 +91,13 @@ const hasActiveGrandChild = (child) => {
     if (!child.children) return false;
     return child.children.some(grandChild => route().current(grandChild.href));
 };
+
+const navOverlayLinkClass = (href) => [
+    'block rounded px-2 py-0.5 text-xs leading-snug transition-colors',
+    route().current(href) || route().current(href + '.*')
+        ? 'bg-indigo-100 font-medium text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200'
+        : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700',
+];
 
 // Desktop dropdown management - simplified
 const openDropdown = (itemName, isNested = false) => {
@@ -107,10 +156,21 @@ const closeMobileMenu = () => {
     mobileExpandedItems.value = [];
 };
 
-// Close mobile menu on route change
-onMounted(() => {
-    // You might want to add a route change listener here
-});
+const page = usePage();
+const deliveryEnRouteBanner = computed(() => page.props.delivery_en_route_banner ?? null);
+const supportWorkspaceBanner = computed(() => page.props.support_workspace_banner ?? null);
+
+const exitSupportSession = () => {
+    router.post(supportWorkspaceBanner.value.exit_url);
+};
+
+watch(
+    () => page.url,
+    () => {
+        closeMobileMenu();
+        closeNavOverlay();
+    },
+);
 
 const secondaryNavItems = ref([
     { name: 'Overview', href: 'dashboard' },
@@ -125,8 +185,17 @@ const secondaryNavItems = ref([
             { name: 'Transactions', href: 'transactions.index' },
             { name: 'MSO', href: 'mso.index' },
             { name: 'Invoices', href: 'invoices.index' },
-            { name: 'Payments', href: 'payments.index' }
-        ]
+            { name: 'Payments', href: 'payments.index' },
+            {
+                name: 'Bills',
+                href: 'bills.index',
+                children: [
+                    { name: 'All Bills', href: 'bills.index' },
+                    { name: 'Bill Payments', href: 'bill-payments.index' },
+                    { name: 'Chart of accounts', href: 'chart-of-accounts.index' },
+                ],
+            },
+        ],
     },
     {
         name: 'Reports',
@@ -251,6 +320,76 @@ const secondaryNavItems = ref([
         ]
     }
 ]);
+
+const navOverlayStandaloneLinks = computed(() =>
+    secondaryNavItems.value.filter((item) => item.href && !item.children),
+);
+
+const navOverlaySections = computed(() =>
+    secondaryNavItems.value.filter((item) => item.children?.length),
+);
+
+const normalizeNavOverlaySearch = (value) => value.trim().toLowerCase();
+
+const navOverlayHasSearch = computed(() => normalizeNavOverlaySearch(navOverlaySearch.value) !== '');
+
+const navOverlayAllLinks = computed(() => {
+    const links = [];
+
+    for (const link of navOverlayStandaloneLinks.value) {
+        links.push({
+            name: link.name,
+            href: link.href,
+            breadcrumbs: [],
+            searchText: link.name.toLowerCase(),
+        });
+    }
+
+    for (const section of navOverlaySections.value) {
+        for (const child of section.children ?? []) {
+            if (!child.children) {
+                links.push({
+                    name: child.name,
+                    href: child.href,
+                    breadcrumbs: [section.name],
+                    searchText: [section.name, child.name].join(' ').toLowerCase(),
+                });
+                continue;
+            }
+
+            if (child.href) {
+                links.push({
+                    name: child.name,
+                    href: child.href,
+                    breadcrumbs: [section.name],
+                    searchText: [section.name, child.name].join(' ').toLowerCase(),
+                });
+            }
+
+            for (const grandChild of child.children) {
+                links.push({
+                    name: grandChild.name,
+                    href: grandChild.href,
+                    breadcrumbs: [section.name, child.name],
+                    searchText: [section.name, child.name, grandChild.name].join(' ').toLowerCase(),
+                });
+            }
+        }
+    }
+
+    return links;
+});
+
+const navOverlayFilteredLinks = computed(() => {
+    const query = normalizeNavOverlaySearch(navOverlaySearch.value);
+    if (!query) {
+        return [];
+    }
+
+    return navOverlayAllLinks.value.filter((link) =>
+        link.name.toLowerCase().includes(query) || link.searchText.includes(query),
+    );
+});
 </script>
 
 <template>
@@ -268,6 +407,15 @@ const secondaryNavItems = ref([
                         :nav-items="secondaryNavItems"
                         dropdown-align="left"
                     />
+                    <button
+                        type="button"
+                        class="hidden lg:inline-flex shrink-0 items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 mr-2"
+                        title="Open full navigation"
+                        @click="openNavOverlay"
+                    >
+                        <span class="material-icons text-base leading-none">apps</span>
+                        <span>All pages</span>
+                    </button>
                     <ul class="flex items-center text-sm lg:text-md text-gray-900 font-medium space-x-1">
                         <li v-for="item in secondaryNavItems" :key="item.name || item.href" class="relative">
                             <!-- Item with children (dropdown) -->
@@ -577,6 +725,183 @@ const secondaryNavItems = ref([
                             </template>
                         </nav>
                 </aside>
+            </Transition>
+        </Teleport>
+
+        <!-- Desktop full navigation overlay -->
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition-opacity duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition-opacity duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="navOverlayOpen"
+                    class="fixed inset-0 z-[110] hidden bg-black/50 backdrop-blur-[1px] lg:block"
+                    aria-hidden="true"
+                    @click="closeNavOverlay"
+                />
+            </Transition>
+
+            <Transition
+                enter-active-class="transition-all duration-200 ease-out"
+                enter-from-class="opacity-0 scale-[0.98]"
+                enter-to-class="opacity-100 scale-100"
+                leave-active-class="transition-all duration-150 ease-in"
+                leave-from-class="opacity-100 scale-100"
+                leave-to-class="opacity-0 scale-[0.98]"
+            >
+                <div
+                    v-if="navOverlayOpen"
+                    class="fixed inset-2 z-[111] hidden flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 lg:flex"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Full navigation"
+                >
+                    <div class="flex shrink-0 flex-col gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+                        <div class="flex items-center gap-3">
+                            <h2 class="shrink-0 text-sm font-semibold text-gray-900 dark:text-white">
+                                All pages
+                            </h2>
+                            <div class="relative min-w-0 flex-1">
+                                <span class="material-icons pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-base leading-none text-gray-400">
+                                    search
+                                </span>
+                                <input
+                                    ref="navOverlaySearchInput"
+                                    v-model="navOverlaySearch"
+                                    type="search"
+                                    placeholder="Filter pages…"
+                                    class="w-full rounded-lg border border-gray-300 bg-white py-1.5 pl-8 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder:text-gray-500"
+                                    @keydown.escape.stop="navOverlaySearch.trim() ? clearNavOverlaySearch() : closeNavOverlay()"
+                                >
+                            </div>
+                            <button
+                                type="button"
+                                class="shrink-0 rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                @click="closeNavOverlay"
+                            >
+                                <span class="sr-only">Close navigation</span>
+                                <span class="material-icons text-xl leading-none">close</span>
+                            </button>
+                        </div>
+                        <div
+                            v-if="!navOverlayHasSearch && navOverlayStandaloneLinks.length"
+                            class="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1"
+                        >
+                            <Link
+                                v-for="link in navOverlayStandaloneLinks"
+                                :key="link.href"
+                                :href="route(link.href)"
+                                :class="navOverlayLinkClass(link.href)"
+                                @click="closeNavOverlay"
+                            >
+                                {{ link.name }}
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+                        <div
+                            v-if="navOverlayHasSearch"
+                            class="space-y-1"
+                        >
+                            <p
+                                v-if="navOverlayFilteredLinks.length === 0"
+                                class="px-2 py-6 text-center text-sm text-gray-500 dark:text-gray-400"
+                            >
+                                No pages match “{{ navOverlaySearch.trim() }}”
+                            </p>
+                            <Link
+                                v-for="link in navOverlayFilteredLinks"
+                                :key="`${link.href}-${link.breadcrumbs.join('/')}`"
+                                :href="route(link.href)"
+                                :class="[
+                                    'block rounded-lg px-2 py-1.5 transition-colors',
+                                    route().current(link.href) || route().current(link.href + '.*')
+                                        ? 'bg-indigo-100 dark:bg-indigo-900/40'
+                                        : 'hover:bg-gray-100 dark:hover:bg-gray-800',
+                                ]"
+                                @click="closeNavOverlay"
+                            >
+                                <span
+                                    v-if="link.breadcrumbs.length"
+                                    class="block text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                >
+                                    {{ link.breadcrumbs.join(' · ') }}
+                                </span>
+                                <span
+                                    :class="[
+                                        'block text-sm',
+                                        route().current(link.href) || route().current(link.href + '.*')
+                                            ? 'font-medium text-indigo-800 dark:text-indigo-200'
+                                            : 'text-gray-900 dark:text-white',
+                                    ]"
+                                >
+                                    {{ link.name }}
+                                </span>
+                            </Link>
+                        </div>
+                        <div
+                            v-else
+                            class="grid grid-cols-3 gap-x-4 gap-y-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
+                        >
+                            <section
+                                v-for="item in navOverlaySections"
+                                :key="item.name || item.href"
+                                class="min-w-0"
+                            >
+                                <h3 class="mb-1 truncate text-xs font-semibold uppercase tracking-wide text-gray-900 dark:text-white">
+                                    {{ item.name }}
+                                </h3>
+
+                                <div class="space-y-1">
+                                    <template v-for="child in item.children" :key="child.name || child.href">
+                                        <Link
+                                            v-if="!child.children"
+                                            :href="route(child.href)"
+                                            :class="navOverlayLinkClass(child.href)"
+                                            @click="closeNavOverlay"
+                                        >
+                                            {{ child.name }}
+                                        </Link>
+
+                                        <div v-else>
+                                            <Link
+                                                v-if="child.href"
+                                                :href="route(child.href)"
+                                                :class="navOverlayLinkClass(child.href)"
+                                                @click="closeNavOverlay"
+                                            >
+                                                {{ child.name }}
+                                            </Link>
+                                            <p
+                                                v-else
+                                                class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                                            >
+                                                {{ child.name }}
+                                            </p>
+                                            <div class="pl-2">
+                                                <Link
+                                                    v-for="grandChild in child.children"
+                                                    :key="grandChild.href"
+                                                    :href="route(grandChild.href)"
+                                                    :class="navOverlayLinkClass(grandChild.href)"
+                                                    @click="closeNavOverlay"
+                                                >
+                                                    {{ grandChild.name }}
+                                                </Link>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
             </Transition>
         </Teleport>
 

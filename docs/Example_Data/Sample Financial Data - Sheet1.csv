@@ -1,0 +1,66 @@
+Northpoint Commercial Finance,,,,,,,,,,,,,,,
+Inventory Aging by Model Number Report,,,,,,,,,,,,,,,
+As of: 06/19/2026,,,,,,,,,,,,,,,
+Business Name: Lauderdale Inflatables,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,
+Dealer Name,Dealer CIN,Supplier Name,Supplier CIN,Invoice Number,Invoice Date,Aging (Days),Interest Start Date,Status,Model Year,Model Number,Serial/VIN,Original Balance,Current Balance,Curtailment Current Due,Past Due Curtailment
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21375,05/21/2025,394,05/21/2025,Transfer,,10AL GY,XMO51210H324,"4,586.56","4,242.58",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21593,12/19/2025,182,12/19/2025,In-Stock,,10ALX WH LS,XMO96017L526,"9,969.60","9,969.60",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21668,12/18/2025,183,12/18/2025,In-Stock,,10VSX,XMO65002H526,"10,944.89","10,944.89",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,20756,11/10/2023,952,11/10/2023,In-Stock,,10VSX GY LS,XMOXMO65054J324,"7,844.84","2,353.48",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21593,12/19/2025,182,12/19/2025,In-Stock,,10VSX WH LS,XMO65012L526,"8,384.03","8,384.03",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21593,12/19/2025,182,12/19/2025,In-Stock,,10VSX WH LS,XMO65011L526,"8,384.03","8,384.03",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,20730,07/05/2023,"1,080",07/05/2023,In-Stock,,11VSX GY,XMO35029G324,"8,600.16",860.04,0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,20756,11/10/2023,952,11/10/2023,In-Stock,,11VSX GY,XMO35039J324,"8,600.16","2,580.08",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21294,02/01/2025,503,02/01/2025,In-Stock,,12VL GY,XMO61011L425,"4,109.40","3,595.70",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,20730,07/05/2023,"1,080",07/05/2023,In-Stock,,13ALX GY,XMO87011G324,"12,532.24","1,253.20",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,20756,11/10/2023,952,11/10/2023,In-Stock,,13ALX GY,XMO87022J324,"12,532.24","3,759.64",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21593,12/19/2025,182,12/19/2025,In-Stock,,13ALX WH,XMO87002A626,"13,713.56","13,713.56",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21465,08/14/2025,309,08/14/2025,In-Stock,,16ALX WH,XMO92011H526,"19,765.56","18,777.28",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21453,09/18/2025,274,09/18/2025,In-Stock,,16ALX WH,XMO92013H526,"19,975.16","19,475.78",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21453,09/18/2025,274,09/18/2025,In-Stock,,16ALX WH,XMO92010H526,"19,975.16","19,475.78",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21446,06/12/2025,372,06/12/2025,In-Stock,,25 11AL GY,XMO52008E526,"4,970.40","4,597.62",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21446,06/12/2025,372,06/12/2025,In-Stock,,25 16ALX WH,XMO92009E526,"23,908.95","22,115.79",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21453,09/18/2025,274,09/18/2025,In-Stock,,9.5ALX WH LS,XMO95012H526,"9,734.95","9,491.58",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL 360,HFM50636J526,"4,906.35","4,906.35",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL 360,HFM50637J526,"4,906.35","4,906.35",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,CL290,HFM49144F526,"3,815.71","3,624.93",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL290,HFM50631J526,"2,936.55","2,936.55",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL290,HFM50632J526,"2,936.55","2,936.55",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,CL310,HFM49127F526,"4,311.15","4,095.59",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,CL310,HFM49125F526,"4,311.15","4,095.59",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,CL360,HFM49137F526,"5,735.79","5,449.01",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL360,HFM50638J526,"4,906.35","4,906.35",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,CL380,HFM49129F526,"6,270.03","5,956.53",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,CL380,HFM49131F526,"6,270.03","5,956.53",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL380,HFM50640J526,"5,454.37","5,454.37",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,CL380,HFM50639J526,"5,454.37","5,454.37",0,0
+Lauderdale Inflatables,52151,AB Inflatables USA,36914,21668,12/18/2025,183,12/18/2025,In-Stock,,F25,1087567,"5,893.41","5,893.41",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,HEC 001,CRS327351I526,"1,104.35","1,104.35",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,Transfer,,HEC 001 -,CRS300749F526,"2,029.19","1,927.73",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,721420,03/13/2026,98,06/11/2026,In-Stock,,MFS15EEFS,003683BF,"2,382.00","2,382.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,717633,01/15/2026,155,10/12/2026,In-Stock,,MFS20EWEFS,027194BE,"2,804.00","2,804.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,717633,01/15/2026,155,10/12/2026,In-Stock,,MFS20EWS,027163BE,"2,539.00","2,539.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,727403,05/28/2026,22,11/24/2026,In-Stock,,MFS25DETL,007641BF,"3,568.00","3,568.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,727403,05/28/2026,22,11/24/2026,In-Stock,,MFS30DWEFTL,008311BF,"4,156.00","4,156.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,708881,08/15/2025,308,05/12/2026,In-Stock,,MFS30DWETL,027086BE,"3,870.00","3,657.14",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,723454,04/10/2026,70,07/09/2026,In-Stock,,MFS30DWETL,002893BF,"4,049.00","4,049.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,727403,05/28/2026,22,11/24/2026,In-Stock,,MFS30DWETL,014107BF,"4,049.00","4,049.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,727403,05/28/2026,22,11/24/2026,In-Stock,,MFS30DWETL,014109BF,"4,049.00","4,049.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,727403,05/28/2026,22,11/24/2026,In-Stock,,MFS30DWETL,014110BF,"4,049.00","4,049.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,717633,01/15/2026,155,10/12/2026,In-Stock,,MFS40AWETL,028764BE,"4,902.00","4,902.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,723454,04/10/2026,70,07/09/2026,In-Stock,,MFS6DWDS,000669BF,"1,317.00","1,317.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,727403,05/28/2026,22,11/24/2026,In-Stock,,MFS9.8CEFS,007386BF,"2,198.00","2,198.00",0,0
+Lauderdale Inflatables,52151,Tohatsu Outboards,18406,717633,01/15/2026,155,10/12/2026,In-Stock,,MFS9.8CWS,007816BE,"1,990.00","1,990.00",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,SPORT 360,HFM50642J526,"11,478.43","11,478.43",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,SPORT 390,HFM50643J526,"15,328.65","15,328.65",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,864,08/13/2024,675,02/09/2025,Transfer,,SPORT 420,HFM43745F425,"12,900.00","9,352.50",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,SPORT 520,HFM50645J526,"24,431.54","24,431.54",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,UL 340FD,HFM50630J526,"3,893.23","3,893.23",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,UL 340FD,HFM50629J526,"3,893.23","3,893.23",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,UL 340FD - W,HFM49115F526,"4,652.69","4,420.05",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,Transfer,,UL 340FD - W,HFM49116F526,"4,652.69","4,420.05",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,1661NP,08/14/2025,309,02/10/2026,In-Stock,,UL290FD,HFM49118F526,"3,472.27","3,298.65",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,864,08/13/2024,675,02/09/2025,In-Stock,,UL310FD,HFM43726F425,"3,210.00","2,327.25",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,UL310FD,HFM50627J526,"2,940.67","2,940.67",0,0
+Lauderdale Inflatables,52151,Highfield Boats,42854,2050,12/31/2025,170,06/29/2026,In-Stock,,UL310FD,HFM50628J526,"2,940.67","2,940.67",0,0

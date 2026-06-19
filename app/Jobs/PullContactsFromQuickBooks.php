@@ -14,6 +14,7 @@ use App\Domain\Lead\Actions\CreateLead;
 use App\Domain\Lead\Models\Lead;
 use App\Enums\Integration\IntegrationSyncStatus;
 use App\Enums\Integration\IntegrationType;
+use App\Jobs\Concerns\MarksQuickBooksImportFailure;
 use App\Services\Payments\QuickBooksOAuthService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -26,6 +27,7 @@ use Illuminate\Validation\ValidationException;
 class PullContactsFromQuickBooks implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use MarksQuickBooksImportFailure;
 
     /** @var array{skipped_inactive: int, skipped_no_qbo_id: int, skipped_existing_qbo: int, skipped_email: int, skipped_no_names: int, skipped_no_subsidiary: int, created_lead: int, created_customer: int, failed_create: int} */
     private array $importStats = [

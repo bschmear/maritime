@@ -1,19 +1,25 @@
 {
-  "settings": {
-    "max_width": "4xl"
-  },
+  "settings": { "max_width": "3xl" },
   "form": {
     "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+      "label": "Payment details",
+      "fields": [
+        { "key": "vendor_id", "required": true },
+        { "key": "doc_number" },
+        { "key": "txn_date" },
+        { "key": "total_amt" },
+        { "key": "pay_type" },
+        { "key": "currency_code" },
+        { "key": "private_note" }
+      ]
     },
     "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+      "label": "QuickBooks",
+      "fields": [
+        { "key": "quickbooks_bill_payment_id" },
+        { "key": "bank_account_ref_name" },
+        { "key": "cc_account_ref_name" }
+      ]
     }
   }
 }

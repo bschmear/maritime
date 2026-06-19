@@ -27,6 +27,12 @@ export function getResourceRouteParamName(recordType) {
     if (routeType === 'delivery-locations') {
         return 'deliveryLocation';
     }
+    if (routeType === 'bill-payments') {
+        return 'billPayment';
+    }
+    if (routeType === 'billpayments') {
+        return 'billPayment';
+    }
 
     // Plurals ending in consonant + ies (e.g. opportunities → opportunity). A lone trailing
     // .replace(/s$/, '') would yield "opportunitie" and break Ziggy route binding.
@@ -50,6 +56,8 @@ const irregularPlurals = {
     DeliveryLocation: 'delivery-locations',
     deliverylocation: 'delivery-locations',
     delivery_location: 'delivery-locations',
+    BillPayment: 'bill-payments',
+    billpayment: 'bill-payments',
 };
 
 /** Map a schema typeDomain (e.g. "Asset", "Customer") to the tenant route plural segment. */

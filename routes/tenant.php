@@ -16,12 +16,15 @@ use App\Http\Controllers\Tenant\AssetOptionController;
 use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
+use App\Http\Controllers\Tenant\BillController;
+use App\Http\Controllers\Tenant\BillPaymentController;
 use App\Http\Controllers\Tenant\BoatMakeController;
 use App\Http\Controllers\Tenant\BoatShowController;
 use App\Http\Controllers\Tenant\BoatShowEmailTemplateController;
 use App\Http\Controllers\Tenant\BoatShowEventAssetController;
 use App\Http\Controllers\Tenant\BoatShowEventController;
 use App\Http\Controllers\Tenant\BoatShowLayoutController;
+use App\Http\Controllers\Tenant\ChartOfAccountController;
 use App\Http\Controllers\Tenant\CommunicationController;
 use App\Http\Controllers\Tenant\ConsignmentAgreementController;
 use App\Http\Controllers\Tenant\ContactAddressController;
@@ -725,6 +728,24 @@ Route::middleware([
             Route::resource('/', MaintenanceTypeController::class)->parameters(['' => 'maintenanceType']);
         });
 
+        Route::prefix('bills')->name('bills.')->group(function () {
+            Route::post('/{bill}/push-to-quickbooks', [BillController::class, 'pushToQuickbooks'])->name('push-to-quickbooks');
+            Route::post('/{bill}/pay', [BillController::class, 'payBill'])->name('pay');
+            Route::post('/{bill}/pull-from-quickbooks', [BillController::class, 'pullFromQuickbooks'])->name('pull-from-quickbooks');
+            Route::resource('/', BillController::class)->parameters(['' => 'bill']);
+        });
+
+        Route::prefix('bill-payments')->name('bill-payments.')->group(function () {
+            Route::post('/{billPayment}/push-to-quickbooks', [BillPaymentController::class, 'pushToQuickbooks'])->name('push-to-quickbooks');
+            Route::post('/{billPayment}/pull-from-quickbooks', [BillPaymentController::class, 'pullFromQuickbooks'])->name('pull-from-quickbooks');
+            Route::resource('/', BillPaymentController::class)->parameters(['' => 'billPayment']);
+        });
+
+        Route::prefix('chart-of-accounts')->name('chart-of-accounts.')->group(function () {
+            Route::get('/', [ChartOfAccountController::class, 'index'])->name('index');
+            Route::get('/{chartOfAccount}', [ChartOfAccountController::class, 'show'])->name('show');
+        });
+
         Route::prefix('documentables')->name('documentables.')->group(function () {
             Route::post('/attach', [DocumentController::class, 'attach'])->name('attach');
             Route::patch('/pivot', [DocumentController::class, 'updatePivot'])->name('pivot');
@@ -850,9 +871,16 @@ Route::middleware([
                 Route::get('/', [QuickbooksController::class, 'show'])->name('quickbooks');
                 Route::patch('/', [QuickbooksController::class, 'updateSettings'])->name('quickbooks.settings');
                 Route::delete('/', [QuickbooksController::class, 'destroy'])->name('quickbooks.destroy');
+                Route::patch('/enable', [QuickbooksController::class, 'activate'])->name('quickbooks.enable');
                 Route::get('/connect', [QuickbooksController::class, 'connect'])->name('quickbooks.connect');
                 Route::post('/import-customers', [QuickbooksController::class, 'importCustomers'])->name('quickbooks.import-customers');
                 Route::post('/import-service-items', [QuickbooksController::class, 'importServiceItems'])->name('quickbooks.import-service-items');
+                Route::post('/import-chart-of-accounts', [QuickbooksController::class, 'importChartOfAccounts'])->name('quickbooks.import-chart-of-accounts');
+                Route::post('/import-vendors', [QuickbooksController::class, 'importVendors'])->name('quickbooks.import-vendors');
+                Route::post('/import-bills', [QuickbooksController::class, 'importBills'])->name('quickbooks.import-bills');
+                Route::post('/import-bill-payments', [QuickbooksController::class, 'importBillPayments'])->name('quickbooks.import-bill-payments');
+                Route::get('/import-status', [QuickbooksController::class, 'importStatus'])->name('quickbooks.import-status');
+                Route::post('/import-status/clear', [QuickbooksController::class, 'clearImportStatus'])->name('quickbooks.import-status.clear');
             });
         });
 

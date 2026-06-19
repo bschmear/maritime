@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Concerns;
 
 use App\Domain\Transaction\Models\Transaction;
+use App\Support\Enum\StoredEnumNormalizer;
 use App\Support\Validation\ActionResultErrors;
 use App\Support\Validation\SchemaFormValidator;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -521,7 +522,11 @@ trait HasSchemaSupport
                 continue;
             }
             $operator = $filter['operator'] ?? 'equals';
-            $value = $filter['value'] ?? null;
+            $value = StoredEnumNormalizer::normalizeForField(
+                $filter['value'] ?? null,
+                $field,
+                $fieldsSchema,
+            );
 
             $fieldConfig = $fieldsSchema[$field] ?? [];
             $fieldType = $fieldConfig['type'] ?? 'text';

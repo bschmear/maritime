@@ -7,6 +7,7 @@
       "label": "General Information",
       "fields": [
         { "key": "display_name", "required": true },
+        { "key": "company_name", "required": false },
         { "key": "vendor_type", "required": false },
         { "key": "industry", "required": false },
         { "key": "vendor_code", "required": false },
@@ -19,17 +20,6 @@
         { "key": "linkedin", "required": false },
         { "key": "facebook", "required": false },
         { "key": "is_verified", "required": false }
-      ]
-    },
-    "contacts": {
-      "label": "Contacts & CRM",
-      "fields": [
-        { "key": "primary_contact_id", "required": false },
-        { "key": "secondary_email", "required": false },
-        { "key": "secondary_phone", "required": false },
-        { "key": "preferred_contact_method", "required": false },
-        { "key": "assigned_user_id", "required": false },
-        { "key": "notes", "required": false }
       ]
     },
     "address": {
@@ -52,6 +42,22 @@
         { "key": "contract_start", "required": false },
         { "key": "contract_end", "required": false },
         { "key": "contract_status", "required": false }
+      ]
+    },
+    "quickbooks": {
+      "label": "QuickBooks & Payments",
+      "fields": [
+        { "key": "quickbooks_id", "required": false },
+        { "key": "qbo_acct_num", "required": false },
+        { "key": "print_on_check_name", "required": false },
+        { "key": "term_ref_name", "required": false },
+        { "key": "open_balance", "required": false },
+        { "key": "overdue_balance", "required": false },
+        { "key": "vendor_1099", "required": false },
+        { "key": "ach_bank_name", "required": false },
+        { "key": "ach_account_number", "required": false },
+        { "key": "ach_routing_number", "required": false },
+        { "key": "tax_identifier", "required": false }
       ]
     }
   },
@@ -78,6 +84,16 @@
           "requiresEmail": true
         }
       ]
+    },
+    {
+      "label": "Bills",
+      "domain": "Bill",
+      "modelRelationship": "bills"
+    },
+    {
+      "label": "Bill payments",
+      "domain": "BillPayment",
+      "modelRelationship": "billPayments"
     },
     {
       "label": "Warranty claims",

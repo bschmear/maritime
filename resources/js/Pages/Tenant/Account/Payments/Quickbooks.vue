@@ -51,9 +51,9 @@ function openQuickBooksImport() {
     quickBooksImportRef.value?.openImportModal?.();
 }
 
-function disconnectQuickbooks() {
+function disableQuickbooks() {
     if (!props.quickbooks?.connected || disconnectingQb.value) return;
-    if (!confirm('Disconnect QuickBooks Online from this workspace?')) return;
+    if (!confirm('Disable QuickBooks Online for this workspace? Your connection will be kept and you can turn it back on from Integrations.')) return;
     disconnectingQb.value = true;
     router.delete(route('quickbooks.destroy'), {
         preserveScroll: true,
@@ -265,13 +265,13 @@ function disconnectQuickbooks() {
                         type="button"
                         class="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-md font-medium text-gray-800 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
                         :disabled="disconnectingQb"
-                        @click="disconnectQuickbooks"
+                        @click="disableQuickbooks"
                     >
                         <span
                             class="material-icons text-lg"
                             :class="{ 'animate-spin': disconnectingQb }"
                         >{{ disconnectingQb ? 'sync' : 'link_off' }}</span>
-                        {{ disconnectingQb ? 'Disconnecting…' : 'Disconnect' }}
+                        {{ disconnectingQb ? 'Disabling…' : 'Disable' }}
                     </button>
                     <button
                         v-if="quickbooks?.connected"

@@ -12,6 +12,7 @@ use App\Http\Controllers\Concerns\HasImageSupport;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
 use App\Models\AccountSettings;
 use App\Support\ContactDocumentLinker;
+use App\Support\QuickBooks\QuickBooksApSyncMessages;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -131,9 +132,13 @@ class RecordController extends BaseController
             return $requestKey;
         }
 
-        // Virtual appended display_name (e.g. Estimate EST-{sequence})
+        // Virtual appended display_name (e.g. Estimate EST-{sequence}, ChartOfAccount COA-{id|qbo id})
         if ($requestKey === 'display_name' && in_array('sequence', $dbColumns, true)) {
             return 'sequence';
+        }
+
+        if ($requestKey === 'display_name' && $this->domainName === 'ChartOfAccount') {
+            return 'name';
         }
 
         return null;
@@ -503,11 +508,17 @@ class RecordController extends BaseController
                                 $q->select(['id', 'display_name']);
                             }]);
                     };
-                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
-                    // Accessor display_name (e.g. CTR- / DLV- prefix from sequence), not a DB column
+                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery', 'Bill'], true)) {
+                    // Accessor display_name (e.g. CTR- / DLV- / BILL- prefix from sequence), not a DB column
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'ChartOfAccount') {
+                    // Accessor display_name uses name / fully_qualified_name, not a DB column
+                    $selectFields = ['id', 'quickbooks_account_id', 'name', 'fully_qualified_name'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'quickbooks_account_id', 'name', 'fully_qualified_name']);
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
@@ -611,6 +622,10 @@ class RecordController extends BaseController
                         ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
                         ->orderBy('inventory_items.display_name')
                         ->orderByRaw("COALESCE(NULLIF(inventory_units.serial_number, ''), NULLIF(inventory_units.hin, ''), NULLIF(inventory_units.sku, ''), CAST(inventory_units.id AS TEXT))");
+                } elseif ($this->domainName === 'ChartOfAccount') {
+                    $query->orderByRaw(
+                        "LOWER(COALESCE(NULLIF({$tableName}.fully_qualified_name, ''), NULLIF({$tableName}.name, ''), CAST({$tableName}.quickbooks_account_id AS TEXT), CAST({$tableName}.id AS TEXT))) ASC"
+                    );
                 } else {
                     $query->orderBy($tableName.'.created_at', 'desc');
                 }
@@ -697,14 +712,60 @@ class RecordController extends BaseController
         // Get account settings for timezone display (cached)
         $account = AccountSettings::getCurrent();
 
-        return inertia('Tenant/'.$this->domainName.'/Create', [
+        return inertia('Tenant/'.$this->domainName.'/Create', array_merge([
             'recordType' => $this->recordType,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
             'enumOptions' => $enumOptions,
             'account' => $account,
             'timezones' => Timezone::options(),
-        ]);
+        ], $this->createPageExtraProps()));
+    }
+
+    /**
+     * Extra props for the domain Create Inertia page (e.g. QuickBooks AP sync flags).
+     *
+     * @return array<string, mixed>
+     */
+    protected function createPageExtraProps(): array
+    {
+        return [];
+    }
+
+    /**
+     * When set, failed QuickBooks AP sync flashes a user-facing message on create redirect.
+     */
+    protected function quickBooksApSyncEntityLabel(): ?string
+    {
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    protected function quickBooksSyncResponseExtras(array $result): array
+    {
+        $extras = [];
+
+        if (! isset($result['quickbooks_sync'])) {
+            return $extras;
+        }
+
+        $extras['quickbooks_sync'] = $result['quickbooks_sync'];
+
+        $label = $this->quickBooksApSyncEntityLabel();
+        if (
+            $label !== null
+            && ($result['quickbooks_sync']['success'] ?? true) === false
+        ) {
+            $extras['quickbooks_sync_error'] = QuickBooksApSyncMessages::failure(
+                $label,
+                $result['quickbooks_sync']['message'] ?? null,
+            );
+        }
+
+        return $extras;
     }
 
     public function store(Request $request, PublicStorage $publicStorage)
@@ -795,11 +856,16 @@ class RecordController extends BaseController
                                             $q->select(['id', 'display_name']);
                                         }]);
                                 };
-                            } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                            } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery', 'Bill'], true)) {
                                 // Accessor display_name from sequence, not a DB column
                                 $selectFields = ['id', 'sequence'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
+                                };
+                            } elseif ($fieldDef['typeDomain'] === 'ChartOfAccount') {
+                                $selectFields = ['id', 'quickbooks_account_id', 'name', 'fully_qualified_name'];
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'quickbooks_account_id', 'name', 'fully_qualified_name']);
                                 };
                             } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                                 $relationships[$relationshipName] = function ($query) {
@@ -839,19 +905,27 @@ class RecordController extends BaseController
 
                     // Reload the record with relationships
                     $record = $this->recordModel->with($relationships)->find($result['record']->id);
+                    $syncExtras = $this->quickBooksSyncResponseExtras($result);
 
-                    return response()->json([
+                    return response()->json(array_merge([
                         'success' => true,
                         'recordId' => $result['record']->id,
                         'record' => $record,
                         'message' => $this->domainName.' created successfully',
-                    ]);
+                    ], $syncExtras));
                 }
 
-                return redirect()
+                $redirect = redirect()
                     ->route($this->recordType.'.show', $result['record']->id)
                     ->with('success', $this->domainName.' created successfully')
                     ->with('recordId', $result['record']->id);
+
+                $syncExtras = $this->quickBooksSyncResponseExtras($result);
+                if (isset($syncExtras['quickbooks_sync_error'])) {
+                    $redirect = $redirect->with('quickbooks_sync_error', $syncExtras['quickbooks_sync_error']);
+                }
+
+                return $redirect;
             }
 
             return $this->actionFailureResponse($request, $result, $fieldsSchema);
@@ -907,11 +981,16 @@ class RecordController extends BaseController
                                 $q->select(['id', 'display_name']);
                             }]);
                     };
-                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery', 'Bill'], true)) {
                     // Accessor display_name from sequence, not a DB column
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'ChartOfAccount') {
+                    $selectFields = ['id', 'quickbooks_account_id', 'name', 'fully_qualified_name'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'quickbooks_account_id', 'name', 'fully_qualified_name']);
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
@@ -1068,11 +1147,16 @@ class RecordController extends BaseController
                                 $q->select(['id', 'display_name']);
                             }]);
                     };
-                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery', 'Bill'], true)) {
                     // Accessor display_name from sequence, not a DB column
                     $selectFields = ['id', 'sequence'];
                     $relationships[$relationshipName] = function ($query) {
                         $query->select(['id', 'sequence']);
+                    };
+                } elseif ($fieldDef['typeDomain'] === 'ChartOfAccount') {
+                    $selectFields = ['id', 'quickbooks_account_id', 'name', 'fully_qualified_name'];
+                    $relationships[$relationshipName] = function ($query) {
+                        $query->select(['id', 'quickbooks_account_id', 'name', 'fully_qualified_name']);
                     };
                 } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                     $relationships[$relationshipName] = function ($query) {
@@ -1285,11 +1369,16 @@ class RecordController extends BaseController
                                             $q->select(['id', 'display_name']);
                                         }]);
                                 };
-                            } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery'], true)) {
+                            } elseif (in_array($fieldDef['typeDomain'], ['Qualification', 'Contract', 'Delivery', 'Bill'], true)) {
                                 // Accessor display_name from sequence, not a DB column
                                 $selectFields = ['id', 'sequence'];
                                 $relationships[$relationshipName] = function ($query) {
                                     $query->select(['id', 'sequence']);
+                                };
+                            } elseif ($fieldDef['typeDomain'] === 'ChartOfAccount') {
+                                $selectFields = ['id', 'quickbooks_account_id', 'name', 'fully_qualified_name'];
+                                $relationships[$relationshipName] = function ($query) {
+                                    $query->select(['id', 'quickbooks_account_id', 'name', 'fully_qualified_name']);
                                 };
                             } elseif ($fieldDef['typeDomain'] === 'Transaction' || $fieldDef['typeDomain'] === 'Estimate') {
                                 $relationships[$relationshipName] = function ($query) {

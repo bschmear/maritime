@@ -1,5 +1,59 @@
 {
-    "fields": [
-
-    ]
+  "display_name": {
+    "label": "Bill payment",
+    "type": "text",
+    "disabled": true
+  },
+  "quickbooks_bill_payment_id": {
+    "label": "QuickBooks Payment ID",
+    "type": "text",
+    "disabled": true
+  },
+  "vendor_id": {
+    "label": "Vendor",
+    "type": "record",
+    "typeDomain": "Vendor",
+    "required": true,
+    "relationship": "vendor"
+  },
+  "quickbooks_vendor_id": {
+    "label": "QuickBooks Vendor ID",
+    "type": "text",
+    "disabled": true
+  },
+  "doc_number": {
+    "label": "Reference #",
+    "type": "text"
+  },
+  "txn_date": {
+    "label": "Payment date",
+    "type": "date"
+  },
+  "total_amt": {
+    "label": "Total",
+    "type": "currency"
+  },
+  "pay_type": {
+    "label": "Pay type",
+    "type": "text"
+  },
+  "currency_code": {
+    "label": "Currency",
+    "type": "text",
+    "default": "USD"
+  },
+  "private_note": {
+    "label": "Memo",
+    "type": "textarea"
+  },
+  "bank_account_ref_name": {
+    "label": "Bank account",
+    "type": "text",
+    "disabled": true
+  },
+  "cc_account_ref_name": {
+    "label": "Credit card account",
+    "type": "text",
+    "disabled": true
+  }
 }

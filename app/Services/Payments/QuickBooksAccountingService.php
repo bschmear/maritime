@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Services\Payments;
 
+use App\Domain\Bill\Models\Bill;
+use App\Domain\Bill\Support\BillStatusResolver;
+use App\Domain\BillItem\Models\BillItem;
+use App\Domain\BillPayment\Models\BillPayment;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\QuickBooksSettings;
@@ -11,6 +15,8 @@ use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Enums\Integration\IntegrationType;
 use App\Enums\Payments\Terms;
+use App\Support\QuickBooks\QuickBooksBillMapper;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -30,7 +36,7 @@ class QuickBooksAccountingService
             ->first();
     }
 
-    public function isConnected(): bool
+    public function hasCredentials(): bool
     {
         $integration = $this->integration();
 
@@ -38,6 +44,14 @@ class QuickBooksAccountingService
             && $integration->access_token
             && $integration->refresh_token
             && $integration->external_id;
+    }
+
+    public function isConnected(): bool
+    {
+        $integration = $this->integration();
+
+        return $this->hasCredentials()
+            && (bool) $integration->active;
     }
 
     /**
@@ -925,5 +939,489 @@ class QuickBooksAccountingService
         }
 
         return implode('; ', $parts);
+    }
+
+    /**
+     * @return array{success: bool, bill_id?: string, message?: string}
+     */
+    public function pushBill(Bill $bill): array
+    {
+        $integration = $this->integration();
+        if ($integration === null || ! $this->isConnected()) {
+            return ['success' => false, 'message' => 'QuickBooks is not connected.'];
+        }
+
+        if ($bill->quickbooks_bill_id) {
+            return $this->updateBill($bill);
+        }
+
+        $bill->loadMissing(['vendor', 'items.chartOfAccount']);
+
+        $vendor = $bill->vendor;
+        if ($vendor === null || ! $vendor->quickbooks_id) {
+            return ['success' => false, 'message' => 'Bill vendor is not linked to QuickBooks.'];
+        }
+
+        try {
+            $payload = $this->buildBillPayload($bill, (string) $vendor->quickbooks_id);
+            $response = $this->postEntity($integration, 'bill', $payload);
+            $qboBill = $response['Bill'] ?? null;
+
+            if (! is_array($qboBill) || empty($qboBill['Id'])) {
+                throw new RuntimeException('QuickBooks did not return a bill id.');
+            }
+
+            $this->syncBillFromRemoteResponse($bill, $qboBill);
+
+            return [
+                'success' => true,
+                'bill_id' => (string) $qboBill['Id'],
+                'message' => 'Synced to QuickBooks.',
+            ];
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks push bill failed', [
+                'bill_id' => $bill->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{success: bool, bill_id?: string, message?: string}
+     */
+    public function updateBill(Bill $bill): array
+    {
+        $integration = $this->integration();
+        if ($integration === null || ! $this->isConnected()) {
+            return ['success' => false, 'message' => 'QuickBooks is not connected.'];
+        }
+
+        $qboId = (string) ($bill->quickbooks_bill_id ?? '');
+        if ($qboId === '') {
+            return $this->pushBill($bill);
+        }
+
+        $bill->loadMissing(['vendor', 'items.chartOfAccount']);
+        $vendor = $bill->vendor;
+        if ($vendor === null || ! $vendor->quickbooks_id) {
+            return ['success' => false, 'message' => 'Bill vendor is not linked to QuickBooks.'];
+        }
+
+        try {
+            $remote = $this->fetchRemoteBill($integration, $qboId);
+            if ($remote === null) {
+                return ['success' => false, 'message' => 'Bill not found in QuickBooks.'];
+            }
+
+            $payload = $this->buildBillPayload($bill, (string) $vendor->quickbooks_id);
+            $payload['Id'] = $remote['Id'];
+            $payload['SyncToken'] = $remote['SyncToken'];
+
+            $response = $this->postEntity($integration, 'bill', $payload);
+            $qboBill = $response['Bill'] ?? null;
+            if (is_array($qboBill)) {
+                $this->syncBillFromRemoteResponse($bill, $qboBill);
+            }
+
+            return [
+                'success' => true,
+                'bill_id' => $qboId,
+                'message' => 'Updated in QuickBooks.',
+            ];
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks bill update failed', [
+                'bill_id' => $bill->id,
+                'qbo_bill_id' => $qboId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{success: bool, message?: string}
+     */
+    public function removeRemoteBill(string $qboBillId, string $operation = 'auto'): array
+    {
+        $integration = $this->integration();
+        if ($integration === null || ! $this->isConnected()) {
+            return ['success' => false, 'message' => 'QuickBooks is not connected.'];
+        }
+
+        $remote = $this->fetchRemoteBill($integration, $qboBillId);
+        if ($remote === null) {
+            return ['success' => false, 'message' => 'Bill not found in QuickBooks.'];
+        }
+
+        $body = [
+            'Id' => (string) $remote['Id'],
+            'SyncToken' => (string) $remote['SyncToken'],
+        ];
+
+        foreach (['delete', 'void'] as $op) {
+            try {
+                $this->mutateEntity($integration, 'bill', $body, $op);
+
+                return ['success' => true, 'message' => 'Removed from QuickBooks.', 'operation' => $op];
+            } catch (\Throwable $e) {
+                if ($operation !== 'auto') {
+                    return ['success' => false, 'message' => $e->getMessage()];
+                }
+            }
+        }
+
+        return ['success' => false, 'message' => 'QuickBooks could not remove this bill.'];
+    }
+
+    /**
+     * @return array{success: bool, bill_payment_id?: string, message?: string}
+     */
+    public function pushBillPayment(BillPayment $payment): array
+    {
+        $integration = $this->integration();
+        if ($integration === null || ! $this->isConnected()) {
+            return ['success' => false, 'message' => 'QuickBooks is not connected.'];
+        }
+
+        if ($payment->quickbooks_bill_payment_id) {
+            return $this->updateBillPayment($payment);
+        }
+
+        $payment->loadMissing(['vendor', 'lines.bill']);
+
+        $vendor = $payment->vendor;
+        if ($vendor === null || ! $vendor->quickbooks_id) {
+            return ['success' => false, 'message' => 'Payment vendor is not linked to QuickBooks.'];
+        }
+
+        try {
+            $payload = $this->buildBillPaymentPayload($payment, (string) $vendor->quickbooks_id);
+            $response = $this->postEntity($integration, 'billpayment', $payload);
+            $qboPayment = $response['BillPayment'] ?? null;
+
+            if (! is_array($qboPayment) || empty($qboPayment['Id'])) {
+                throw new RuntimeException('QuickBooks did not return a bill payment id.');
+            }
+
+            $this->syncBillPaymentFromRemoteResponse($payment, $qboPayment);
+
+            return [
+                'success' => true,
+                'bill_payment_id' => (string) $qboPayment['Id'],
+                'message' => 'Synced to QuickBooks.',
+            ];
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks push bill payment failed', [
+                'bill_payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{success: bool, bill_payment_id?: string, message?: string}
+     */
+    public function updateBillPayment(BillPayment $payment): array
+    {
+        $integration = $this->integration();
+        if ($integration === null || ! $this->isConnected()) {
+            return ['success' => false, 'message' => 'QuickBooks is not connected.'];
+        }
+
+        $qboId = (string) ($payment->quickbooks_bill_payment_id ?? '');
+        if ($qboId === '') {
+            return $this->pushBillPayment($payment);
+        }
+
+        $payment->loadMissing(['vendor', 'lines.bill']);
+        $vendor = $payment->vendor;
+        if ($vendor === null || ! $vendor->quickbooks_id) {
+            return ['success' => false, 'message' => 'Payment vendor is not linked to QuickBooks.'];
+        }
+
+        try {
+            $remote = $this->fetchRemoteBillPayment($integration, $qboId);
+            if ($remote === null) {
+                return ['success' => false, 'message' => 'Bill payment not found in QuickBooks.'];
+            }
+
+            $payload = $this->buildBillPaymentPayload($payment, (string) $vendor->quickbooks_id);
+            $payload['Id'] = $remote['Id'];
+            $payload['SyncToken'] = $remote['SyncToken'];
+
+            $response = $this->postEntity($integration, 'billpayment', $payload);
+            $qboPayment = $response['BillPayment'] ?? null;
+            if (is_array($qboPayment)) {
+                $this->syncBillPaymentFromRemoteResponse($payment, $qboPayment);
+            }
+
+            return [
+                'success' => true,
+                'bill_payment_id' => $qboId,
+                'message' => 'Updated in QuickBooks.',
+            ];
+        } catch (\Throwable $e) {
+            Log::error('QuickBooks bill payment update failed', [
+                'bill_payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{Id: string, SyncToken: string}|null
+     */
+    public function fetchRemoteBill(Integration $integration, string $qboBillId): ?array
+    {
+        return $this->fetchRemoteEntity($integration, 'bill', $qboBillId, 'Bill');
+    }
+
+    /**
+     * @return array{Id: string, SyncToken: string}|null
+     */
+    public function fetchRemoteBillPayment(Integration $integration, string $qboBillPaymentId): ?array
+    {
+        return $this->fetchRemoteEntity($integration, 'billpayment', $qboBillPaymentId, 'BillPayment');
+    }
+
+    /**
+     * @return array{Id: string, SyncToken: string}|null
+     */
+    protected function fetchRemoteEntity(Integration $integration, string $entity, string $id, string $responseKey): ?array
+    {
+        $this->oauth->refreshAccessTokenIfExpiredForIntegration($integration);
+        $integration->refresh();
+
+        $realmId = (string) $integration->external_id;
+        if ($realmId === '') {
+            throw new RuntimeException('QuickBooks realm id is missing — reconnect QuickBooks.');
+        }
+
+        $response = Http::withToken($integration->access_token)
+            ->acceptJson()
+            ->get(
+                "{$this->oauth->accountingApiBaseUrl()}/v3/company/{$realmId}/{$entity}/{$id}",
+                ['minorversion' => 70],
+            );
+
+        if ($response->failed()) {
+            return null;
+        }
+
+        $json = $response->json();
+        if (! is_array($json) || ! empty($json['Fault'])) {
+            return null;
+        }
+
+        $record = $json[$responseKey] ?? null;
+        if (! is_array($record) || empty($record['Id']) || ! isset($record['SyncToken'])) {
+            return null;
+        }
+
+        return [
+            'Id' => (string) $record['Id'],
+            'SyncToken' => (string) $record['SyncToken'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildBillPayload(Bill $bill, string $vendorQboId): array
+    {
+        $payload = [
+            'VendorRef' => ['value' => $vendorQboId],
+        ];
+
+        if ($bill->ap_account_ref_id) {
+            $payload['APAccountRef'] = ['value' => (string) $bill->ap_account_ref_id];
+        }
+        if ($bill->txn_date) {
+            $payload['TxnDate'] = $bill->txn_date->format('Y-m-d');
+        }
+        if ($bill->due_date) {
+            $payload['DueDate'] = $bill->due_date->format('Y-m-d');
+        }
+        if ($bill->doc_number) {
+            $payload['DocNumber'] = (string) $bill->doc_number;
+        }
+        if ($bill->private_note) {
+            $payload['PrivateNote'] = (string) $bill->private_note;
+        }
+        if ($bill->department_ref_id) {
+            $payload['DepartmentRef'] = ['value' => (string) $bill->department_ref_id];
+        }
+        if ($bill->currency_code && $bill->currency_code !== 'USD') {
+            $payload['CurrencyRef'] = ['value' => strtoupper((string) $bill->currency_code)];
+        }
+
+        $lines = [];
+        foreach ($bill->items as $item) {
+            $line = $this->buildBillLine($item);
+            if ($line !== null) {
+                $lines[] = $line;
+            }
+        }
+
+        if ($lines === []) {
+            $amount = round((float) $bill->total_amt, 2);
+            $lines[] = [
+                'Amount' => $amount,
+                'DetailType' => 'AccountBasedExpenseLineDetail',
+                'Description' => 'Bill',
+                'AccountBasedExpenseLineDetail' => [
+                    'AccountRef' => ['value' => (string) ($bill->ap_account_ref_id ?: '1')],
+                ],
+            ];
+        }
+
+        $payload['Line'] = $lines;
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function buildBillLine(BillItem $item): ?array
+    {
+        $amount = round((float) $item->amount, 2);
+        if ($amount <= 0) {
+            return null;
+        }
+
+        $detailType = (string) ($item->detail_type ?: 'AccountBasedExpenseLineDetail');
+        $line = [
+            'Amount' => $amount,
+            'DetailType' => $detailType,
+        ];
+
+        if ($item->description) {
+            $line['Description'] = (string) $item->description;
+        }
+        if ($item->quickbooks_line_id) {
+            $line['Id'] = (string) $item->quickbooks_line_id;
+        }
+
+        if ($detailType === 'ItemBasedExpenseLineDetail') {
+            $detail = [];
+            if ($item->item_ref_id) {
+                $detail['ItemRef'] = ['value' => (string) $item->item_ref_id];
+            }
+            if ($item->quantity !== null) {
+                $detail['Qty'] = (float) $item->quantity;
+            }
+            if ($item->unit_price !== null) {
+                $detail['UnitPrice'] = (float) $item->unit_price;
+            }
+            $accountId = $item->chartOfAccount?->quickbooks_account_id ?: $item->expense_account_ref_id;
+            if ($accountId) {
+                $detail['AccountRef'] = ['value' => (string) $accountId];
+            }
+            $line['ItemBasedExpenseLineDetail'] = $detail;
+        } else {
+            $detail = [];
+            $accountId = $item->chartOfAccount?->quickbooks_account_id ?: $item->expense_account_ref_id;
+            if ($accountId) {
+                $detail['AccountRef'] = ['value' => (string) $accountId];
+            }
+            $line['AccountBasedExpenseLineDetail'] = $detail;
+        }
+
+        return $line;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function buildBillPaymentPayload(BillPayment $payment, string $vendorQboId): array
+    {
+        $payType = (string) ($payment->pay_type ?: 'Check');
+        $payload = [
+            'VendorRef' => ['value' => $vendorQboId],
+            'PayType' => $payType,
+            'TotalAmt' => round((float) $payment->total_amt, 2),
+        ];
+
+        if ($payment->txn_date) {
+            $payload['TxnDate'] = $payment->txn_date->format('Y-m-d');
+        }
+        if ($payment->doc_number) {
+            $payload['DocNumber'] = (string) $payment->doc_number;
+        }
+        if ($payment->private_note) {
+            $payload['PrivateNote'] = (string) $payment->private_note;
+        }
+        if ($payment->ap_account_ref_id) {
+            $payload['APAccountRef'] = ['value' => (string) $payment->ap_account_ref_id];
+        }
+
+        if (strcasecmp($payType, 'CreditCard') === 0 && $payment->cc_account_ref_id) {
+            $payload['CreditCardPayment'] = [
+                'CCAccountRef' => ['value' => (string) $payment->cc_account_ref_id],
+            ];
+        } elseif ($payment->bank_account_ref_id) {
+            $payload['CheckPayment'] = [
+                'BankAccountRef' => ['value' => (string) $payment->bank_account_ref_id],
+            ];
+        }
+
+        $lines = [];
+        foreach ($payment->lines as $line) {
+            $billQboId = (string) ($line->bill?->quickbooks_bill_id ?: $line->quickbooks_bill_id ?: '');
+            if ($billQboId === '') {
+                continue;
+            }
+            $lines[] = [
+                'Amount' => round((float) $line->amount, 2),
+                'LinkedTxn' => [
+                    ['TxnId' => $billQboId, 'TxnType' => 'Bill'],
+                ],
+            ];
+        }
+        $payload['Line'] = $lines;
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $qboBill
+     */
+    protected function syncBillFromRemoteResponse(Bill $bill, array $qboBill): void
+    {
+        $balance = isset($qboBill['Balance']) ? (float) $qboBill['Balance'] : (float) $bill->balance;
+        $total = isset($qboBill['TotalAmt']) ? (float) $qboBill['TotalAmt'] : (float) $bill->total_amt;
+        $dueDate = ! empty($qboBill['DueDate']) ? Carbon::parse((string) $qboBill['DueDate']) : $bill->due_date;
+
+        $meta = is_array($bill->meta) ? $bill->meta : [];
+        $meta['quickbooks_bill_url'] = QuickBooksBillMapper::billUrl((string) $qboBill['Id']);
+
+        $bill->update([
+            'quickbooks_bill_id' => (string) $qboBill['Id'],
+            'quickbooks_sync_token' => (string) ($qboBill['SyncToken'] ?? $bill->quickbooks_sync_token),
+            'balance' => $balance,
+            'total_amt' => $total,
+            'status' => BillStatusResolver::resolveValue($balance, $dueDate),
+            'meta' => $meta,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $qboPayment
+     */
+    protected function syncBillPaymentFromRemoteResponse(BillPayment $payment, array $qboPayment): void
+    {
+        $payment->update([
+            'quickbooks_bill_payment_id' => (string) $qboPayment['Id'],
+            'quickbooks_sync_token' => (string) ($qboPayment['SyncToken'] ?? $payment->quickbooks_sync_token),
+            'total_amt' => isset($qboPayment['TotalAmt']) ? (float) $qboPayment['TotalAmt'] : $payment->total_amt,
+        ]);
     }
 }

@@ -1,5 +1,72 @@
 {
-    "fields": [
-
-    ]
+  "display_name": {
+    "label": "Bill",
+    "type": "text",
+    "disabled": true
+  },
+  "quickbooks_bill_id": {
+    "label": "QuickBooks Bill ID",
+    "type": "text",
+    "disabled": true
+  },
+  "quickbooks_vendor_id": {
+    "label": "QuickBooks Vendor ID",
+    "type": "text",
+    "disabled": true
+  },
+  "vendor_id": {
+    "label": "Vendor",
+    "type": "record",
+    "typeDomain": "Vendor",
+    "required": true,
+    "relationship": "vendor"
+  },
+  "chart_of_account_id": {
+    "label": "Chart of account",
+    "type": "record",
+    "typeDomain": "ChartOfAccount",
+    "nullable": true,
+    "relationship": "chartOfAccount"
+  },
+  "txn_date": {
+    "label": "Bill date",
+    "type": "date"
+  },
+  "due_date": {
+    "label": "Due date",
+    "type": "date"
+  },
+  "status": {
+    "label": "Status",
+    "type": "select",
+    "enum": "App\\Enums\\Bill\\Status"
+  },
+  "total_amt": {
+    "label": "Total",
+    "type": "currency"
+  },
+  "balance": {
+    "label": "Balance",
+    "type": "currency"
+  },
+  "currency_code": {
+    "label": "Currency",
+    "type": "select",
+    "enum": "App\\Enums\\Payments\\Currency",
+    "default": "USD"
+  },
+  "private_note": {
+    "label": "Memo",
+    "type": "textarea"
+  },
+  "ap_account_ref_name": {
+    "label": "AP Account",
+    "type": "text",
+    "disabled": true
+  },
+  "department_ref_name": {
+    "label": "Department",
+    "type": "text",
+    "disabled": true
+  }
 }

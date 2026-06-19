@@ -61,7 +61,7 @@ class GeneralController extends BaseController
         // Schema::hasColumn() can return a false-positive for these (e.g. when the
         // system DB has a homonymous table), so we force-exclude them here.
         // "customer" / "lead" are profile rows: labels come from the linked contact (and primary address), not profile tables.
-        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead', 'workorder', 'assetunit', 'inventoryunit'];
+        $virtualDisplayNameTypes = ['transaction', 'estimate', 'qualification', 'contract', 'delivery_location', 'deliverylocation', 'customer', 'lead', 'workorder', 'assetunit', 'inventoryunit', 'chartofaccount'];
 
         // Check if display_name column exists, otherwise just select id
         $tableName = $recordModel->getTable();
@@ -107,6 +107,10 @@ class GeneralController extends BaseController
                 // display_name and address* accessors need contact + primary address; never select legacy
                 // address columns on profile tables. Customer/Lead::$with loads contact.primaryAddress.
                 $columns[] = 'contact_id';
+            } elseif ($typeKey === 'chartofaccount') {
+                $columns[] = 'quickbooks_account_id';
+                $columns[] = 'name';
+                $columns[] = 'fully_qualified_name';
             } elseif ($typeKey === 'assetoption') {
                 $columns[] = 'name';
                 $columns[] = 'input_type';
@@ -329,6 +333,14 @@ class GeneralController extends BaseController
                         $q->orWhereRaw('CAST('.$profileTable.'.id AS TEXT) LIKE ?', ['%'.strtolower($trim).'%']);
                     }
                 });
+            } elseif ($typeKey === 'chartofaccount') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->whereRaw('LOWER(name) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(fully_qualified_name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(quickbooks_account_id, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('CAST(id AS TEXT) LIKE ?', [$searchTerm]);
+                });
             } elseif ($typeKey === 'maintenancetype') {
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 $query->where(function ($q) use ($searchTerm) {
@@ -412,6 +424,11 @@ class GeneralController extends BaseController
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('sequence', $dir);
+            } elseif ($typeKey === 'chartofaccount') {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderByRaw(
+                    "LOWER(COALESCE(NULLIF(fully_qualified_name, ''), NULLIF(name, ''), CAST(quickbooks_account_id AS TEXT), CAST(id AS TEXT))) {$dir}"
+                );
             } elseif ($typeKey === 'workorder') {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('work_order_number', $dir);

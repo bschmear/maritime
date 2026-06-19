@@ -11,6 +11,7 @@ use App\Domain\ServiceItem\Models\ServiceItem;
 use App\Enums\Integration\IntegrationSyncStatus;
 use App\Enums\Integration\IntegrationType;
 use App\Enums\ServiceItem\BillingType;
+use App\Jobs\Concerns\MarksQuickBooksImportFailure;
 use App\Services\Payments\QuickBooksOAuthService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,6 +22,7 @@ use Illuminate\Queue\SerializesModels;
 class PullServiceItemsFromQuickBooks implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use MarksQuickBooksImportFailure;
 
     public function __construct(
         public int $tenantUserProfileId,

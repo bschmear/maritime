@@ -3,6 +3,14 @@
     "label": "Company Name",
     "type": "text"
   },
+  "company_name": {
+    "label": "Legal Company Name",
+    "type": "text"
+  },
+  "print_on_check_name": {
+    "label": "Print on Check Name",
+    "type": "text"
+  },
   "vendor_type": {
     "label": "Vendor Type",
     "type": "select",
@@ -15,6 +23,20 @@
   "vendor_code": {
     "label": "Vendor Code",
     "type": "text"
+  },
+  "qbo_acct_num": {
+    "label": "QuickBooks Account #",
+    "type": "text"
+  },
+  "quickbooks_id": {
+    "label": "QuickBooks Vendor ID",
+    "type": "text",
+    "disabled": true
+  },
+  "term_ref_name": {
+    "label": "QuickBooks Payment Terms",
+    "type": "text",
+    "disabled": true
   },
   "primary_contact_id": {
     "label": "Primary Contact",
@@ -99,6 +121,20 @@
     "label": "Credit Limit",
     "type": "number"
   },
+  "open_balance": {
+    "label": "Open Balance (A/P)",
+    "type": "number",
+    "disabled": true
+  },
+  "overdue_balance": {
+    "label": "Overdue Balance",
+    "type": "number",
+    "disabled": true
+  },
+  "vendor_1099": {
+    "label": "Track for 1099",
+    "type": "boolean"
+  },
   "website": {
     "label": "Website",
     "type": "text"
@@ -130,6 +166,60 @@
   },
   "primary_contact_summary": {
     "label": "Primary Contact",
+    "type": "text"
+  },
+  "contact_first_name": {
+    "label": "Contact First Name",
+    "type": "text"
+  },
+  "contact_last_name": {
+    "label": "Contact Last Name",
+    "type": "text"
+  },
+  "contact_title": {
+    "label": "Contact Title",
+    "type": "text"
+  },
+  "contact_email": {
+    "label": "Contact Email",
+    "type": "email"
+  },
+  "contact_phone": {
+    "label": "Contact Phone",
+    "type": "tel"
+  },
+  "mobile_phone": {
+    "label": "Mobile Phone",
+    "type": "tel"
+  },
+  "fax": {
+    "label": "Fax",
+    "type": "tel"
+  },
+  "ach_bank_name": {
+    "label": "ACH Bank Name",
+    "type": "text"
+  },
+  "ach_account_number": {
+    "label": "ACH Account Number",
+    "type": "text"
+  },
+  "ach_routing_number": {
+    "label": "ACH Routing Number",
+    "type": "text"
+  },
+  "ach_account_number_masked": {
+    "label": "ACH Account (on file)",
+    "type": "text",
+    "disabled": true
+  },
+  "ach_routing_number_masked": {
+    "label": "ACH Routing (on file)",
+    "type": "text",
+    "disabled": true
+  },
+  "tax_identifier": {
+    "label": "Tax ID / EIN",
     "type": "text"
   },
   "verified_at": {

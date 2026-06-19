@@ -1,5 +1,34 @@
 {
-    "columns": [
-
+  "allow_create_modal": false,
+  "columns": [
+    { "key": "display_name", "label": "Bill", "sortable": true, "isKey": true },
+    { "key": "status", "label": "Status", "sortable": true },
+    { "key": "vendor_id", "label": "Vendor", "sortable": true },
+    { "key": "quickbooks_vendor_id", "label": "QBO Vendor", "sortable": true },
+    { "key": "total_amt", "label": "Total", "sortable": true },
+    { "key": "balance", "label": "Balance", "sortable": true },
+    { "key": "due_date", "label": "Due date", "sortable": true },
+    { "key": "txn_date", "label": "Bill date", "sortable": true }
+  ],
+  "filters": [
+    {
+      "field": "status",
+      "label": "Status",
+      "type": "multi-select",
+      "enum": "App\\Enums\\Bill\\Status",
+      "operator": "any_of",
+      "apply_as_default": true,
+      "default_value": ["open", "overdue"]
+    }
+  ],
+  "stats": [
+    { "key": "open", "label": "Open", "badge_label": "Open", "color": "blue" },
+    { "key": "overdue", "label": "Overdue", "badge_label": "Overdue", "color": "amber" },
+    { "key": "paid", "label": "Paid (30 days)", "scope": "paid_30d", "badge_label": "Paid (30 days)", "color": "green" }
+  ],
+  "settings": {
+    "bulk_actions": [
+      { "label": "Import from QuickBooks", "action": "importFromQuickbooks" }
     ]
+  }
 }

@@ -1,0 +1,39 @@
+{
+  "name": {
+    "label": "Account name",
+    "type": "text",
+    "required": true
+  },
+  "fully_qualified_name": {
+    "label": "Full name",
+    "type": "text",
+    "disabled": true
+  },
+  "account_type": {
+    "label": "Account type",
+    "type": "text",
+    "disabled": true
+  },
+  "detail_type": {
+    "label": "Detail type",
+    "type": "text",
+    "disabled": true
+  },
+  "quickbooks_account_id": {
+    "label": "QuickBooks Account ID",
+    "type": "text",
+    "disabled": true
+  },
+  "active": {
+    "label": "Active",
+    "type": "boolean",
+    "default": true
+  },
+  "parent_id": {
+    "label": "Parent account",
+    "type": "record",
+    "typeDomain": "ChartOfAccount",
+    "nullable": true,
+    "relationship": "parent"
+  }
+}

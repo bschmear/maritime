@@ -1,19 +1,27 @@
 {
-  "settings": {
-    "max_width": "4xl"
-  },
+  "settings": { "max_width": "4xl" },
   "form": {
     "primary": {
-        "label": "Primary",
-        "fields": [
-
-        ]
+      "label": "Bill details",
+      "fields": [
+        { "key": "vendor_id", "required": true },
+        { "key": "chart_of_account_id" },
+        { "key": "txn_date" },
+        { "key": "due_date" },
+        { "key": "status" },
+        { "key": "total_amt" },
+        { "key": "balance" },
+        { "key": "currency_code" },
+        { "key": "private_note" }
+      ]
     },
     "secondary": {
-        "label": "Secondary",
-        "fields": [
-
-        ]
+      "label": "QuickBooks",
+      "fields": [
+        { "key": "quickbooks_bill_id" },
+        { "key": "ap_account_ref_name" },
+        { "key": "department_ref_name" }
+      ]
     }
   }
 }

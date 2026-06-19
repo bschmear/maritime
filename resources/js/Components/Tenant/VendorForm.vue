@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import Rating from '@/Components/Tenant/FormComponents/Rating.vue';
+import FormFixedActionBar from '@/Components/Tenant/FormComponents/FormFixedActionBar.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
@@ -25,6 +26,23 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['saved', 'cancelled']);
+
+const SENSITIVE_FIELDS = new Set(['ach_account_number', 'ach_routing_number', 'tax_identifier']);
+const NEVER_SUBMIT_FIELDS = new Set([
+    'quickbooks_id',
+    'quickbooks_sync_token',
+    'open_balance',
+    'overdue_balance',
+]);
+const QBO_SYNCED_READONLY = new Set([
+    'quickbooks_id',
+    'qbo_acct_num',
+    'print_on_check_name',
+    'term_ref_name',
+    'open_balance',
+    'overdue_balance',
+]);
+const HIDDEN_ON_CREATE = new Set(['quickbooks_id', 'open_balance', 'overdue_balance', 'term_ref_name']);
 
 const expandedTextareaKey = ref(null);
 
@@ -92,7 +110,8 @@ const formGroups = computed(() => {
         const items = fields
             .map((f) => (f && typeof f === 'object' && f.key ? { ...f, key: f.key } : null))
             .filter(Boolean)
-            .filter((f) => !f.hidden);
+            .filter((f) => !f.hidden)
+            .filter((f) => !(props.mode === 'create' && HIDDEN_ON_CREATE.has(f.key)));
         if (!group.is_address && items.length === 0) {
             continue;
         }
@@ -119,6 +138,58 @@ const allFieldKeys = computed(() => {
 });
 
 const fieldDef = (key) => props.fieldsSchema[key] || {};
+
+const isSyncedFromQuickBooks = computed(() => {
+    const id = props.record?.quickbooks_id;
+    return id != null && String(id).trim() !== '';
+});
+
+const isReadOnlyField = (key) => {
+    if (NEVER_SUBMIT_FIELDS.has(key) || fieldDef(key).disabled) {
+        return true;
+    }
+    if (QBO_SYNCED_READONLY.has(key) && isSyncedFromQuickBooks.value) {
+        return true;
+    }
+    return false;
+};
+
+const isSensitiveField = (key) => SENSITIVE_FIELDS.has(key);
+
+const maskedValueFor = (key) => {
+    const r = props.record;
+    if (!r) {
+        return null;
+    }
+    if (key === 'ach_account_number') {
+        return r.ach_account_number_masked ?? null;
+    }
+    if (key === 'ach_routing_number') {
+        return r.ach_routing_number_masked ?? null;
+    }
+    if (key === 'tax_identifier') {
+        return r.tax_identifier_masked ?? null;
+    }
+    return null;
+};
+
+const readOnlyDisplayValue = (key) => {
+    const v = form[key];
+    if (key === 'open_balance' || key === 'overdue_balance') {
+        if (v == null || v === '') {
+            return '—';
+        }
+        return Number(v).toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+        });
+    }
+    if (v == null || v === '') {
+        return '—';
+    }
+    return String(v);
+};
 
 const enumOptionsFor = (key) => {
     const en = fieldDef(key).enum;
@@ -184,6 +255,10 @@ function initialValuesFromProps() {
     const r = props.record;
     if (r) {
         for (const key of allFieldKeys.value) {
+            if (SENSITIVE_FIELDS.has(key)) {
+                values[key] = '';
+                continue;
+            }
             const def = fieldDef(key);
             let v = r[key];
 
@@ -312,6 +387,19 @@ const preparePayload = () => {
     } else {
         raw.tags = null;
     }
+    for (const k of NEVER_SUBMIT_FIELDS) {
+        delete raw[k];
+    }
+    if (isSyncedFromQuickBooks.value) {
+        for (const k of QBO_SYNCED_READONLY) {
+            delete raw[k];
+        }
+    }
+    for (const k of SENSITIVE_FIELDS) {
+        if (raw[k] === '' || raw[k] == null) {
+            delete raw[k];
+        }
+    }
     if (props.mode === 'create') {
         delete raw.primary_contact_id;
     }
@@ -353,14 +441,15 @@ const handleCancel = () => {
 };
 
 const showPrimaryContactField = computed(() => props.mode === 'edit' && props.record?.id);
+
+const submitLabel = computed(() => (props.mode === 'edit' ? 'Save changes' : 'Create vendor'));
 </script>
 
 <template>
     <div class="w-full flex flex-col space-y-6">
-        <form @submit.prevent="submit">
-            <div class="grid gap-6 lg:grid-cols-12">
-                <div class="lg:col-span-8 space-y-6">
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+        <form id="vendor-form" class="pb-28" @submit.prevent="submit">
+            <div class="w-full">
+                <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div
                             class="bg-gradient-to-r from-primary-600 to-primary-700 dark:from-primary-700 dark:to-primary-800 px-6 py-4"
                         >
@@ -423,9 +512,69 @@ const showPrimaryContactField = computed(() => props.mode === 'edit' && props.re
                                             </template>
 
                                             <template v-else-if="field.key !== 'primary_contact_id' || showPrimaryContactField">
+                                                <!-- read-only (QuickBooks-synced, balances, etc.) -->
+                                                <div
+                                                    v-if="isReadOnlyField(field.key)"
+                                                    :class="isFullWidthField(field.key) ? 'md:col-span-2' : ''"
+                                                >
+                                                    <label
+                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                                                    >
+                                                        {{ fieldDef(field.key).label || field.key }}
+                                                    </label>
+                                                    <div
+                                                        class="input-style bg-gray-50 text-gray-600 dark:bg-gray-900/50 dark:text-gray-300 cursor-not-allowed"
+                                                    >
+                                                        {{ readOnlyDisplayValue(field.key) }}
+                                                    </div>
+                                                    <p
+                                                        v-if="isSyncedFromQuickBooks && QBO_SYNCED_READONLY.has(field.key)"
+                                                        class="mt-1 text-xs text-gray-500 dark:text-gray-400"
+                                                    >
+                                                        Synced from QuickBooks — edit in QuickBooks or re-import.
+                                                    </p>
+                                                </div>
+
+                                                <!-- sensitive bank / tax fields -->
+                                                <div
+                                                    v-else-if="isSensitiveField(field.key)"
+                                                    :class="isFullWidthField(field.key) ? 'md:col-span-2' : ''"
+                                                >
+                                                    <label
+                                                        :for="`vendor-${field.key}`"
+                                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                                                    >
+                                                        {{ fieldDef(field.key).label || field.key }}
+                                                    </label>
+                                                    <p
+                                                        v-if="mode === 'edit' && maskedValueFor(field.key)"
+                                                        class="mb-2 text-xs text-gray-500 dark:text-gray-400"
+                                                    >
+                                                        On file:
+                                                        <span class="font-mono text-gray-700 dark:text-gray-300">{{ maskedValueFor(field.key) }}</span>
+                                                    </p>
+                                                    <input
+                                                        :id="`vendor-${field.key}`"
+                                                        v-model="form[field.key]"
+                                                        type="password"
+                                                        autocomplete="off"
+                                                        class="input-style font-mono"
+                                                        :placeholder="mode === 'edit' ? 'Leave blank to keep on file' : 'Enter value'"
+                                                    />
+                                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                        Encrypted at rest. Full values are never shown after saving.
+                                                    </p>
+                                                    <p
+                                                        v-if="form.errors[field.key]"
+                                                        class="mt-1 text-xs text-red-600 dark:text-red-400"
+                                                    >
+                                                        {{ form.errors[field.key] }}
+                                                    </p>
+                                                </div>
+
                                                 <!-- text / email / tel / number -->
                                                 <div
-                                                    v-if="['text', 'email', 'tel', 'number'].includes(fieldDef(field.key).type || 'text')"
+                                                    v-else-if="['text', 'email', 'tel', 'number'].includes(fieldDef(field.key).type || 'text')"
                                                     :class="isFullWidthField(field.key) ? 'md:col-span-2' : ''"
                                                 >
                                                     <label
@@ -678,52 +827,15 @@ const showPrimaryContactField = computed(() => props.mode === 'edit' && props.re
                             </template>
                         </div>
                     </div>
-                </div>
-
-                <div class="lg:col-span-4 space-y-6">
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden sticky top-[140px]">
-                        <div
-                            class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600"
-                        >
-                            <span class="text-sm font-semibold text-white">Actions</span>
-                        </div>
-                        <div class="p-5 space-y-3">
-                            <button
-                                type="submit"
-                                :disabled="form.processing"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                            >
-                                <svg
-                                    v-if="form.processing"
-                                    class="h-4 w-4 animate-spin text-white"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    aria-hidden="true"
-                                >
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                                    <path
-                                        class="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                    />
-                                </svg>
-                                <span v-else class="material-icons text-[18px]">save</span>
-                                {{ form.processing ? 'Saving…' : mode === 'edit' ? 'Save changes' : 'Create vendor' }}
-                            </button>
-                            <button
-                                type="button"
-                                :disabled="form.processing"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
-                                @click="handleCancel"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </form>
+
+        <FormFixedActionBar
+            form-id="vendor-form"
+            :processing="form.processing"
+            :submit-label="submitLabel"
+            @cancel="handleCancel"
+        />
 
         <Teleport to="body">
             <div

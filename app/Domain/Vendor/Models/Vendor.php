@@ -2,14 +2,19 @@
 
 namespace App\Domain\Vendor\Models;
 
+use App\Domain\Bill\Models\Bill;
+use App\Domain\BillPayment\Models\BillPayment;
+use App\Domain\Communication\Models\Communication;
 use App\Domain\Contact\Models\Contact;
 use App\Domain\Task\Models\Task;
+use App\Domain\User\Models\User;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Models\Concerns\HasDocuments;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
 class Vendor extends Model
@@ -41,6 +46,18 @@ class Vendor extends Model
      */
     protected $appends = [
         'primary_contact_summary',
+        'ach_account_number_masked',
+        'ach_routing_number_masked',
+        'tax_identifier_masked',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'ach_account_number',
+        'ach_routing_number',
+        'tax_identifier',
     ];
 
     /**
@@ -53,7 +70,14 @@ class Vendor extends Model
         'status_id' => 'integer',
         'rating' => 'integer',
         'credit_limit' => 'decimal:2',
+        'open_balance' => 'decimal:2',
+        'overdue_balance' => 'decimal:2',
         'is_verified' => 'boolean',
+        'vendor_1099' => 'boolean',
+        'qbo_active' => 'boolean',
+        'ach_account_number' => 'encrypted',
+        'ach_routing_number' => 'encrypted',
+        'tax_identifier' => 'encrypted',
 
         // Optional foreign keys
         'assigned_user_id' => 'integer',
@@ -96,12 +120,83 @@ class Vendor extends Model
         );
     }
 
+    protected function achAccountNumberMasked(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => self::maskSensitiveValue($this->ach_account_number),
+        );
+    }
+
+    protected function achRoutingNumberMasked(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => self::maskSensitiveValue($this->ach_routing_number),
+        );
+    }
+
+    protected function taxIdentifierMasked(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => self::maskSensitiveValue($this->tax_identifier),
+        );
+    }
+
+    public static function maskSensitiveValue(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $length = strlen($value);
+        if ($length <= 4) {
+            return str_repeat('•', $length);
+        }
+
+        return str_repeat('•', $length - 4).substr($value, -4);
+    }
+
+    public function bills(): HasMany
+    {
+        return $this->hasMany(Bill::class, 'vendor_id')->orderByDesc('txn_date');
+    }
+
+    public function billPayments(): HasMany
+    {
+        return $this->hasMany(BillPayment::class, 'vendor_id')->orderByDesc('txn_date');
+    }
+
+    public function refreshOverdueBalanceFromBills(): void
+    {
+        if (! $this->id) {
+            return;
+        }
+
+        $overdue = (float) Bill::query()
+            ->where('vendor_id', $this->id)
+            ->where('status', 'overdue')
+            ->sum('balance');
+
+        if ((float) $this->overdue_balance === $overdue) {
+            return;
+        }
+
+        $this->overdue_balance = $overdue;
+        $this->saveQuietly();
+    }
+
+    public static function refreshAllOverdueBalances(): void
+    {
+        static::query()->each(function (self $vendor): void {
+            $vendor->refreshOverdueBalanceFromBills();
+        });
+    }
+
     /**
      * Assigned user relationship.
      */
     public function assigned_user()
     {
-        return $this->belongsTo(\App\Domain\User\Models\User::class, 'assigned_user_id')
+        return $this->belongsTo(User::class, 'assigned_user_id')
             ->select(['id', 'display_name', 'first_name', 'last_name', 'email', 'office_phone', 'mobile_phone', 'current_role']);
     }
 
@@ -116,7 +211,7 @@ class Vendor extends Model
             ->withPivot(['is_primary', 'portal_access']);
     }
 
-    public function warrantyClaims(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function warrantyClaims(): HasMany
     {
         return $this->hasMany(WarrantyClaim::class, 'vendor_id')->orderByDesc('updated_at');
     }
@@ -167,7 +262,7 @@ class Vendor extends Model
 
     public function communications()
     {
-        return $this->morphMany(\App\Domain\Communication\Models\Communication::class, 'communicable')
+        return $this->morphMany(Communication::class, 'communicable')
             ->orderByDesc('created_at');
     }
 }

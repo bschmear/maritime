@@ -227,6 +227,58 @@ const hasAddress = computed(() => {
     return !!(r.address_line_1 || r.address_line_2 || r.city || r.state || r.postal_code || r.country);
 });
 
+const hasQuickBooksData = computed(() => {
+    const r = props.record;
+    return !!(
+        r.quickbooks_id
+        || r.qbo_acct_num
+        || r.print_on_check_name
+        || r.term_ref_name
+        || r.open_balance != null
+        || r.overdue_balance != null
+        || r.vendor_1099
+    );
+});
+
+const hasBankingInfo = computed(() => {
+    const r = props.record;
+    return !!(
+        r.ach_bank_name
+        || r.ach_account_number_masked
+        || r.ach_routing_number_masked
+        || r.tax_identifier_masked
+    );
+});
+
+const bankingEmptyMessage = computed(() => {
+    if (hasBankingInfo.value) {
+        return '';
+    }
+    if (props.record.quickbooks_id) {
+        return 'QuickBooks did not return ACH or tax ID for this vendor. Intuit often withholds full account numbers from the API even when bank details exist in the QBO UI. Add bank details manually under Edit.';
+    }
+
+    return 'No bank or tax information on file. Add under Edit, or enter in QuickBooks and re-import.';
+});
+
+const hasQboContactFields = computed(() => {
+    const r = props.record;
+    return !!(
+        r.contact_first_name
+        || r.contact_last_name
+        || r.contact_title
+        || r.contact_email
+        || r.contact_phone
+        || r.mobile_phone
+        || r.fax
+    );
+});
+
+const qboContactName = computed(() => {
+    const r = props.record;
+    return [r.contact_first_name, r.contact_last_name].filter(Boolean).join(' ').trim() || null;
+});
+
 const confirmDelete = () => {
     isDeleting.value = true;
     router.delete(route(`${props.recordType}.destroy`, props.record.id), {
@@ -393,6 +445,17 @@ const confirmDelete = () => {
                             class="grid grid-cols-1 divide-y divide-gray-50 dark:divide-gray-700/60 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
                         >
                             <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">business</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                                            Legal company name
+                                        </p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
+                                            {{ fmt.empty(record.company_name) }}
+                                        </p>
+                                    </div>
+                                </div>
                                 <div class="flex items-center gap-3 px-5 py-3.5">
                                     <span class="material-icons shrink-0 text-[18px] text-gray-400">category</span>
                                     <div>
@@ -623,6 +686,159 @@ const confirmDelete = () => {
                     </div>
 
                     <div
+                        v-if="hasQboContactFields"
+                        class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                QuickBooks contact
+                            </span>
+                        </div>
+                        <div
+                            class="grid grid-cols-1 divide-y divide-gray-50 dark:divide-gray-700/60 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+                        >
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div v-if="qboContactName" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">person</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Name</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ qboContactName }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="record.contact_title" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">badge</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Title</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ record.contact_title }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="record.contact_email" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">email</span>
+                                    <div class="min-w-0">
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Email</p>
+                                        <a
+                                            :href="`mailto:${record.contact_email}`"
+                                            class="text-md font-medium text-teal-600 hover:underline dark:text-teal-400"
+                                        >{{ record.contact_email }}</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div v-if="record.contact_phone" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">phone</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Phone</p>
+                                        <a
+                                            :href="`tel:${record.contact_phone}`"
+                                            class="text-md font-medium text-gray-900 dark:text-white hover:underline"
+                                        >{{ record.contact_phone }}</a>
+                                    </div>
+                                </div>
+                                <div v-if="record.mobile_phone" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">smartphone</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Mobile</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ record.mobile_phone }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="record.fax" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">print</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Fax</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ record.fax }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="hasQuickBooksData"
+                        class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    QuickBooks &amp; payments
+                                </span>
+                                <span
+                                    v-if="record.quickbooks_id"
+                                    class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                                >
+                                    <span class="material-icons text-[12px]">sync</span>
+                                    Linked
+                                </span>
+                            </div>
+                        </div>
+                        <div
+                            class="grid grid-cols-1 divide-y divide-gray-50 dark:divide-gray-700/60 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+                        >
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div v-if="record.quickbooks_id" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">tag</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">QuickBooks ID</p>
+                                        <p class="font-mono text-md font-medium text-gray-900 dark:text-white">{{ record.quickbooks_id }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="record.qbo_acct_num" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">numbers</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account #</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ record.qbo_acct_num }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="record.print_on_check_name" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">receipt</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Print on check</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ record.print_on_check_name }}</p>
+                                    </div>
+                                </div>
+                                <div v-if="record.term_ref_name" class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">schedule</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">QBO payment terms</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">{{ record.term_ref_name }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                                <div class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">account_balance_wallet</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Open balance (A/P)</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
+                                            {{ fmt.currency(record.open_balance) ?? '—' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">warning</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Overdue balance</p>
+                                        <p
+                                            class="text-md font-medium"
+                                            :class="Number(record.overdue_balance) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'"
+                                        >
+                                            {{ fmt.currency(record.overdue_balance) ?? '—' }}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 px-5 py-3.5">
+                                    <span class="material-icons shrink-0 text-[18px] text-gray-400">description</span>
+                                    <div>
+                                        <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Track for 1099</p>
+                                        <p class="text-md font-medium text-gray-900 dark:text-white">
+                                            {{ record.vendor_1099 ? 'Yes' : 'No' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
                         class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                     >
                         <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
@@ -678,6 +894,57 @@ const confirmDelete = () => {
                                     <span class="text-sm text-gray-900 dark:text-white">{{ fmt.datetime(record.verified_at) }}</span>
                                 </li>
                             </ul>
+                        </div>
+
+                        <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                            <div class="border-b border-gray-100 px-5 py-3.5 dark:border-gray-700">
+                                <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Banking &amp; tax
+                                </span>
+                            </div>
+                            <div class="px-5 py-4">
+                                <template v-if="hasBankingInfo">
+                                    <ul class="space-y-3 text-md">
+                                        <li v-if="record.ach_bank_name">
+                                            <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Bank name</p>
+                                            <p class="font-medium text-gray-900 dark:text-white">{{ record.ach_bank_name }}</p>
+                                        </li>
+                                        <li v-if="record.ach_account_number_masked">
+                                            <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Account number</p>
+                                            <p class="font-mono font-medium text-gray-900 dark:text-white">{{ record.ach_account_number_masked }}</p>
+                                        </li>
+                                        <li v-if="record.ach_routing_number_masked">
+                                            <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Routing number</p>
+                                            <p class="font-mono font-medium text-gray-900 dark:text-white">{{ record.ach_routing_number_masked }}</p>
+                                        </li>
+                                        <li v-if="record.tax_identifier_masked">
+                                            <p class="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Tax ID / EIN</p>
+                                            <p class="font-mono font-medium text-gray-900 dark:text-white">{{ record.tax_identifier_masked }}</p>
+                                        </li>
+                                    </ul>
+                                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                                        Sensitive values are stored encrypted and shown masked.
+                                    </p>
+                                </template>
+                                <template v-else>
+                                    <div class="flex items-start gap-3">
+                                        <span class="material-icons mt-0.5 shrink-0 text-[18px] text-gray-400">account_balance</span>
+                                        <div>
+                                            <p class="text-sm text-gray-600 dark:text-gray-300">No bank or tax details on file.</p>
+                                            <p class="mt-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                                {{ bankingEmptyMessage }}
+                                            </p>
+                                            <Link
+                                                :href="editHref"
+                                                class="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+                                            >
+                                                <span class="material-icons text-[16px]">edit</span>
+                                                Add on Edit
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
                         </div>
 
                         <div class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">

@@ -1,5 +1,17 @@
 {
-    "columns": [
-
+  "allow_create_modal": false,
+  "columns": [
+    { "key": "display_name", "label": "Payment", "sortable": true, "isKey": true },
+    { "key": "vendor_id", "label": "Vendor", "sortable": true },
+    { "key": "quickbooks_vendor_id", "label": "QBO Vendor", "sortable": true },
+    { "key": "total_amt", "label": "Amount", "sortable": true },
+    { "key": "pay_type", "label": "Type", "sortable": true },
+    { "key": "txn_date", "label": "Date", "sortable": true },
+    { "key": "doc_number", "label": "Reference", "sortable": true }
+  ],
+  "settings": {
+    "bulk_actions": [
+      { "label": "Import from QuickBooks", "action": "importFromQuickbooks" }
     ]
+  }
 }

@@ -28,6 +28,7 @@ const props = defineProps({
     extraRouteParams:    { type: Object, default: () => ({}) },
     initialCreateData:   { type: Object, default: () => ({}) },
     createAvailableSpecs:{ type: Array,  default: () => [] },
+    quickbooksApSync:        { type: Object, default: null },
     /** Merged with page.props.stats; used with schema.stats for optional stat cards */
     stats:               { type: Object, default: () => ({}) },
     /**
@@ -1627,6 +1628,7 @@ defineExpose({
                            :record-title="recordTitle" :enum-options="enumOptions" :extra-route-params="extraRouteParams"
                            :initial-data="initialCreateData" :available-specs="createAvailableSpecs"
                            :nested-in-modal="createFormNestedInModal"
+                           :quickbooks-ap-sync="quickbooksApSync"
                            mode="create" :prevent-redirect="true"
                            @created="handleRecordCreated" @submit="() => {}" @cancel="showCreateModal = false"/>
             </div>

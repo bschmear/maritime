@@ -15,6 +15,7 @@ import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { debounce } from 'lodash-es';
 import { defaultFiltersFromTableSchema } from '@/Utils/defaultTableFilters';
+import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 
 const props = defineProps({
     // Parent record information
@@ -139,6 +140,8 @@ const getDomainPlural = (domain) => {
         'subsidiary': 'subsidiaries',
         'ContactAddress': 'contactaddresses',
         'contactaddress': 'contactaddresses',
+        'BillPayment': 'bill-payments',
+        'billpayment': 'bill-payments',
     };
 
     if (irregularPlurals[domain]) {
@@ -161,6 +164,7 @@ const getDomainSingular = (pluralDomain) => {
         'subsidiaries': 'subsidiary',
         'opportunities': 'opportunity',
         'contactaddresses': 'contactaddress',
+        'bill-payments': 'billpayment',
     };
 
     if (irregularSingulars[pluralDomain]) {
@@ -557,10 +561,9 @@ const getRecordUrl = (item, fieldKey) => {
 
     const routePlural = getDomainPlural(domain);
     const routeName = `${routePlural}.show`;
-    const paramName = getDomainSingular(routePlural);
     
     try {
-        return route(routeName, { [paramName]: relatedRecord.id });
+        return route(routeName, buildResourceRouteParams(routePlural, relatedRecord.id));
     } catch (e) {
         console.error(`Could not generate route for ${routeName}:`, e);
         return null;
@@ -1248,6 +1251,7 @@ const getSublistRecordType = (domain) => {
     const irregular = {
         ContactAddress: 'contactaddresses',
         MaintenanceType: 'maintenance-types',
+        BillPayment: 'bill-payments',
     };
 
     if (irregular[domain]) {
@@ -1555,9 +1559,8 @@ const attachExistingRecord = async (record) => {
         try {
             const domain = activeTab.value.domain;
             const routePlural = getDomainPlural(domain);
-            const paramName = getDomainSingular(routePlural);
             
-            const response = await axios.get(route(`${routePlural}.show`, { [paramName]: record.id }), {
+            const response = await axios.get(route(`${routePlural}.show`, buildResourceRouteParams(routePlural, record.id)), {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'application/json'
@@ -1692,8 +1695,7 @@ const openSublistEditModal = async (item) => {
             const domain = activeTab.value.domain;
             const routePlural = getDomainPlural(domain);
             const routeName = `${routePlural}.show`;
-            const paramName = getDomainSingular(routePlural);
-            url = route(routeName, { [paramName]: requestedRecordId });
+            url = route(routeName, buildResourceRouteParams(routePlural, requestedRecordId));
         }
 
         const response = await axios.get(url, {
@@ -1820,8 +1822,7 @@ const getItemUrl = (item) => {
         const domain = activeTab.value.domain;
         const routePlural = getDomainPlural(domain);
         const routeName = `${routePlural}.show`;
-        const paramName = getDomainSingular(routePlural);
-        return route(routeName, { [paramName]: item.id });
+        return route(routeName, buildResourceRouteParams(routePlural, item.id));
     } catch (error) {
         return null;
     }
@@ -1850,9 +1851,8 @@ const handleInlineSelectChange = async (item, fieldKey, newValue) => {
         const domain = activeTab.value.domain;
         const routePlural = getDomainPlural(domain);
         const routeName = `${routePlural}.update`;
-        const paramName = getDomainSingular(routePlural);
         
-        const updateUrl = route(routeName, { [paramName]: item.id });
+        const updateUrl = route(routeName, buildResourceRouteParams(routePlural, item.id));
         
         // Integer enums (numeric option ids); string-backed enums keep the submitted string (e.g. contact status).
         const fieldDef = getFieldDef(fieldKey);

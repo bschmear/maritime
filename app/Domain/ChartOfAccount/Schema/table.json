@@ -1,0 +1,15 @@
+{
+  "columns": [
+    { "key": "display_name", "label": "Account", "sortable": true, "isKey": true, "sortColumn": "name" },
+    { "key": "fully_qualified_name", "label": "Account name", "sortable": true },
+    { "key": "account_type", "label": "Account type", "sortable": true },
+    { "key": "detail_type", "label": "Detail type", "sortable": true },
+    { "key": "active", "label": "Active", "sortable": true }
+  ],
+  "settings": {
+    "allow_create_modal": false,
+    "bulk_actions": [
+      { "label": "Sync from QuickBooks", "action": "importFromQuickbooks" }
+    ]
+  }
+}

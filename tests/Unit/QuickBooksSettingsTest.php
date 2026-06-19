@@ -18,6 +18,8 @@ class QuickBooksSettingsTest extends TestCase
         $this->assertFalse($settings->syncContacts);
         $this->assertFalse($settings->syncInvoices);
         $this->assertFalse($settings->syncPayments);
+        $this->assertFalse($settings->syncBills);
+        $this->assertFalse($settings->syncBillPayments);
         $this->assertNull($settings->defaultItemId);
     }
 
@@ -49,6 +51,8 @@ class QuickBooksSettingsTest extends TestCase
             syncContacts: true,
             syncInvoices: false,
             syncPayments: true,
+            syncBills: false,
+            syncBillPayments: false,
             defaultItemId: '99',
         );
 
@@ -56,6 +60,8 @@ class QuickBooksSettingsTest extends TestCase
             'sync_contacts' => true,
             'sync_invoices' => false,
             'sync_payments' => true,
+            'sync_bills' => false,
+            'sync_bill_payments' => false,
             'default_item_id' => '99',
         ], $settings->toArray());
     }

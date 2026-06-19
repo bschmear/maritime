@@ -1,0 +1,17 @@
+{
+  "settings": { "max_width": "2xl" },
+  "form": {
+    "primary": {
+      "label": "Chart of account",
+      "fields": [
+        { "key": "name", "required": true },
+        { "key": "fully_qualified_name" },
+        { "key": "account_type" },
+        { "key": "detail_type" },
+        { "key": "parent_id" },
+        { "key": "active" },
+        { "key": "quickbooks_account_id" }
+      ]
+    }
+  }
+}

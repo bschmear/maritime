@@ -17,7 +17,7 @@ class UpdateVendor
      *
      * @throws ValidationException
      */
-    public function __invoke(int $id, array $data): array
+    public function __invoke(int $id, array $data, bool $fromQuickBooksImport = false): array
     {
         $validated = Validator::make($data, [
             'display_name' => ['required', 'string', 'max:255'],
@@ -51,6 +51,27 @@ class UpdateVendor
             'contract_status' => ['nullable'],
             'is_verified' => ['nullable', 'boolean'],
             'primary_contact_id' => ['nullable', 'integer', 'exists:contacts,id'],
+            'quickbooks_id' => ['nullable', 'string', 'max:64'],
+            'quickbooks_sync_token' => ['nullable', 'string', 'max:32'],
+            'company_name' => ['nullable', 'string', 'max:255'],
+            'print_on_check_name' => ['nullable', 'string', 'max:255'],
+            'qbo_acct_num' => ['nullable', 'string', 'max:64'],
+            'qbo_active' => ['nullable', 'boolean'],
+            'open_balance' => ['nullable', 'numeric'],
+            'vendor_1099' => ['nullable', 'boolean'],
+            'term_ref_id' => ['nullable', 'string', 'max:64'],
+            'term_ref_name' => ['nullable', 'string', 'max:255'],
+            'contact_first_name' => ['nullable', 'string', 'max:255'],
+            'contact_last_name' => ['nullable', 'string', 'max:255'],
+            'contact_title' => ['nullable', 'string', 'max:255'],
+            'contact_email' => ['nullable', 'email', 'max:255'],
+            'contact_phone' => ['nullable', 'string', 'max:50'],
+            'mobile_phone' => ['nullable', 'string', 'max:50'],
+            'fax' => ['nullable', 'string', 'max:50'],
+            'ach_bank_name' => ['nullable', 'string', 'max:255'],
+            'ach_account_number' => ['nullable', 'string', 'max:255'],
+            'ach_routing_number' => ['nullable', 'string', 'max:32'],
+            'tax_identifier' => ['nullable', 'string', 'max:64'],
         ])->validate();
 
         try {
@@ -63,6 +84,28 @@ class UpdateVendor
             $payload['tags'] = $this->normalizeTags($payload['tags'] ?? null);
             if (array_key_exists('is_verified', $payload)) {
                 $payload['is_verified'] = filter_var($payload['is_verified'], FILTER_VALIDATE_BOOLEAN);
+            }
+            if (array_key_exists('vendor_1099', $payload)) {
+                $payload['vendor_1099'] = filter_var($payload['vendor_1099'], FILTER_VALIDATE_BOOLEAN);
+            }
+            if (array_key_exists('qbo_active', $payload)) {
+                $payload['qbo_active'] = filter_var($payload['qbo_active'], FILTER_VALIDATE_BOOLEAN);
+            }
+
+            foreach (['ach_account_number', 'ach_routing_number', 'tax_identifier'] as $sensitiveKey) {
+                if (array_key_exists($sensitiveKey, $payload) && ($payload[$sensitiveKey] === null || $payload[$sensitiveKey] === '')) {
+                    unset($payload[$sensitiveKey]);
+                }
+            }
+
+            if (! $fromQuickBooksImport) {
+                unset($payload['quickbooks_id'], $payload['quickbooks_sync_token'], $payload['overdue_balance']);
+
+                if ($vendor->quickbooks_id) {
+                    foreach (['qbo_acct_num', 'print_on_check_name', 'term_ref_id', 'term_ref_name', 'open_balance'] as $qbKey) {
+                        unset($payload[$qbKey]);
+                    }
+                }
             }
 
             $vendor->update($payload);
@@ -108,14 +151,19 @@ class UpdateVendor
     private function onlyVendorAttributes(array $data): array
     {
         $keys = [
-            'display_name', 'vendor_type', 'industry', 'vendor_code', 'tags',
+            'display_name', 'company_name', 'print_on_check_name', 'vendor_type', 'industry', 'vendor_code', 'qbo_acct_num', 'tags',
             'primary_contact_id',
+            'contact_first_name', 'contact_last_name', 'contact_title', 'contact_email', 'contact_phone', 'mobile_phone', 'fax',
             'secondary_email', 'secondary_phone', 'preferred_contact_method',
             'address_line_1', 'address_line_2', 'city', 'state', 'postal_code', 'country',
             'latitude', 'longitude',
             'status_id', 'status_reason', 'assigned_user_id', 'notes', 'rating',
-            'payment_terms', 'credit_limit', 'website', 'linkedin', 'facebook',
-            'contract_start', 'contract_end', 'contract_status', 'is_verified',
+            'payment_terms', 'credit_limit', 'open_balance', 'vendor_1099',
+            'term_ref_id', 'term_ref_name',
+            'website', 'linkedin', 'facebook',
+            'contract_start', 'contract_end', 'contract_status', 'is_verified', 'qbo_active',
+            'quickbooks_id', 'quickbooks_sync_token',
+            'ach_bank_name', 'ach_account_number', 'ach_routing_number', 'tax_identifier',
         ];
 
         return Arr::only($data, $keys);

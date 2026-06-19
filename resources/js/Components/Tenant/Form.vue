@@ -19,6 +19,7 @@ import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { sanitizeHtml } from '@/Utils/sanitizeHtml.js';
 import { buildFormErrorMessages, useFormValidationToast } from '@/composables/useFormValidationToast';
+import { useQuickBooksApSyncOverlay } from '@/composables/useQuickBooksApSyncOverlay';
 import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 
 const props = defineProps({
@@ -52,7 +53,11 @@ const props = defineProps({
     /** When set, successful update navigates here instead of reloading the current page. */
     redirectAfterUpdate: { type: String, default: null },
     /** Optional z-index for nested RecordSelect overlays (defaults from preventRedirect). */
-    recordSelectOverlayZIndex: { type: Number, default: null },
+    /** When enabled, show a full-screen overlay while creating AP records synced to QuickBooks. */
+    quickbooksApSync: {
+        type: Object,
+        default: null,
+    },
 });
 
 const emit = defineEmits(['submit', 'cancel', 'created', 'updated', 'record-selected']);
@@ -390,6 +395,17 @@ const form = useForm(initializeFormData());
 const isProcessing = ref(false);
 
 const { validationSubmitOptions, handleSubmitErrors } = useFormValidationToast(() => props.fieldsSchema);
+
+const quickbooksApSyncEnabled = computed(() => Boolean(props.quickbooksApSync?.enabled));
+const {
+    beginCreateSync,
+    endCreateSync,
+    handleCreateResponse,
+    handleCreateFlash,
+} = useQuickBooksApSyncOverlay({
+    enabled: quickbooksApSyncEnabled,
+    entityLabel: props.quickbooksApSync?.entityLabel || 'record',
+});
 const formErrorMessages = computed(() => buildFormErrorMessages(form.errors, props.fieldsSchema));
 
 useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
@@ -1148,6 +1164,7 @@ const handleSubmit = () => {
     if (isCreateMode.value) {
         if (props.preventRedirect) {
             isProcessing.value = true;
+            beginCreateSync();
             let submissionData = rawData;
             if (hasFiles) {
                 const formData = new FormData();
@@ -1164,6 +1181,7 @@ const handleSubmit = () => {
                 if (!data || typeof data !== 'object') {
                     console.error('Unexpected create response (expected JSON)', response);
                     form.errors = { general: ['Could not read the server response after save.'] };
+                    endCreateSync();
 
                     return;
                 }
@@ -1172,9 +1190,12 @@ const handleSubmit = () => {
                     const errors = data.errors || { general: [data.message || 'Validation failed'] };
                     form.errors = errors;
                     handleSubmitErrors(errors);
+                    endCreateSync();
 
                     return;
                 }
+
+                handleCreateResponse(data);
 
                 const recordId = data.recordId ?? data.record?.id ?? data.data?.recordId;
                 const createdRecord = data.record ?? null;
@@ -1186,19 +1207,24 @@ const handleSubmit = () => {
                 }
             })
             .catch((error) => {
+                endCreateSync();
                 const errors = error.response?.status === 422
                     ? (error.response.data.errors || {})
                     : { general: [error.response?.data?.message || 'An error occurred'] };
                 form.errors = errors;
                 handleSubmitErrors(errors);
             })
-            .finally(() => { isProcessing.value = false; });
+            .finally(() => {
+                isProcessing.value = false;
+            });
 
         } else {
+            beginCreateSync();
             form.transform(() => rawData).post(
                 route(`${props.recordType}.store`, props.extraRouteParams),
                 validationSubmitOptions({
                     onSuccess: (page) => {
+                        handleCreateFlash(page?.props?.flash);
                         let recordId = page?.props?.flash?.recordId;
                         if (!recordId) {
                             const urlMatch = page?.url?.match(/\/(\d+)$/);
@@ -1206,6 +1232,12 @@ const handleSubmit = () => {
                         }
                         if (recordId) emit('created', recordId);
                         emit('submit');
+                    },
+                    onError: () => {
+                        endCreateSync();
+                    },
+                    onFinish: () => {
+                        endCreateSync();
                     },
                 }),
             );

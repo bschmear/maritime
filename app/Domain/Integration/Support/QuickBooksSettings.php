@@ -13,6 +13,8 @@ final class QuickBooksSettings
         public bool $syncContacts = false,
         public bool $syncInvoices = false,
         public bool $syncPayments = false,
+        public bool $syncBills = false,
+        public bool $syncBillPayments = false,
         public ?string $defaultItemId = null,
     ) {}
 
@@ -28,6 +30,8 @@ final class QuickBooksSettings
             syncContacts: (bool) ($settings['sync_contacts'] ?? false),
             syncInvoices: (bool) ($settings['sync_invoices'] ?? false),
             syncPayments: (bool) ($settings['sync_payments'] ?? false),
+            syncBills: (bool) ($settings['sync_bills'] ?? false),
+            syncBillPayments: (bool) ($settings['sync_bill_payments'] ?? false),
             defaultItemId: isset($settings['default_item_id']) ? (string) $settings['default_item_id'] : null,
         );
     }
@@ -56,8 +60,18 @@ final class QuickBooksSettings
         return $this->syncPayments;
     }
 
+    public function isSyncBillsEnabled(): bool
+    {
+        return $this->syncBills;
+    }
+
+    public function isSyncBillPaymentsEnabled(): bool
+    {
+        return $this->syncBillPayments;
+    }
+
     /**
-     * @return array{sync_contacts: bool, sync_invoices: bool, sync_payments: bool, default_item_id?: string|null}
+     * @return array<string, mixed>
      */
     public function toArray(): array
     {
@@ -65,6 +79,8 @@ final class QuickBooksSettings
             'sync_contacts' => $this->syncContacts,
             'sync_invoices' => $this->syncInvoices,
             'sync_payments' => $this->syncPayments,
+            'sync_bills' => $this->syncBills,
+            'sync_bill_payments' => $this->syncBillPayments,
         ];
 
         if ($this->defaultItemId !== null && $this->defaultItemId !== '') {
@@ -75,7 +91,7 @@ final class QuickBooksSettings
     }
 
     /**
-     * @param  array{sync_contacts?: bool, sync_invoices?: bool, sync_payments?: bool, default_item_id?: string|null}  $validated
+     * @param  array<string, mixed>  $validated
      */
     public function mergeIntoIntegrationSettings(Integration $integration, array $validated): void
     {
@@ -87,6 +103,8 @@ final class QuickBooksSettings
                 'sync_contacts' => (bool) ($validated['sync_contacts'] ?? $current->syncContacts),
                 'sync_invoices' => (bool) ($validated['sync_invoices'] ?? $current->syncInvoices),
                 'sync_payments' => (bool) ($validated['sync_payments'] ?? $current->syncPayments),
+                'sync_bills' => (bool) ($validated['sync_bills'] ?? $current->syncBills),
+                'sync_bill_payments' => (bool) ($validated['sync_bill_payments'] ?? $current->syncBillPayments),
                 'default_item_id' => $validated['default_item_id'] ?? $existing['default_item_id'] ?? $current->defaultItemId,
             ]),
         ]);

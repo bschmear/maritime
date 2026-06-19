@@ -357,6 +357,131 @@ class QuickBooksOAuthService
     }
 
     /**
+     * Read a single vendor by QuickBooks id (may include fields omitted from query responses).
+     *
+     * @return array<string, mixed>
+     */
+    public function readVendorForIntegration(Integration $integration, string $vendorId): array
+    {
+        $this->refreshAccessTokenIfExpiredForIntegration($integration);
+
+        $realmId = (string) $integration->external_id;
+        if ($realmId === '') {
+            throw new RuntimeException('QuickBooks realm id is missing — reconnect QuickBooks.');
+        }
+
+        $response = Http::withToken($integration->access_token)
+            ->acceptJson()
+            ->get("{$this->accountingApiBaseUrl()}/v3/company/{$realmId}/vendor/{$vendorId}", [
+                'minorversion' => 70,
+            ]);
+
+        if ($response->failed()) {
+            Log::warning('QuickBooks vendor read failed', QuickBooksHttpSupport::withIntuitTid($response, [
+                'status' => $response->status(),
+                'vendor_id' => $vendorId,
+                'body' => $response->body(),
+            ]));
+
+            throw new RuntimeException('QuickBooks vendor read failed (HTTP '.$response->status().').');
+        }
+
+        $vendor = $response->json('Vendor');
+        if (! is_array($vendor)) {
+            throw new RuntimeException('QuickBooks vendor read returned no Vendor payload.');
+        }
+
+        return $vendor;
+    }
+
+    /**
+     * Read a single bill by QuickBooks id (used for per-record refresh from Helmful).
+     *
+     * @return array<string, mixed>
+     */
+    public function readBillForIntegration(Integration $integration, string $billId): array
+    {
+        $this->refreshAccessTokenIfExpiredForIntegration($integration);
+
+        $realmId = (string) $integration->external_id;
+        if ($realmId === '') {
+            throw new RuntimeException('QuickBooks realm id is missing — reconnect QuickBooks.');
+        }
+
+        $response = Http::withToken($integration->access_token)
+            ->acceptJson()
+            ->get("{$this->accountingApiBaseUrl()}/v3/company/{$realmId}/bill/{$billId}", [
+                'minorversion' => 70,
+            ]);
+
+        if ($response->failed()) {
+            Log::warning('QuickBooks bill read failed', QuickBooksHttpSupport::withIntuitTid($response, [
+                'status' => $response->status(),
+                'bill_id' => $billId,
+                'body' => $response->body(),
+            ]));
+
+            throw new RuntimeException('QuickBooks bill read failed (HTTP '.$response->status().').');
+        }
+
+        $bill = $response->json('Bill');
+        if (! is_array($bill)) {
+            throw new RuntimeException('QuickBooks bill read returned no Bill payload.');
+        }
+
+        return $bill;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function fetchPreferencesForIntegration(Integration $integration): ?array
+    {
+        $this->refreshAccessTokenIfExpiredForIntegration($integration);
+
+        $realmId = (string) $integration->external_id;
+        if ($realmId === '') {
+            return null;
+        }
+
+        $response = Http::withToken($integration->access_token)
+            ->acceptJson()
+            ->get("{$this->accountingApiBaseUrl()}/v3/company/{$realmId}/preferences", [
+                'minorversion' => 70,
+            ]);
+
+        if ($response->failed()) {
+            Log::warning('QuickBooks preferences fetch failed', QuickBooksHttpSupport::withIntuitTid($response, [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]));
+
+            return null;
+        }
+
+        $json = $response->json();
+
+        return is_array($json) ? $json : null;
+    }
+
+    /**
+     * @return array{class_tracking_per_txn: bool, class_tracking_per_txn_line: bool, class_tracking_enabled: bool}
+     */
+    public function classTrackingPreferencesForIntegration(Integration $integration): array
+    {
+        $prefs = $this->fetchPreferencesForIntegration($integration);
+        $accounting = is_array($prefs) ? ($prefs['Preferences']['AccountingInfoPrefs'] ?? []) : [];
+        $perTxn = (bool) ($accounting['ClassTrackingPerTxn'] ?? false);
+        $perTxnLine = (bool) ($accounting['ClassTrackingPerTxnLine'] ?? false);
+
+        return [
+            'class_tracking_per_txn' => $perTxn,
+            'class_tracking_per_txn_line' => $perTxnLine,
+            'class_tracking_enabled' => $perTxn || $perTxnLine,
+        ];
+    }
+
+    /**
      * Refresh the access token when it is missing or near expiry so API calls succeed.
      */
     public function refreshAccessTokenIfExpired(PaymentConfiguration $config): void
