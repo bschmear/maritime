@@ -19,11 +19,11 @@
           "required": false
         },
         {
-          "key": "phone",
+          "key": "mobile",
           "required": false
         },
         {
-          "key": "mobile",
+          "key": "phone",
           "required": false
         },
         {

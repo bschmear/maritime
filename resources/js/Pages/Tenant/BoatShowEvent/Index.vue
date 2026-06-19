@@ -16,11 +16,19 @@ const props = defineProps({
     pluralTitle: { type: String, default: 'Boat Show Events' },
     extraRouteParams: { type: Object, default: () => ({}) },
     initialCreateData: { type: Object, default: () => ({}) },
+    parentBoatShow: { type: Object, default: null },
 });
 
 const breadcrumbItems = computed(() => {
     const items = [{ label: 'Home', href: route('dashboard') }];
-    if (Object.keys(props.extraRouteParams).length === 0) {
+    if (props.parentBoatShow) {
+        items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
+        items.push({
+            label: props.parentBoatShow.name,
+            href: route('boat-shows.show', props.parentBoatShow.routeKey),
+        });
+        items.push({ label: props.pluralTitle });
+    } else if (Object.keys(props.extraRouteParams).length === 0) {
         items.push({ label: props.pluralTitle });
     } else {
         items.push({ label: 'Boat Shows', href: route('boat-shows.index') });

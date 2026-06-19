@@ -93,6 +93,13 @@ class AccountController extends Controller
                 'stats' => null,
             ],
             [
+                'title' => 'AI Inbox',
+                'description' => 'Create inbound email addresses that automatically create leads from forwarded emails.',
+                'icon' => 'mail',
+                'href' => route('account.ai-inbox.index'),
+                'stats' => null,
+            ],
+            [
                 'title' => 'Integrations',
                 'description' => 'Connect third-party services such as QuickBooks, Mailchimp, and Stripe to sync data with your workspace.',
                 'icon' => 'extension',

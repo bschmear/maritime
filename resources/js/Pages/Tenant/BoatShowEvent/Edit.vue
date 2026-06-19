@@ -84,7 +84,7 @@ const form = useForm({
     boat_show_id: props.record.boat_show_id,
     display_name: usesCustomDisplayName ? storedDisplayName : '',
     use_custom_display_name: usesCustomDisplayName ? 1 : 0,
-    year: props.record.year ?? new Date().getFullYear(),
+    year: props.record.year ?? '',
     starts_at: dateInput(props.record.starts_at),
     ends_at: dateInput(props.record.ends_at),
     venue: props.record.venue ?? '',
@@ -109,11 +109,7 @@ const breadcrumbItems = computed(() => {
 
     if (isNested.value && parentShow.value) {
         items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
-        items.push({
-            label: parentShowLabel.value,
-            href: parentShowHref.value,
-        });
-        items.push({ label: 'Events', href: indexHref.value });
+        items.push({ label: parentShowLabel.value, href: parentShowHref.value });
     } else {
         items.push({ label: 'Boat Show Events', href: indexHref.value });
     }

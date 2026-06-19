@@ -36,6 +36,7 @@ class CreateLead
                 'last_name' => $nameRules,
                 'email' => ['nullable', 'email', 'max:255'],
                 'phone' => ['nullable', 'string', 'max:50'],
+                'mobile' => ['nullable', 'string', 'max:50'],
                 'notes' => ['nullable', 'string'],
             ])->validate();
 

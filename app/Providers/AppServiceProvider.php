@@ -14,9 +14,11 @@ use App\Tenancy\CurrentTenantProfile;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -38,6 +40,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('inbound-email', function () {
+            $config = config('inbound_email.rate_limit', []);
+
+            return Limit::perMinute((int) ($config['max_attempts'] ?? 120));
+        });
+
         Post::observe(PostObserver::class);
 
         Gate::policy(WarrantyClaim::class, WarrantyClaimPolicy::class);

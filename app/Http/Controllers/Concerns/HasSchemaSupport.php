@@ -65,10 +65,38 @@ trait HasSchemaSupport
             return [];
         }
 
-        // Extract just the 'key' values from the columns array
-        return array_map(function ($column) {
-            return is_array($column) ? ($column['key'] ?? $column) : $column;
-        }, $tableSchema['columns']);
+        $keys = [];
+
+        foreach ($tableSchema['columns'] as $column) {
+            if (! is_array($column)) {
+                if (is_string($column) && $column !== '') {
+                    $keys[] = $column;
+                }
+
+                continue;
+            }
+
+            $key = $column['key'] ?? null;
+            if (is_string($key) && $key !== '') {
+                $keys[] = $key;
+            }
+
+            $isJoined = ($column['format'] ?? '') === 'joined'
+                || ($column['format'] ?? '') === 'mobile_home'
+                || isset($column['keys'])
+                || isset($column['join']);
+
+            if ($isJoined) {
+                $parts = $column['keys'] ?? $column['join'] ?? [];
+                foreach ($parts as $part) {
+                    if (is_array($part) && isset($part['key']) && is_string($part['key']) && $part['key'] !== '') {
+                        $keys[] = $part['key'];
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($keys));
     }
 
     protected function getEnumOptions()

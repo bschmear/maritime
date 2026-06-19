@@ -13,34 +13,45 @@ const props = defineProps({
     parentBoatShow: { type: Object, default: null },
     boatShowOptions: { type: Array, default: () => [] },
     recipientUserOptions: { type: Array, default: () => [] },
+    duplicateSource: { type: Object, default: null },
 });
 
 const isNested = computed(() => props.parentBoatShow !== null);
 
 const { validationSubmitOptions, showToast } = useFormValidationToast();
 
+function initialRecipientIds() {
+    const raw = props.initialData.recipient_user_ids;
+    if (!Array.isArray(raw)) {
+        return [];
+    }
+
+    return raw.map((id) => Number(id)).filter((n) => Number.isFinite(n) && n > 0);
+}
+
 const form = useForm({
+    duplicate_from_event_id: props.initialData.duplicate_from_event_id ?? null,
     boat_show_id: props.initialData.boat_show_id ?? null,
     display_name: '',
     use_custom_display_name: 0,
-    year: new Date().getFullYear(),
-    starts_at: '',
-    ends_at: '',
-    venue: '',
-    booth: '',
-    address_line_1: '',
-    address_line_2: '',
-    city: '',
-    state: '',
-    country: '',
-    postal_code: '',
-    latitude: '',
-    longitude: '',
-    active: 1,
-    auto_followup: 1,
-    delay_amount: 1,
-    delay_unit: 'days',
-    recipient_user_ids: [],
+    year: props.initialData.year ?? '',
+    starts_at: props.initialData.starts_at ?? '',
+    ends_at: props.initialData.ends_at ?? '',
+    venue: props.initialData.venue ?? '',
+    booth: props.initialData.booth ?? '',
+    address_line_1: props.initialData.address_line_1 ?? '',
+    address_line_2: props.initialData.address_line_2 ?? '',
+    city: props.initialData.city ?? '',
+    state: props.initialData.state ?? '',
+    country: props.initialData.country ?? '',
+    postal_code: props.initialData.postal_code ?? '',
+    latitude: props.initialData.latitude ?? '',
+    longitude: props.initialData.longitude ?? '',
+    active: props.initialData.active ?? 1,
+    auto_followup: props.initialData.auto_followup ?? 1,
+    delay_amount: props.initialData.delay_amount ?? 1,
+    delay_unit: props.initialData.delay_unit ?? 'days',
+    recipient_user_ids: initialRecipientIds(),
 });
 
 const breadcrumbItems = computed(() => {
@@ -52,15 +63,11 @@ const breadcrumbItems = computed(() => {
             label: props.parentBoatShow.name,
             href: route('boat-shows.show', props.parentBoatShow.routeKey),
         });
-        items.push({
-            label: 'Events',
-            href: route('boat-shows.events.index', props.extraRouteParams),
-        });
     } else {
         items.push({ label: 'Boat Show Events', href: route('boat-show-events.index') });
     }
 
-    items.push({ label: 'Create' });
+    items.push({ label: props.duplicateSource ? 'Duplicate event' : 'Create' });
     return items;
 });
 
@@ -105,6 +112,11 @@ const submit = () => {
             if (out.boat_show_id != null && out.boat_show_id !== '') {
                 out.boat_show_id = Number(out.boat_show_id);
             }
+            if (out.duplicate_from_event_id != null && out.duplicate_from_event_id !== '') {
+                out.duplicate_from_event_id = Number(out.duplicate_from_event_id);
+            } else {
+                out.duplicate_from_event_id = null;
+            }
             const numOrNull = (v) => {
                 if (v === '' || v === null || v === undefined) {
                     return null;
@@ -142,9 +154,14 @@ const fieldError = (key) => {
                 <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
-                            New boat show event
+                            {{ duplicateSource ? 'Duplicate boat show event' : 'New boat show event' }}
                         </h2>
-                        <p v-if="parentBoatShow" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <p v-if="duplicateSource" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Copying settings from
+                            <span class="font-medium text-gray-700 dark:text-gray-200">{{ duplicateSource.display_name }}</span>.
+                            Dates are cleared; checklist, assets, and layout copy when you save.
+                        </p>
+                        <p v-else-if="parentBoatShow" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                             For
                             <Link
                                 :href="boatShowShowHref"

@@ -66,6 +66,20 @@ const props = defineProps({
 
 const isNested = computed(() => Object.keys(props.extraRouteParams).length > 0);
 
+const parentShow = computed(() => props.record.boat_show ?? props.record.show ?? null);
+
+const parentShowLabel = computed(() => {
+    const p = parentShow.value;
+    if (!p) return '';
+    return p.display_name ?? p.name ?? 'Boat show';
+});
+
+const parentShowHref = computed(() => {
+    const p = parentShow.value;
+    if (!p) return null;
+    return route('boat-shows.show', p.slug ?? p.id);
+});
+
 const indexHref = computed(() =>
     isNested.value
         ? route('boat-shows.events.index', props.extraRouteParams)
@@ -78,6 +92,14 @@ const editHref = computed(() =>
         : route('boat-show-events.edit', props.record.id)
 );
 
+const duplicateHref = computed(() => {
+    const params = { ...props.extraRouteParams, duplicate: props.record.id };
+
+    return isNested.value
+        ? route('boat-shows.events.create', params)
+        : route('boat-show-events.create', { duplicate: props.record.id });
+});
+
 const printLayoutHref = computed(() => {
     if (props.printUrl) {
         return props.printUrl;
@@ -87,19 +109,12 @@ const printLayoutHref = computed(() => {
         : route('boat-show-events.layout.print', props.record.id);
 });
 
-const parentLabel = computed(() =>
-    isNested.value ? 'Events (show)' : 'Boat Show Events'
-);
-
 const breadcrumbItems = computed(() => {
     const items = [{ label: 'Home', href: route('dashboard') }];
 
-    if (isNested.value && props.record.boat_show) {
+    if (isNested.value && parentShow.value) {
         items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
-        items.push({
-            label: props.record.boat_show.name,
-            href: route('boat-shows.show', props.record.boat_show.id),
-        });
+        items.push({ label: parentShowLabel.value, href: parentShowHref.value });
     } else {
         items.push({ label: 'Boat Show Events', href: indexHref.value });
     }
@@ -453,31 +468,64 @@ async function removeEventAsset(row) {
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200 truncate">
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2 md:gap-3">
+                        <h2 class="truncate text-lg font-semibold leading-tight text-gray-800 md:text-xl dark:text-gray-200">
                             {{ record.display_name ?? `Event #${record.id}` }}
                         </h2>
-                        <span :class="['hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold', eventStatus.badge]">
+                        <span :class="['inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold md:px-2.5 md:py-1 md:text-sm', eventStatus.badge]">
                             <span :class="['w-1.5 h-1.5 rounded-full', eventStatus.dot]"></span>
                             {{ eventStatus.label }}
                         </span>
                     </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <Link
-                            :href="indexHref"
-                            class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1 md:gap-2">
+                        <a
+                            v-if="publicShowcaseHref"
+                            :href="publicShowcaseHref"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Open public event page"
+                            title="Open public event page"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-primary-200 bg-primary-50 p-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-100 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <span class="material-icons text-[16px]">arrow_back</span>
-                            {{ parentLabel }}
+                            <span class="material-icons text-xl leading-none md:text-base">open_in_new</span>
+                            <span class="hidden md:inline">Public event page</span>
+                        </a>
+                        <Link
+                            :href="route('boat-show-email-templates.index')"
+                            aria-label="Follow-up email template"
+                            title="Follow-up email template"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 md:gap-1.5 md:px-4 md:py-2"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-base">mail_outline</span>
+                            <span class="hidden md:inline">Follow-up template</span>
+                        </Link>
+                        <Link
+                            :href="duplicateHref"
+                            aria-label="Duplicate event"
+                            title="Duplicate event"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 md:gap-1.5 md:px-4 md:py-2"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-base">content_copy</span>
+                            <span class="hidden md:inline">Duplicate</span>
                         </Link>
                         <Link
                             :href="editHref"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
+                            aria-label="Edit event"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg bg-primary-600 p-2 text-sm font-medium text-white transition-colors hover:bg-primary-700 md:gap-1.5 md:px-4 md:py-2"
                         >
-                            <span class="material-icons text-[16px]">edit</span>
-                            Edit
+                            <span class="material-icons text-xl leading-none md:text-base">edit</span>
+                            <span class="hidden md:inline">Edit</span>
                         </Link>
+                        <button
+                            type="button"
+                            aria-label="Delete event"
+                            class="inline-flex items-center justify-center gap-0 rounded-lg border border-red-200 bg-white p-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-800 dark:bg-gray-800 dark:text-red-400 dark:hover:bg-red-900/20 md:gap-1.5 md:px-4 md:py-2"
+                            @click="confirmDelete"
+                        >
+                            <span class="material-icons text-xl leading-none md:text-base">delete_outline</span>
+                            <span class="hidden md:inline">Delete</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -509,13 +557,13 @@ async function removeEventAsset(row) {
                         <!-- Left: title block -->
                         <div class="space-y-3">
                             <!-- Boat show parent link -->
-                            <div v-if="record.boat_show" class="flex items-center gap-2">
+                            <div v-if="parentShow" class="flex items-center gap-2">
                                 <span class="material-icons text-[14px] text-white">sailing</span>
                                 <Link
-                                    :href="route('boat-shows.show', record.boat_show.id)"
+                                    :href="parentShowHref"
                                     class="text-sm font-medium text-white hover:text-white transition-colors"
                                 >
-                                    {{ record.boat_show.name }}
+                                    {{ parentShowLabel }}
                                 </Link>
                             </div>
 
@@ -546,7 +594,21 @@ async function removeEventAsset(row) {
 
                         <!-- Right: key stats chips -->
                         <div class="flex flex-wrap gap-2">
-                            <div v-if="record.venue" class="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-2">
+                            <a
+                                v-if="record.venue && mapsUrl"
+                                :href="mapsUrl"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-2 transition-colors hover:bg-white/25"
+                                title="Open in Google Maps"
+                            >
+                                <span class="material-icons text-[16px] text-white">location_city</span>
+                                <span class="text-sm text-white font-medium">{{ record.venue }}</span>
+                            </a>
+                            <div
+                                v-else-if="record.venue"
+                                class="flex items-center gap-2 rounded-lg bg-white/15 backdrop-blur-sm px-3 py-2"
+                            >
                                 <span class="material-icons text-[16px] text-white">location_city</span>
                                 <span class="text-sm text-white font-medium">{{ record.venue }}</span>
                             </div>
@@ -621,6 +683,21 @@ async function removeEventAsset(row) {
                                     </div>
                                 </div>
 
+                                <!-- Boat show -->
+                                <div v-if="parentShow" class="flex items-start gap-4 px-6 py-4">
+                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">sailing</span>
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Boat Show</p>
+                                        <Link
+                                            :href="parentShowHref"
+                                            class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
+                                        >
+                                            {{ parentShowLabel }}
+                                            <span class="material-icons text-[16px]">arrow_forward</span>
+                                        </Link>
+                                    </div>
+                                </div>
+
                                 <!-- Year -->
                                 <div v-if="record.year" class="flex items-start gap-4 px-6 py-4">
                                     <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">tag</span>
@@ -660,20 +737,6 @@ async function removeEventAsset(row) {
                                     <div class="min-w-0">
                                         <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Booth</p>
                                         <p class="text-sm font-medium text-gray-900 dark:text-white">{{ record.booth }}</p>
-                                    </div>
-                                </div>
-
-                                <!-- Boat show -->
-                                <div v-if="record.boat_show" class="flex items-start gap-4 px-6 py-4">
-                                    <span class="material-icons text-[20px] text-gray-400 mt-0.5 shrink-0">sailing</span>
-                                    <div class="min-w-0">
-                                        <p class="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-0.5">Boat Show</p>
-                                        <Link
-                                            :href="route('boat-shows.show', record.boat_show.id)"
-                                            class="text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 hover:underline"
-                                        >
-                                            {{ record.boat_show.name }}
-                                        </Link>
                                     </div>
                                 </div>
 
@@ -1145,54 +1208,6 @@ async function removeEventAsset(row) {
 
                 <!-- Right / Sidebar column -->
                 <div class="space-y-4">
-
-                    <!-- Quick actions -->
-                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-                        <div class="px-5 py-4 bg-gray-700 border-b border-gray-600">
-                            <span class="text-sm font-semibold text-white">Actions</span>
-                        </div>
-                        <div class="p-4 space-y-2">
-                            <a
-                                v-if="publicShowcaseHref"
-                                :href="publicShowcaseHref"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-[18px]">open_in_new</span>
-                                Public event page
-                            </a>
-                            <p
-                                v-else
-                                class="rounded-lg border border-dashed border-gray-200 dark:border-gray-600 px-3 py-2 text-xs text-gray-500 dark:text-gray-400"
-                            >
-                                <span v-if="!record.active">Activate this event to enable the public page.</span>
-                                <span v-else>Public page URL is unavailable (missing event UUID).</span>
-                            </p>
-                            <Link
-                                :href="editHref"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-[18px]">edit</span>
-                                Edit Event
-                            </Link>
-                            <Link
-                                :href="route('boat-show-email-templates.index')"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-[18px]">mail_outline</span>
-                                Follow-up email template
-                            </Link>
-                            <button
-                                type="button"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                @click="confirmDelete"
-                            >
-                                <span class="material-icons text-[18px]">delete_outline</span>
-                                Delete Event
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- Meta card -->
                     <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">

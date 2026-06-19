@@ -34,12 +34,12 @@
     {
       "key": "phone",
       "label": "Phone",
-      "sortable": false
-    },
-    {
-      "key": "mobile",
-      "label": "Mobile",
-      "sortable": false
+      "sortable": false,
+      "format": "joined",
+      "keys": [
+        { "key": "mobile", "icon": "smartphone", "title": "Mobile" },
+        { "key": "phone", "icon": "phone", "title": "Other phone" }
+      ]
     },
     {
       "key": "company",

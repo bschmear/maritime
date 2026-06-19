@@ -2,8 +2,9 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     records: { type: Object, required: true },
@@ -16,9 +17,6 @@ const props = defineProps({
     pluralTitle: { type: String, default: 'Boat Shows' },
     extraRouteParams: { type: Object, default: () => ({}) },
     initialCreateData: { type: Object, default: () => ({}) },
-
-    // Array of: { id, name, start_date: 'YYYY-MM-DD', end_date: 'YYYY-MM-DD', location, description, url }
-    events: { type: Array, default: () => [] },
 });
 
 const breadcrumbItems = computed(() => [
@@ -46,6 +44,52 @@ const resetToday = () => {
     viewMonth.value = today.getMonth();
 };
 
+const monthKey = computed(() => {
+    const m = String(viewMonth.value + 1).padStart(2, '0');
+    return `${viewYear.value}-${m}`;
+});
+
+const loadedMonths = ref({});
+const loadingMonth = ref(false);
+const monthLoadError = ref(null);
+
+const monthEvents = computed(() => loadedMonths.value[monthKey.value] ?? []);
+
+async function fetchMonthEvents(key) {
+    if (loadedMonths.value[key]) {
+        return;
+    }
+
+    loadingMonth.value = true;
+    monthLoadError.value = null;
+
+    try {
+        const { data } = await axios.get(route('boat-shows.calendar-events'), {
+            params: { month: key },
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        loadedMonths.value = {
+            ...loadedMonths.value,
+            [key]: Array.isArray(data.events) ? data.events : [],
+        };
+    } catch {
+        monthLoadError.value = 'Could not load shows for this month.';
+        loadedMonths.value = {
+            ...loadedMonths.value,
+            [key]: [],
+        };
+    } finally {
+        loadingMonth.value = false;
+    }
+}
+
+watch(monthKey, (key) => {
+    fetchMonthEvents(key);
+}, { immediate: true });
+
 const monthLabel = computed(() =>
     new Date(viewYear.value, viewMonth.value, 1)
         .toLocaleString('default', { month: 'long', year: 'numeric' })
@@ -68,33 +112,18 @@ const parseDate = (str) => {
     return dt;
 };
 
-const cutoff90 = computed(() => {
-    const d = new Date(today);
-    d.setDate(d.getDate() + 90);
-    return d;
-});
-
-const upcomingEvents = computed(() =>
-    [...props.events]
-        .filter(e => {
-            const start = parseDate(e.start_date);
-            return start >= today && start <= cutoff90.value;
-        })
-        .sort((a, b) => parseDate(a.start_date) - parseDate(b.start_date))
-);
-
 // day number → events[] for the viewed month
 const eventsByDay = computed(() => {
     const map = {};
-    upcomingEvents.value.forEach(e => {
+    monthEvents.value.forEach((e) => {
         const start = parseDate(e.start_date);
-        const end   = parseDate(e.end_date ?? e.start_date);
-        const cur   = new Date(start);
+        const end = parseDate(e.end_date ?? e.start_date);
+        const cur = new Date(start);
         while (cur <= end) {
             if (cur.getFullYear() === viewYear.value && cur.getMonth() === viewMonth.value) {
                 const d = cur.getDate();
                 if (!map[d]) map[d] = [];
-                if (!map[d].find(x => x.id === e.id)) map[d].push(e);
+                if (!map[d].find((x) => x.id === e.id)) map[d].push(e);
             }
             cur.setDate(cur.getDate() + 1);
         }
@@ -105,10 +134,7 @@ const eventsByDay = computed(() => {
 const eventDaysInView = computed(() => new Set(Object.keys(eventsByDay.value).map(Number)));
 
 const eventsInViewMonth = computed(() =>
-    upcomingEvents.value.filter(e => {
-        const start = parseDate(e.start_date);
-        return start.getFullYear() === viewYear.value && start.getMonth() === viewMonth.value;
-    })
+    [...monthEvents.value].sort((a, b) => parseDate(a.start_date) - parseDate(b.start_date))
 );
 
 const isToday = (day) =>
@@ -180,11 +206,7 @@ const closeModal = () => {
     showDayPicker.value  = false;
 };
 
-const eventUrl = (event) =>
-    event.url ?? route(`${props.recordType}.show`, {
-        [props.recordType.replace(/-/g, '_').replace(/s$/, '')]: event.id,
-        ...props.extraRouteParams,
-    });
+const eventUrl = (event) => event.url ?? route('boat-show-events.show', event.id);
 </script>
 
 <template>
@@ -221,7 +243,7 @@ const eventUrl = (event) =>
                 <!-- Header -->
                 <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-700 dark:bg-gray-900">
                     <h2 class="text-sm font-semibold text-white tracking-wide uppercase">Upcoming Shows</h2>
-                    <span class="text-xs text-gray-300 dark:text-gray-400 font-medium">Next 90 days</span>
+                    <span class="text-xs text-gray-300 dark:text-gray-400 font-medium">By month</span>
                 </div>
 
                 <!-- Mini Calendar -->
@@ -275,7 +297,16 @@ const eventUrl = (event) =>
 
                 <!-- Event List -->
                 <div class="border-t border-gray-100 dark:border-gray-700">
-                    <div v-if="eventsInViewMonth.length" class="divide-y divide-gray-50 dark:divide-gray-700">
+                    <div v-if="loadingMonth" class="px-4 py-8 text-center">
+                        <span class="inline-block h-5 w-5 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                        <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">Loading shows…</p>
+                    </div>
+
+                    <div v-else-if="monthLoadError" class="px-4 py-6 text-center">
+                        <p class="text-xs text-red-500 dark:text-red-400">{{ monthLoadError }}</p>
+                    </div>
+
+                    <div v-else-if="eventsInViewMonth.length" class="divide-y divide-gray-50 dark:divide-gray-700">
                         <button
                             v-for="event in eventsInViewMonth"
                             :key="event.id"
@@ -291,6 +322,9 @@ const eventUrl = (event) =>
                                     <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
                                         {{ formatRange(event.start_date, event.end_date) }}
                                     </p>
+                                    <p v-if="event.boat_show_name" class="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5">
+                                        {{ event.boat_show_name }}
+                                    </p>
                                     <p v-if="event.location" class="text-[11px] text-gray-400 dark:text-gray-500 truncate mt-0.5 flex items-center gap-0.5">
                                         <span class="material-icons text-[11px]">place</span>
                                         {{ event.location }}
@@ -305,13 +339,13 @@ const eventUrl = (event) =>
 
                     <div v-else class="px-4 py-6 text-center">
                         <span class="material-icons text-3xl text-gray-200 dark:text-gray-600 block mb-1">event_busy</span>
-                        <p class="text-xs text-gray-400 dark:text-gray-500">No upcoming shows this month</p>
+                        <p class="text-xs text-gray-400 dark:text-gray-500">No upcoming shows in {{ monthLabel }}</p>
                     </div>
 
                     <div class="px-4 py-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                         <p class="text-[11px] text-gray-400 dark:text-gray-500 text-center">
-                            <span class="font-semibold text-gray-600 dark:text-gray-300">{{ upcomingEvents.length }}</span>
-                            upcoming show{{ upcomingEvents.length !== 1 ? 's' : '' }} in the next 90 days
+                            <span class="font-semibold text-gray-600 dark:text-gray-300">{{ eventsInViewMonth.length }}</span>
+                            upcoming show{{ eventsInViewMonth.length !== 1 ? 's' : '' }} in {{ monthLabel }}
                         </p>
                     </div>
                 </div>

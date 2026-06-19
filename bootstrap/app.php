@@ -11,6 +11,7 @@ use App\Http\Middleware\ExtendCheckoutExecutionTime;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RedirectUnauthenticatedFromTenant;
 use App\Http\Middleware\ValidatePortalToken;
+use App\Http\Middleware\VerifyInboundEmailRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -72,6 +73,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'stripe/webhook',
             'stripe/connect-webhook',
+            'api/inbound-email',
         ]);
         $middleware->alias([
             'kiosk.domain' => EnsureKioskDomain::class,
@@ -82,6 +84,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal.token' => ValidatePortalToken::class,
             'ticket.support' => EnsureTicketSupportAccess::class,
             'checkout.execution_time' => ExtendCheckoutExecutionTime::class,
+            'verify.inbound-email' => VerifyInboundEmailRequest::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {

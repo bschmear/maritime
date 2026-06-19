@@ -399,6 +399,20 @@ class Lead extends Model
     }
 
     /**
+     * Eager-load contact with columns required for flat accessors (table rows, forms).
+     *
+     * @return \Closure(\Illuminate\Database\Eloquent\Relations\Relation|\Illuminate\Database\Eloquent\Builder): void
+     */
+    public static function eagerContactSelect(): \Closure
+    {
+        $columns = array_values(array_unique(array_merge(['id'], self::contactAttributeKeys())));
+
+        return static function ($query) use ($columns) {
+            $query->select($columns);
+        };
+    }
+
+    /**
      * Keys stored on contacts (flat form / API).
      *
      * @return list<string>

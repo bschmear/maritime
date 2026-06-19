@@ -15,3 +15,19 @@ export function formatPhoneNumber(value) {
     }
     return `(${numbers.slice(0, 3)}) ${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
 }
+
+/**
+ * Compact dashed US phone: 239-555-0182
+ */
+export function formatPhoneDashed(value) {
+    if (!value) return '';
+    let numbers = String(value).replace(/\D/g, '');
+    if (numbers.length === 11 && numbers.startsWith('1')) {
+        numbers = numbers.slice(1);
+    }
+    if (numbers.length === 10) {
+        return `${numbers.slice(0, 3)}-${numbers.slice(3, 6)}-${numbers.slice(6, 10)}`;
+    }
+
+    return String(value).trim();
+}

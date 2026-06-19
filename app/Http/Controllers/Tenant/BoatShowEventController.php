@@ -9,14 +9,15 @@ use App\Domain\BoatShowEvent\Actions\CreateBoatShowEvent as CreateAction;
 use App\Domain\BoatShowEvent\Actions\DeleteBoatShowEvent as DeleteAction;
 use App\Domain\BoatShowEvent\Actions\UpdateBoatShowEvent as UpdateAction;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
+use App\Domain\BoatShowEvent\Support\BoatShowEventDuplicator;
 use App\Domain\Checklist\Actions\SyncChecklist;
 use App\Domain\ChecklistTemplate\Models\ChecklistTemplate;
 use App\Domain\Document\Models\Document;
 use App\Domain\Lead\Models\Lead;
 use App\Domain\User\Models\User;
 use App\Enums\Tasks\Priority;
-use App\Models\AccountSettings;
 use App\Enums\Tasks\Status;
+use App\Models\AccountSettings;
 use App\Support\DynamicGlobalScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -147,14 +148,22 @@ class BoatShowEventController extends RecordController
     {
         if ($response instanceof InertiaResponse) {
             $initialCreateData = [];
+            $parentBoatShow = null;
             $boatShow = $request->route('boatShow');
             if ($boatShow !== null) {
-                $initialCreateData['boat_show_id'] = $this->resolveBoatShow($boatShow)->id;
+                $show = $this->resolveBoatShow($boatShow);
+                $initialCreateData['boat_show_id'] = $show->id;
+                $parentBoatShow = [
+                    'id' => $show->id,
+                    'name' => $show->display_name,
+                    'routeKey' => $show->getRouteKey(),
+                ];
             }
 
             return $response
                 ->with('extraRouteParams', $this->eventExtraRouteParams($request))
-                ->with('initialCreateData', $initialCreateData);
+                ->with('initialCreateData', $initialCreateData)
+                ->with('parentBoatShow', $parentBoatShow);
         }
 
         return $response;
@@ -166,6 +175,7 @@ class BoatShowEventController extends RecordController
 
         $initialData = [];
         $parentBoatShow = null;
+        $duplicateSource = null;
         $boatShow = request()->route('boatShow');
         if ($boatShow !== null) {
             $show = $this->resolveBoatShow($boatShow);
@@ -174,6 +184,19 @@ class BoatShowEventController extends RecordController
                 'id' => $show->id,
                 'name' => $show->display_name,
                 'routeKey' => $show->getRouteKey(),
+            ];
+        }
+
+        $duplicateId = request()->query('duplicate');
+        if ($duplicateId) {
+            $source = RecordModel::query()->findOrFail($duplicateId);
+            if ($boatShow !== null) {
+                abort_unless((int) $source->boat_show_id === (int) $show->id, 404);
+            }
+            $initialData = array_merge($initialData, BoatShowEventDuplicator::formInitialData($source));
+            $duplicateSource = [
+                'id' => $source->id,
+                'display_name' => $source->display_name,
             ];
         }
 
@@ -196,6 +219,7 @@ class BoatShowEventController extends RecordController
             'parentBoatShow' => $parentBoatShow,
             'boatShowOptions' => $boatShowOptions,
             'recipientUserOptions' => $this->recipientUserOptions(),
+            'duplicateSource' => $duplicateSource,
         ]);
     }
 

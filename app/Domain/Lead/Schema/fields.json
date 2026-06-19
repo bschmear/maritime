@@ -21,12 +21,12 @@
     "label": "Email",
     "type": "email"
   },
-  "phone": {
-    "label": "Phone",
-    "type": "tel"
-  },
   "mobile": {
     "label": "Mobile",
+    "type": "tel"
+  },
+  "phone": {
+    "label": "Phone",
     "type": "tel"
   },
   "company": {

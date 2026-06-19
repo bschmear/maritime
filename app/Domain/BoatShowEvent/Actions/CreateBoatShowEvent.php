@@ -4,6 +4,8 @@ namespace App\Domain\BoatShowEvent\Actions;
 
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use App\Domain\BoatShowEvent\Support\BoatShowEventDisplayName;
+use App\Domain\BoatShowEvent\Support\BoatShowEventDuplicator;
+use App\Domain\BoatShowEvent\Support\BoatShowEventYear;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -13,6 +15,8 @@ class CreateBoatShowEvent
 {
     public function __invoke(array $data): array
     {
+        $data = BoatShowEventYear::resolveFromDates($data);
+
         $validated = Validator::make($data, [
             'boat_show_id' => ['required', 'exists:boat_shows,id'],
             'display_name' => ['nullable', 'string', 'max:255'],
@@ -37,6 +41,7 @@ class CreateBoatShowEvent
             'delay_unit' => ['sometimes', 'string', 'in:minutes,hours,days'],
             'recipient_user_ids' => ['nullable', 'array'],
             'recipient_user_ids.*' => ['integer', 'exists:users,id'],
+            'duplicate_from_event_id' => ['nullable', 'integer', 'exists:boat_show_events,id'],
             'email_template_id' => ['nullable', 'integer', 'exists:email_templates,id'],
         ])->validate();
 
@@ -53,8 +58,20 @@ class CreateBoatShowEvent
         $validated['display_name'] = BoatShowEventDisplayName::resolve($validated);
         unset($validated['use_custom_display_name']);
 
+        $duplicateFromId = isset($validated['duplicate_from_event_id'])
+            ? (int) $validated['duplicate_from_event_id']
+            : null;
+        unset($validated['duplicate_from_event_id']);
+
         try {
             $record = RecordModel::query()->create($validated);
+
+            if ($duplicateFromId) {
+                $source = RecordModel::query()->find($duplicateFromId);
+                if ($source && (int) $source->boat_show_id === (int) $record->boat_show_id) {
+                    BoatShowEventDuplicator::copyRelations($source, $record);
+                }
+            }
 
             return [
                 'success' => true,

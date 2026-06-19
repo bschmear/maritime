@@ -6,10 +6,11 @@ use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountConsignmentController;
 use App\Http\Controllers\Tenant\AccountController;
-use App\Http\Controllers\Tenant\AccountSetupController;
 use App\Http\Controllers\Tenant\AccountDeliveryManagementController;
+use App\Http\Controllers\Tenant\AccountSetupController;
 use App\Http\Controllers\Tenant\AccountSmsNotificationsController;
 use App\Http\Controllers\Tenant\AddOnController;
+use App\Http\Controllers\Tenant\AiInboxController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetOptionController;
 use App\Http\Controllers\Tenant\AssetSpecController;
@@ -31,8 +32,8 @@ use App\Http\Controllers\Tenant\DashboardController;
 use App\Http\Controllers\Tenant\DeliveryChecklistController;
 use App\Http\Controllers\Tenant\DeliveryChecklistTemplateController;
 use App\Http\Controllers\Tenant\DeliveryController;
-use App\Http\Controllers\Tenant\DeliveryRequestController;
 use App\Http\Controllers\Tenant\DeliveryLocationController;
+use App\Http\Controllers\Tenant\DeliveryRequestController;
 use App\Http\Controllers\Tenant\DocumentController;
 use App\Http\Controllers\Tenant\DocumentRequestController;
 use App\Http\Controllers\Tenant\EstimateController;
@@ -576,6 +577,7 @@ Route::middleware([
         });
 
         Route::prefix('boat-shows')->name('boat-shows.')->group(function () {
+            Route::get('calendar-events', [BoatShowController::class, 'calendarEvents'])->name('calendar-events');
             Route::resource('/', BoatShowController::class)
                 ->parameters(['' => 'boatShow']);
 
@@ -732,6 +734,10 @@ Route::middleware([
             Route::post('/consignment/policies/reorder', [AccountConsignmentController::class, 'reorderPolicies'])->name('consignment.policies.reorder');
             Route::get('/notifications/sms', [AccountSmsNotificationsController::class, 'index'])->name('notifications.sms.index');
             Route::patch('/notifications/sms', [AccountSmsNotificationsController::class, 'update'])->name('notifications.sms.update');
+            Route::get('/ai-inbox', [AiInboxController::class, 'index'])->name('ai-inbox.index');
+            Route::post('/ai-inbox', [AiInboxController::class, 'store'])->name('ai-inbox.store');
+            Route::patch('/ai-inbox/{emailRoute}', [AiInboxController::class, 'update'])->name('ai-inbox.update');
+            Route::delete('/ai-inbox/{emailRoute}', [AiInboxController::class, 'destroy'])->name('ai-inbox.destroy');
             Route::get('/delivery-management', [AccountDeliveryManagementController::class, 'index'])->name('delivery-management.index');
             Route::patch('/delivery-management', [AccountDeliveryManagementController::class, 'update'])->name('delivery-management.update');
             Route::get('/payments/stripe-info', [PaymentConfigurationController::class, 'stripeInformation'])->name('payments.stripe-info');

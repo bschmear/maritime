@@ -121,6 +121,20 @@ const budgetDisplay = computed(() => {
     return enumLabel('budget_range');
 });
 
+const displayLeadScore = computed(() => {
+    const latest = props.record?.latest_score;
+    if (latest != null && latest !== '') {
+        return latest;
+    }
+
+    const legacy = props.record?.lead_score;
+    if (legacy != null && legacy !== '') {
+        return legacy;
+    }
+
+    return null;
+});
+
 const confirmDelete = () => {
     isDeleting.value = true;
     router.delete(route(`${props.recordType}.destroy`, props.record.id), {
@@ -305,7 +319,7 @@ const convertToCustomer = () => {
                     <div class="px-5 py-4">
                         <p class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Lead score</p>
                         <p class="text-lg font-bold text-gray-900 dark:text-white mt-0.5">
-                            {{ record.lead_score != null ? record.lead_score : '—' }}
+                            {{ displayLeadScore ?? '—' }}
                         </p>
                     </div>
                     <div class="px-5 py-4">

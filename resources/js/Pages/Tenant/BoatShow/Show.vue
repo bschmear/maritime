@@ -48,6 +48,9 @@ const locationLine = (ev) =>
 
 const eventShowHref = (ev) =>
     route('boat-shows.events.show', { boatShow: showKey.value, event: ev.id });
+
+const eventDuplicateHref = (ev) =>
+    route('boat-shows.events.create', { boatShow: showKey.value, duplicate: ev.id });
 </script>
 
 <template>
@@ -148,7 +151,7 @@ const eventShowHref = (ev) =>
                                         <th class="px-6 py-3 font-semibold">Year</th>
                                         <th class="px-6 py-3 font-semibold">Dates</th>
                                         <th class="px-6 py-3 font-semibold">Location</th>
-                                        <th class="px-6 py-3 font-semibold w-24"></th>
+                                        <th class="px-6 py-3 font-semibold w-40"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -169,13 +172,21 @@ const eventShowHref = (ev) =>
                                         <td class="px-6 py-4">{{ ev.year }}</td>
                                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ formatEventRange(ev) }}</td>
                                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ locationLine(ev) }}</td>
-                                        <td class="px-6 py-4">
-                                            <Link
-                                                :href="eventShowHref(ev)"
-                                                class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-sm font-medium"
-                                            >
-                                                View
-                                            </Link>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center gap-3">
+                                                <Link
+                                                    :href="eventShowHref(ev)"
+                                                    class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-sm font-medium"
+                                                >
+                                                    View
+                                                </Link>
+                                                <Link
+                                                    :href="eventDuplicateHref(ev)"
+                                                    class="text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-sm font-medium"
+                                                >
+                                                    Duplicate
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                     <tr v-if="!upcomingEvents.length">
@@ -206,7 +217,7 @@ const eventShowHref = (ev) =>
                                         <th class="px-6 py-3 font-semibold">Year</th>
                                         <th class="px-6 py-3 font-semibold">Dates</th>
                                         <th class="px-6 py-3 font-semibold">Location</th>
-                                        <th class="px-6 py-3 font-semibold w-24"></th>
+                                        <th class="px-6 py-3 font-semibold w-40"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -221,13 +232,21 @@ const eventShowHref = (ev) =>
                                         <td class="px-6 py-4">{{ ev.year }}</td>
                                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ formatEventRange(ev) }}</td>
                                         <td class="px-6 py-4 text-gray-600 dark:text-gray-300">{{ locationLine(ev) }}</td>
-                                        <td class="px-6 py-4">
-                                            <Link
-                                                :href="eventShowHref(ev)"
-                                                class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-sm font-medium"
-                                            >
-                                                View
-                                            </Link>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center gap-3">
+                                                <Link
+                                                    :href="eventShowHref(ev)"
+                                                    class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-sm font-medium"
+                                                >
+                                                    View
+                                                </Link>
+                                                <Link
+                                                    :href="eventDuplicateHref(ev)"
+                                                    class="text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white text-sm font-medium"
+                                                >
+                                                    Duplicate
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                     <tr v-if="!pastEvents.length">

@@ -4,6 +4,7 @@ namespace App\Domain\BoatShowEvent\Actions;
 
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use App\Domain\BoatShowEvent\Support\BoatShowEventDisplayName;
+use App\Domain\BoatShowEvent\Support\BoatShowEventYear;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -13,6 +14,8 @@ class UpdateBoatShowEvent
 {
     public function __invoke(int $id, array $data): array
     {
+        $data = BoatShowEventYear::resolveFromDates($data);
+
         $validated = Validator::make($data, [
             'boat_show_id' => ['sometimes', 'required', 'exists:boat_shows,id'],
             'display_name' => ['nullable', 'string', 'max:255'],

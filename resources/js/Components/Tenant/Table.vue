@@ -10,6 +10,8 @@ import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 import { DEFAULT_TABLE_PER_PAGE } from '@/Utils/tablePagination.js';
+import { buildJoinedColumnSegments, formatJoinedColumnDisplay, isJoinedColumnFormat } from '@/Utils/formatJoinedColumn.js';
+import { formatPhoneNumber } from '@/Utils/formatPhoneNumber.js';
 
 const emit = defineEmits(['selection-change']);
 
@@ -171,13 +173,7 @@ const getColorClass = (color) => {
 };
 
 // ── Formatters ────────────────────────────────────────────────────────────────
-const formatPhoneNumber = (v) => {
-    if (!v) return '';
-    const n = v.replace(/\D/g, '');
-    if (n.length <= 3) return n;
-    if (n.length <= 6) return `(${n.slice(0,3)}) ${n.slice(3)}`;
-    return `(${n.slice(0,3)}) ${n.slice(3,6)}-${n.slice(6,10)}`;
-};
+const formatPhoneNumberLocal = (v) => formatPhoneNumber(v);
 
 const formatDate = (v) => {
     if (!v) return '—';
@@ -199,13 +195,18 @@ const formatDateTime = (v) => {
 
 const getRecordValue = (record, column) => {
     const key = typeof column === 'string' ? column : column.key;
+
+    if (isJoinedColumnFormat(column)) {
+        return formatJoinedColumnDisplay(record, column, props.fieldsSchema);
+    }
+
     const raw = record[key] ?? '';
     if (raw === '' || raw === null || raw === undefined) return '—';
     const fd = props.fieldsSchema[key];
     if (fd?.enum && raw !== '') return getEnumLabel(key, raw);
     if (fd) {
         const t = fd.type || 'text';
-        if (t === 'tel')      return formatPhoneNumber(raw);
+        if (t === 'tel')      return formatPhoneNumberLocal(raw);
         if (t === 'date')     return formatDate(raw);
         if (t === 'datetime') return formatDateTime(raw);
         if (t === 'rating')   return `${raw || 0}/5`;
@@ -1500,6 +1501,32 @@ defineExpose({
                                               class="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900/40 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-200">Vendor</span>
                                         <span v-if="!record.contact_roles?.lead && !record.contact_roles?.customer && !record.contact_roles?.vendor"
                                               class="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                                    </div>
+                                </template>
+                                <!-- Joined column (e.g. phone + mobile with icons) -->
+                                <template v-else-if="isJoinedColumnFormat(col)">
+                                    <div
+                                        v-for="joined in [buildJoinedColumnSegments(record, col, props.fieldsSchema)]"
+                                        :key="col.key"
+                                        class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm"
+                                    >
+                                        <template v-if="joined.isEmpty">
+                                            <span>—</span>
+                                        </template>
+                                        <span
+                                            v-for="(seg, segIdx) in joined.segments"
+                                            :key="`${seg.key}-${segIdx}`"
+                                            class="inline-flex items-center gap-1"
+                                            :title="seg.title || undefined"
+                                        >
+                                            <span
+                                                v-if="seg.icon"
+                                                class="material-icons text-[15px] leading-none text-gray-400 dark:text-gray-500"
+                                                aria-hidden="true"
+                                            >{{ seg.icon }}</span>
+                                            <span v-else-if="seg.label" class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ seg.label }}</span>
+                                            <span>{{ seg.text }}</span>
+                                        </span>
                                     </div>
                                 </template>
                                 <!-- Enum with color dot -->

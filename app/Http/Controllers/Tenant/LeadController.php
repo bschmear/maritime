@@ -59,6 +59,53 @@ class LeadController extends BaseController
         return is_array($unwrapped) ? $unwrapped : [];
     }
 
+    /**
+     * @param  array<string, mixed>  $relationships
+     * @param  array<string, mixed>  $fieldsSchema
+     */
+    protected function applyLeadRecordRelationshipSelects(array &$relationships, array $fieldsSchema): void
+    {
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (! isset($fieldDef['type'], $fieldDef['typeDomain']) || $fieldDef['type'] !== 'record') {
+                continue;
+            }
+
+            $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
+
+            if ($fieldDef['typeDomain'] === 'Qualification') {
+                $relationships[$relationshipName] = function ($query) {
+                    $query->select(['id', 'sequence']);
+                };
+
+                continue;
+            }
+
+            if ($fieldDef['typeDomain'] === 'Customer') {
+                $relationships[$relationshipName] = Customer::eagerWithContactSelect();
+
+                continue;
+            }
+
+            if ($fieldDef['typeDomain'] === 'Contact') {
+                $relationships[$relationshipName] = Lead::eagerContactSelect();
+
+                continue;
+            }
+
+            $selectFields = ['id', 'display_name'];
+            if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
+                $selectFields[] = $fieldDef['displayField'];
+            }
+            $selectFields = array_unique($selectFields);
+
+            if (! isset($relationships[$relationshipName])) {
+                $relationships[$relationshipName] = function ($query) use ($selectFields) {
+                    $query->select($selectFields);
+                };
+            }
+        }
+    }
+
     protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
     {
         return [
@@ -87,36 +134,7 @@ class LeadController extends BaseController
         $enumOptions = $this->getEnumOptions();
 
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                $selectFields = ['id'];
-
-                if ($fieldDef['typeDomain'] === 'Qualification') {
-                    $selectFields = ['id', 'sequence'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
-                    $relationships[$relationshipName] = Customer::eagerWithContactSelect();
-                } else {
-                    $selectFields[] = 'display_name';
-                }
-
-                if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
-                    $selectFields[] = $fieldDef['displayField'];
-                }
-
-                $selectFields = array_unique($selectFields);
-
-                if (! isset($relationships[$relationshipName])) {
-                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                        $query->select($selectFields);
-                    };
-                }
-            }
-        }
+        $this->applyLeadRecordRelationshipSelects($relationships, $fieldsSchema);
 
         $table = $this->recordModel->getTable();
         $query = Lead::query()->with($relationships)
@@ -264,31 +282,7 @@ class LeadController extends BaseController
             if ($result['success']) {
                 if ($request->ajax() && ! $request->header('X-Inertia')) {
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-                    foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-                        if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                            $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                            $selectFields = ['id'];
-                            if ($fieldDef['typeDomain'] === 'Qualification') {
-                                $selectFields = ['id', 'sequence'];
-                                $relationships[$relationshipName] = function ($query) {
-                                    $query->select(['id', 'sequence']);
-                                };
-                            } elseif ($fieldDef['typeDomain'] === 'Customer') {
-                                $relationships[$relationshipName] = Customer::eagerWithContactSelect();
-                            } else {
-                                $selectFields[] = 'display_name';
-                            }
-                            if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
-                                $selectFields[] = $fieldDef['displayField'];
-                            }
-                            $selectFields = array_unique($selectFields);
-                            if (! isset($relationships[$relationshipName])) {
-                                $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                                    $query->select($selectFields);
-                                };
-                            }
-                        }
-                    }
+                    $this->applyLeadRecordRelationshipSelects($relationships, $fieldsSchema);
                     $record = Lead::with($relationships)->find($result['record']->id);
 
                     return response()->json([
@@ -335,25 +329,7 @@ class LeadController extends BaseController
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                $selectFields = ['id', 'display_name'];
-                if ($fieldDef['typeDomain'] === 'Qualification') {
-                    $selectFields = ['id', 'sequence'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
-                    $relationships[$relationshipName] = Customer::eagerWithContactSelect();
-                } elseif (! isset($relationships[$relationshipName])) {
-                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                        $query->select($selectFields);
-                    };
-                }
-            }
-        }
+        $this->applyLeadRecordRelationshipSelects($relationships, $fieldsSchema);
 
         $formSchema = $this->getFormSchema();
 
@@ -424,32 +400,7 @@ class LeadController extends BaseController
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                $selectFields = ['id'];
-                if ($fieldDef['typeDomain'] === 'Qualification') {
-                    $selectFields = ['id', 'sequence'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
-                    $relationships[$relationshipName] = Customer::eagerWithContactSelect();
-                } else {
-                    $selectFields[] = 'display_name';
-                }
-                if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
-                    $selectFields[] = $fieldDef['displayField'];
-                }
-                $selectFields = array_unique($selectFields);
-                if (! isset($relationships[$relationshipName])) {
-                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                        $query->select($selectFields);
-                    };
-                }
-            }
-        }
+        $this->applyLeadRecordRelationshipSelects($relationships, $fieldsSchema);
 
         $formSchema = $this->getFormSchema();
 
@@ -558,31 +509,7 @@ class LeadController extends BaseController
             if ($result['success']) {
                 if ($request->ajax() && ! $request->header('X-Inertia')) {
                     $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-                    foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-                        if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                            $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                            $selectFields = ['id'];
-                            if ($fieldDef['typeDomain'] === 'Qualification') {
-                                $selectFields = ['id', 'sequence'];
-                                $relationships[$relationshipName] = function ($query) {
-                                    $query->select(['id', 'sequence']);
-                                };
-                            } elseif ($fieldDef['typeDomain'] === 'Customer') {
-                                $relationships[$relationshipName] = Customer::eagerWithContactSelect();
-                            } else {
-                                $selectFields[] = 'display_name';
-                            }
-                            if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
-                                $selectFields[] = $fieldDef['displayField'];
-                            }
-                            $selectFields = array_unique($selectFields);
-                            if (! isset($relationships[$relationshipName])) {
-                                $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                                    $query->select($selectFields);
-                                };
-                            }
-                        }
-                    }
+                    $this->applyLeadRecordRelationshipSelects($relationships, $fieldsSchema);
                     $record = Lead::with($relationships)->find($id);
 
                     return response()->json([

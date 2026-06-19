@@ -3,7 +3,7 @@ import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import { Link } from '@inertiajs/vue3';
-import { computed, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 
 function parseLocalDate(ymd) {
     if (!ymd || typeof ymd !== 'string' || ymd.length < 10) {
@@ -81,13 +81,34 @@ const boatShowEnumOptions = computed(() =>
     })),
 );
 
+function yearFromDate(ymd) {
+    const date = parseLocalDate(ymd);
+
+    return date ? date.getFullYear() : null;
+}
+
+function syncYearFromDates() {
+    const startYear = yearFromDate(props.form.starts_at);
+    const endYear = yearFromDate(props.form.ends_at);
+
+    if (startYear !== null) {
+        props.form.year = startYear;
+    } else if (endYear !== null) {
+        props.form.year = endYear;
+    } else {
+        props.form.year = '';
+    }
+}
+
 watch(
     () => props.form.starts_at,
     (start) => {
         if (!start) {
             props.form.ends_at = '';
+            syncYearFromDates();
             return;
         }
+        syncYearFromDates();
         props.form.ends_at = sundayOnOrAfterStart(start);
     },
 );
@@ -97,11 +118,16 @@ watch(
     (end) => {
         const start = props.form.starts_at;
         if (!end || !start || end >= start) {
+            syncYearFromDates();
             return;
         }
         props.form.ends_at = start;
     },
 );
+
+onMounted(() => {
+    syncYearFromDates();
+});
 
 function isRecipientSelected(userId) {
     const id = Number(userId);
@@ -266,34 +292,21 @@ const effectiveDisplayName = computed(() =>
                     </p>
                 </div>
 
-                <div class="sm:col-span-4">
-                    <label for="year" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">
-                        Year <span class="text-red-500">*</span>
-                    </label>
-                    <input
-                        id="year"
-                        v-model.number="form.year"
-                        type="number"
-                        required
-                        min="2000"
-                        max="2100"
-                        step="1"
-                        class="input-style w-full"
-                    />
+                <div class="sm:col-span-6">
+                    <label for="starts_at" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Starts</label>
+                    <DateInput id="starts_at" v-model="form.starts_at" />
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Year is set automatically from the start date.
+                    </p>
+                    <p v-if="fieldError('starts_at')" class="mt-2 text-sm text-red-600 dark:text-red-500">
+                        {{ fieldError('starts_at') }}
+                    </p>
                     <p v-if="fieldError('year')" class="mt-2 text-sm text-red-600 dark:text-red-500">
                         {{ fieldError('year') }}
                     </p>
                 </div>
 
-                <div class="sm:col-span-4">
-                    <label for="starts_at" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Starts</label>
-                    <DateInput id="starts_at" v-model="form.starts_at" />
-                    <p v-if="fieldError('starts_at')" class="mt-2 text-sm text-red-600 dark:text-red-500">
-                        {{ fieldError('starts_at') }}
-                    </p>
-                </div>
-
-                <div class="sm:col-span-4">
+                <div class="sm:col-span-6">
                     <label for="ends_at" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Ends</label>
                     <DateInput id="ends_at" v-model="form.ends_at" :min="form.starts_at || ''" />
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
