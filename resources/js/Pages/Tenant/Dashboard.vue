@@ -7,7 +7,7 @@ import OperationsWidget from '@/Components/Tenant/Dashboard/OperationsWidget.vue
 import ActivityFeedWidget from '@/Components/Tenant/Dashboard/ActivityFeedWidget.vue';
 import DashboardFilterBar from '@/Components/Tenant/Dashboard/DashboardFilterBar.vue';
 import OnboardingWizard from '@/Components/Tenant/Onboarding/OnboardingWizard.vue';
-import { Head, usePage } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -61,6 +61,8 @@ const todayLabel = computed(() =>
 
 const hero = computed(() => props.dashboard?.revenue?.paymentDashboard?.hero ?? {});
 const pipelineValue = computed(() => props.dashboard?.revenue?.pipeline_value ?? 0);
+const activeLeadsCount = computed(() => props.dashboard?.revenue?.active_leads_count ?? 0);
+const leadsHref = computed(() => props.dashboard?.revenue?.leads_href ?? route('leads.index'));
 
 function formatCurrency(value) {
     if (value == null || value === '') return '—';
@@ -96,7 +98,7 @@ function formatCurrency(value) {
         </template>
 
         <div class="mx-auto w-full min-w-0 max-w-full space-y-6 overflow-x-hidden px-4 py-6">
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 <div class="rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Collected (MTD)
@@ -142,6 +144,23 @@ function formatCurrency(value) {
                     </div>
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Estimated active opportunity value</p>
                 </div>
+                <Link
+                    :href="leadsHref"
+                    class="rounded-xl border border-blue-200/80 bg-blue-50/50 p-5 shadow-sm transition-colors hover:bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20 dark:hover:bg-blue-950/30"
+                >
+                    <div class="text-sm font-semibold uppercase tracking-wide text-blue-800/90 dark:text-blue-200/80">
+                        Active leads
+                    </div>
+                    <div class="mt-2 text-2xl font-bold text-gray-900 dark:text-white tabular-nums">
+                        {{ activeLeadsCount }}
+                    </div>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Open, contacted &amp; qualified
+                    </p>
+                    <p class="mt-2 text-sm font-medium text-primary-600 dark:text-primary-400">
+                        View leads dashboard
+                    </p>
+                </Link>
             </div>
 
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

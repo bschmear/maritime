@@ -1,6 +1,6 @@
 {
   "settings": {
-    "max_width": "full"
+    "max_width": "4xl"
   },
   "form": {
     "details": {
@@ -27,11 +27,11 @@
           "required": false
         },
         {
-          "key": "phone",
+          "key": "mobile",
           "required": false
         },
         {
-          "key": "mobile",
+          "key": "phone",
           "required": false
         },
         {

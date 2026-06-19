@@ -17,6 +17,7 @@ use App\Enums\Tasks\Priority as TaskPriority;
 use App\Enums\Tasks\Status as TaskStatus;
 use App\Models\AccountSettings;
 use App\Support\Dashboard\DashboardFilters;
+use App\Support\Tenant\LeadPipelineCountCache;
 use App\Tenancy\CurrentTenantProfile;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -196,6 +197,8 @@ class TenantDashboardDataService
 
         $activityItems = $this->mergeActivityFeed($activityNotifications, $activityPayments, $activityFetchCap);
 
+        $activeLeadsCount = LeadPipelineCountCache::get();
+
         return [
             'actionCenter' => [
                 'tasks' => $tasks->map(function (Task $t) use ($now) {
@@ -283,6 +286,8 @@ class TenantDashboardDataService
             'revenue' => [
                 'paymentDashboard' => $paymentDashboard,
                 'pipeline_value' => $pipelineValue,
+                'active_leads_count' => $activeLeadsCount,
+                'leads_href' => $this->safeRoute('leads.index'),
                 'recentPayments' => $recentPayments->map(fn (Payment $p) => [
                     'id' => $p->id,
                     'label' => 'Payment #'.$p->sequence,

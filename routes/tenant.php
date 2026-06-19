@@ -51,6 +51,7 @@ use App\Http\Controllers\Tenant\InventoryUnitController;
 use App\Http\Controllers\Tenant\InvoiceController;
 use App\Http\Controllers\Tenant\LeadController;
 use App\Http\Controllers\Tenant\LocationController;
+use App\Http\Controllers\Tenant\LocationLayoutController;
 use App\Http\Controllers\Tenant\MaintenanceTypeController;
 use App\Http\Controllers\Tenant\MsoController;
 use App\Http\Controllers\Tenant\MsoRecordController;
@@ -653,6 +654,10 @@ Route::middleware([
         Route::get('asset/units', [AssetUnitController::class, 'unitsIndex'])->name('asset.units.index');
 
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
+            Route::patch('{assetunit}/transfer-location', [AssetUnitController::class, 'transferLocation'])
+                ->name('transfer-location');
+            Route::patch('{assetunit}/layout-footprint', [AssetUnitController::class, 'updateLayoutFootprint'])
+                ->name('layout-footprint');
             Route::post('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'storeNested'])
                 ->name('consignment-agreement.store');
             Route::put('{assetunit}/consignment-agreement', [ConsignmentAgreementController::class, 'updateNested'])
@@ -705,6 +710,15 @@ Route::middleware([
 
         Route::prefix('locations')->name('locations.')->group(function () {
             Route::resource('/', LocationController::class)->parameters(['' => 'location']);
+
+            Route::post('{location}/layouts', [LocationLayoutController::class, 'store'])->name('layouts.store');
+            Route::put('{location}/layouts/{layout}', [LocationLayoutController::class, 'update'])->name('layouts.update');
+            Route::delete('{location}/layouts/{layout}', [LocationLayoutController::class, 'destroy'])->name('layouts.destroy');
+            Route::put('{location}/layouts/{layout}/sync', [LocationLayoutController::class, 'syncLayout'])->name('layouts.sync');
+            Route::post('{location}/layouts/{layout}/units', [LocationLayoutController::class, 'storeUnit'])->name('layouts.units.store');
+            Route::delete('{location}/layouts/{layout}/units/{placement}', [LocationLayoutController::class, 'destroyUnit'])->name('layouts.units.destroy');
+            Route::get('{location}/layouts/{layout}/picker-units', [LocationLayoutController::class, 'pickerUnits'])->name('layouts.picker-units');
+            Route::get('{location}/layouts/{layout}/print', [LocationLayoutController::class, 'printLayout'])->name('layouts.print');
         });
 
         Route::prefix('maintenance-types')->name('maintenance-types.')->group(function () {

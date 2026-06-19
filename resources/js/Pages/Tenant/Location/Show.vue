@@ -3,9 +3,17 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import Modal from '@/Components/Modal.vue';
+import LayoutBuilder from '@/Components/Tenant/LayoutBuilder.vue';
+import LocationLayoutUnitPickerModal from '@/Components/Tenant/LocationLayoutUnitPickerModal.vue';
 import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
+import axios from 'axios';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, getCurrentInstance, onUnmounted, ref, watch } from 'vue';
+
+const appInstance = getCurrentInstance();
+function toast(type, message) {
+    appInstance?.appContext.config.globalProperties.$toast?.(type, message);
+}
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -19,7 +27,21 @@ const props = defineProps({
     effectiveDeliveryApprover: { type: Object, default: null },
     pendingDeliveryRequestCount: { type: Number, default: 0 },
     canManageDeliveryApprovers: { type: Boolean, default: false },
+    layouts: { type: Array, default: () => [] },
+    activeLayoutId: { type: Number, default: null },
+    layoutSpace: { type: Object, default: () => ({ width_ft: 60, height_ft: 40 }) },
+    layoutUnits: { type: Array, default: () => [] },
+    unitStatusOptions: { type: Array, default: () => [] },
+    defaultUnitStatusFilter: { type: Array, default: () => [1, 4, 6, 5] },
 });
+
+const urlTab = new URLSearchParams(window.location.search).get('tab');
+const activeTab = ref(urlTab === 'floor_plans' ? 'floor_plans' : 'overview');
+
+const tabs = [
+    { key: 'overview', label: 'Overview', icon: 'info' },
+    { key: 'floor_plans', label: 'Floor plans', icon: 'grid_view' },
+];
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
@@ -137,6 +159,170 @@ const confirmDelete = () => {
     },
 });
 };
+
+// ── Floor plans ───────────────────────────────────────────────────
+const LAYOUT_AUTO_SAVE_DELAY_MS = 1500;
+const LAYOUT_AUTO_SAVE_KEY = 'layoutBuilderAutoSave';
+
+const layoutAutoSave = ref(
+    typeof window !== 'undefined' ? localStorage.getItem(LAYOUT_AUTO_SAVE_KEY) !== '0' : true,
+);
+const selectedLayoutId = ref(props.activeLayoutId);
+const layoutSavePending = ref(false);
+const layoutSavedFlash = ref(false);
+const unitPickerOpen = ref(false);
+const newLayoutName = ref('');
+const showNewLayoutForm = ref(false);
+let layoutPersistTimer = null;
+let layoutSavedFlashTimer = null;
+
+watch(layoutAutoSave, (enabled) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(LAYOUT_AUTO_SAVE_KEY, enabled ? '1' : '0');
+    }
+});
+
+const layoutItemsForBuilder = computed(() => props.layoutUnits ?? []);
+
+const layoutAttachConfig = computed(() => ({}));
+
+const layoutSyncUrl = computed(() => {
+    if (!selectedLayoutId.value) return null;
+    return route('locations.layouts.sync', {
+        location: props.record.id,
+        layout: selectedLayoutId.value,
+    });
+});
+
+const printLayoutHref = computed(() => {
+    if (!selectedLayoutId.value) {
+        return '#';
+    }
+
+    return route('locations.layouts.print', {
+        location: props.record.id,
+        layout: selectedLayoutId.value,
+    });
+});
+
+const layoutUnitStoreUrl = computed(() => {
+    if (!selectedLayoutId.value) return null;
+    return route('locations.layouts.units.store', {
+        location: props.record.id,
+        layout: selectedLayoutId.value,
+    });
+});
+
+const layoutPickerUrl = computed(() => {
+    if (!selectedLayoutId.value) return null;
+    return route('locations.layouts.picker-units', {
+        location: props.record.id,
+        layout: selectedLayoutId.value,
+    });
+});
+
+function switchLayout(layoutId) {
+    selectedLayoutId.value = layoutId;
+    router.get(
+        route('locations.show', props.record.id),
+        { layout: layoutId, tab: 'floor_plans' },
+        { preserveState: false, preserveScroll: true },
+    );
+}
+
+async function createLayout() {
+    const name = newLayoutName.value.trim();
+    if (!name) return;
+    try {
+        const response = await axios.post(
+            route('locations.layouts.store', props.record.id),
+            { name },
+            { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+        );
+        showNewLayoutForm.value = false;
+        newLayoutName.value = '';
+        const id = response.data.layout?.id;
+        if (id) {
+            switchLayout(id);
+        } else {
+            router.reload({ only: ['layouts', 'activeLayoutId', 'layoutSpace', 'layoutUnits'] });
+        }
+        toast('success', 'Layout created');
+    } catch (e) {
+        toast('error', e.response?.data?.message ?? 'Could not create layout.');
+    }
+}
+
+async function deleteLayout(layout) {
+    if (!confirm(`Delete floor plan "${layout.name}"?`)) return;
+    try {
+        await axios.delete(
+            route('locations.layouts.destroy', { location: props.record.id, layout: layout.id }),
+            { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } },
+        );
+        toast('success', 'Layout deleted');
+        router.reload({ only: ['layouts', 'activeLayoutId', 'layoutSpace', 'layoutUnits'] });
+    } catch (e) {
+        toast('error', e.response?.data?.message ?? 'Could not delete layout.');
+    }
+}
+
+async function persistLocationLayout(payload, { showToast = false, reloadAfter = false } = {}) {
+    if (!layoutSyncUrl.value || !payload) return;
+    layoutSavePending.value = true;
+    try {
+        await axios.put(layoutSyncUrl.value, payload, {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (reloadAfter) {
+            await router.reload({ only: ['layoutSpace', 'layoutUnits'] });
+        }
+        if (showToast) {
+            toast('success', 'Floor plan saved');
+        } else {
+            layoutSavedFlash.value = true;
+            clearTimeout(layoutSavedFlashTimer);
+            layoutSavedFlashTimer = setTimeout(() => {
+                layoutSavedFlash.value = false;
+            }, 2000);
+        }
+    } catch (e) {
+        const msg =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Could not save floor plan.';
+        toast('error', msg);
+    } finally {
+        layoutSavePending.value = false;
+    }
+}
+
+function onLayoutChange(payload) {
+    if (!layoutAutoSave.value) {
+        return;
+    }
+    clearTimeout(layoutPersistTimer);
+    layoutPersistTimer = setTimeout(
+        () => persistLocationLayout(payload, { showToast: false, reloadAfter: false }),
+        LAYOUT_AUTO_SAVE_DELAY_MS,
+    );
+}
+
+async function onLayoutSave(payload) {
+    clearTimeout(layoutPersistTimer);
+    await persistLocationLayout(payload, { showToast: true, reloadAfter: true });
+}
+
+async function onLayoutUnitAttached() {
+    await router.reload({ only: ['layoutUnits'] });
+    unitPickerOpen.value = false;
+    toast('success', 'Unit added to floor plan');
+}
+
+onUnmounted(() => {
+    clearTimeout(layoutPersistTimer);
+    clearTimeout(layoutSavedFlashTimer);
+});
 </script>
 
 <template>
@@ -195,8 +381,140 @@ const confirmDelete = () => {
         </template>
 
         <div class="w-full space-y-4 p-4">
+            <!-- Tab bar -->
+            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <div class="flex items-center gap-1 overflow-x-auto border-b border-gray-100 px-2 dark:border-gray-700">
+                    <button
+                        v-for="tab in tabs"
+                        :key="tab.key"
+                        type="button"
+                        class="flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-3.5 text-sm font-medium transition-colors"
+                        :class="activeTab === tab.key
+                            ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400'
+                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+                        @click="activeTab = tab.key"
+                    >
+                        <span class="material-icons text-[17px]">{{ tab.icon }}</span>
+                        {{ tab.label }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- Floor plans tab -->
+            <div v-show="activeTab === 'floor_plans'" class="relative space-y-3">
+                <div class="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <span class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Layout</span>
+                    <div class="flex flex-wrap gap-1.5">
+                        <button
+                            v-for="layout in layouts"
+                            :key="layout.id"
+                            type="button"
+                            class="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"
+                            :class="selectedLayoutId === layout.id
+                                ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                                : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200'"
+                            @click="switchLayout(layout.id)"
+                        >
+                            {{ layout.name || `Layout #${layout.id}` }}
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
+                        @click="showNewLayoutForm = !showNewLayoutForm"
+                    >
+                        <span class="material-icons text-[14px]">add</span>
+                        New layout
+                    </button>
+                    <button
+                        v-if="layouts.length > 1 && selectedLayoutId"
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400"
+                        @click="deleteLayout(layouts.find((l) => l.id === selectedLayoutId))"
+                    >
+                        <span class="material-icons text-[14px]">delete_outline</span>
+                        Delete layout
+                    </button>
+                    <a
+                        v-if="selectedLayoutId"
+                        :href="printLayoutHref"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                        <span class="material-icons text-base leading-none">print</span>
+                        Print layout
+                    </a>
+                </div>
+
+                <div
+                    v-if="showNewLayoutForm"
+                    class="flex flex-wrap items-end gap-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                >
+                    <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-500">Layout name</label>
+                        <input
+                            v-model="newLayoutName"
+                            type="text"
+                            placeholder="e.g. Main warehouse"
+                            class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            @keydown.enter="createLayout"
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        @click="createLayout"
+                    >
+                        Create
+                    </button>
+                </div>
+
+                <LayoutBuilder
+                    v-if="selectedLayoutId"
+                    v-model:auto-save="layoutAutoSave"
+                    item-link-field="placement_id"
+                    :initial-layout-items="layoutItemsForBuilder"
+                    :layout-space="layoutSpace"
+                    :attach-asset-config="layoutAttachConfig"
+                    :unit-store-url="layoutUnitStoreUrl"
+                    @request-attach-asset="unitPickerOpen = true"
+                    @save="onLayoutSave"
+                    @change="onLayoutChange"
+                />
+
+                <div
+                    v-if="layoutSavePending"
+                    class="pointer-events-none absolute top-3 right-4 z-20 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-md dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                    role="status"
+                >
+                    <span class="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                    Saving floor plan…
+                </div>
+                <div
+                    v-else-if="layoutSavedFlash"
+                    class="pointer-events-none absolute top-3 right-4 z-20 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 shadow-md dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                    role="status"
+                >
+                    <span class="material-icons text-[14px]">check_circle</span>
+                    Floor plan saved
+                </div>
+
+                <LocationLayoutUnitPickerModal
+                    v-if="layoutPickerUrl && layoutUnitStoreUrl"
+                    v-model="unitPickerOpen"
+                    :picker-url="layoutPickerUrl"
+                    :store-url="layoutUnitStoreUrl"
+                    :location-name="locationLabel"
+                    :unit-status-options="unitStatusOptions"
+                    :default-status-filter="defaultUnitStatusFilter"
+                    @attached="onLayoutUnitAttached"
+                />
+            </div>
+
+            <div v-show="activeTab === 'overview'">
             <div
-                class="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 shadow-lg dark:from-primary-700 dark:via-primary-800 dark:to-primary-950"
+                class="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 shadow-lg dark:from-primary-700 dark:via-primary-800 dark:to-primary-950 mb-4 lg:mb-6"
             >
                 <div class="absolute inset-0 opacity-10">
                     <svg viewBox="0 0 1200 300" preserveAspectRatio="none" class="absolute bottom-0 h-full w-full">
@@ -456,6 +774,7 @@ const confirmDelete = () => {
                         </dl>
                     </section>
                 </div>
+            </div>
             </div>
         </div>
 

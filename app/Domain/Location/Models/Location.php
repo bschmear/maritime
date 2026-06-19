@@ -2,7 +2,9 @@
 
 namespace App\Domain\Location\Models;
 
+use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Fleet\Models\Fleet;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\Transaction\Models\Transaction;
 use App\Domain\User\Models\User;
 use App\Models\Concerns\HasDocuments;
@@ -59,7 +61,7 @@ class Location extends Model
     public function subsidiaries()
     {
         return $this->belongsToMany(
-            \App\Domain\Subsidiary\Models\Subsidiary::class,
+            Subsidiary::class,
             'location_subsidiary'
         )->withTimestamps();
     }
@@ -80,5 +82,15 @@ class Location extends Model
     public function fleets(): HasMany
     {
         return $this->hasMany(Fleet::class, 'location_id');
+    }
+
+    public function layouts(): HasMany
+    {
+        return $this->hasMany(LocationLayout::class);
+    }
+
+    public function assetUnits(): HasMany
+    {
+        return $this->hasMany(AssetUnit::class, 'location_id');
     }
 }

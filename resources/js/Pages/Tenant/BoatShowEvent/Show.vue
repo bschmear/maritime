@@ -335,8 +335,22 @@ async function handleSaveTemplate(payload) {
 }
 
 // ── Layout (persisted on boat_show_event_assets + boat_show_layouts) ──
+const LAYOUT_AUTO_SAVE_DELAY_MS = 1500;
+const LAYOUT_AUTO_SAVE_KEY = 'layoutBuilderAutoSave';
+
+const layoutAutoSave = ref(
+    typeof window !== 'undefined' ? localStorage.getItem(LAYOUT_AUTO_SAVE_KEY) !== '0' : true,
+);
 const layoutSavePending = ref(false);
+const layoutSavedFlash = ref(false);
 let layoutPersistTimer = null;
+let layoutSavedFlashTimer = null;
+
+watch(layoutAutoSave, (enabled) => {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem(LAYOUT_AUTO_SAVE_KEY, enabled ? '1' : '0');
+    }
+});
 
 const eventLayoutSyncUrl = computed(() =>
     isNested.value
@@ -361,6 +375,12 @@ async function persistEventLayout(payload, { showToast = false, reloadAfter = fa
         }
         if (showToast) {
             toast('success', 'Layout saved');
+        } else {
+            layoutSavedFlash.value = true;
+            clearTimeout(layoutSavedFlashTimer);
+            layoutSavedFlashTimer = setTimeout(() => {
+                layoutSavedFlash.value = false;
+            }, 2000);
         }
     } catch (e) {
         const msg =
@@ -374,10 +394,13 @@ async function persistEventLayout(payload, { showToast = false, reloadAfter = fa
 }
 
 function onLayoutChange(payload) {
+    if (!layoutAutoSave.value) {
+        return;
+    }
     clearTimeout(layoutPersistTimer);
     layoutPersistTimer = setTimeout(
         () => persistEventLayout(payload, { showToast: false, reloadAfter: false }),
-        1000,
+        LAYOUT_AUTO_SAVE_DELAY_MS,
     );
 }
 
@@ -388,6 +411,7 @@ async function onLayoutSave(payload) {
 
 onUnmounted(() => {
     clearTimeout(layoutPersistTimer);
+    clearTimeout(layoutSavedFlashTimer);
 });
 
 // ── Event assets (picker + remove) ───────────────────────────────
@@ -425,6 +449,14 @@ function formatBoatLengthFt(boat) {
 
 function formatAssetUnitLabel(row) {
     return row.unit_label ?? row.asset_unit?.unit_label ?? row.asset_unit?.display_name ?? '—';
+}
+
+function assetUnitShowHref(row) {
+    const unitId = row.asset_unit?.id ?? row.asset_unit_id ?? null;
+    if (!unitId) {
+        return null;
+    }
+    return route('assetunits.show', unitId);
 }
 
 async function onEventAssetAttached() {
@@ -861,6 +893,7 @@ async function removeEventAsset(row) {
                                 </a>
                             </div>
                             <LayoutBuilder
+                                v-model:auto-save="layoutAutoSave"
                                 :initial-layout-items="layoutItemsForBuilder"
                                 :layout-space="layoutSpace"
                                 :attach-asset-config="eventAssetAttachConfig"
@@ -879,6 +912,15 @@ async function removeEventAsset(row) {
                                     aria-hidden="true"
                                 />
                                 Saving layout…
+                            </div>
+                            <div
+                                v-else-if="layoutSavedFlash"
+                                class="pointer-events-none absolute top-3 right-4 z-20 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-800 shadow-md dark:border-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                                role="status"
+                                aria-live="polite"
+                            >
+                                <span class="material-icons text-[14px]">check_circle</span>
+                                Layout saved
                             </div>
                         </div>
 
@@ -1046,8 +1088,8 @@ async function removeEventAsset(row) {
                                                     </td>
                                                     <td class="px-4 py-3 text-right whitespace-nowrap">
                                                         <Link
-                                                            v-if="boat.id"
-                                                            :href="route('assets.show', boat.id)"
+                                                            v-if="assetUnitShowHref(boat)"
+                                                            :href="assetUnitShowHref(boat)"
                                                             class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium me-3"
                                                         >
                                                             View
@@ -1109,8 +1151,8 @@ async function removeEventAsset(row) {
                                                     </td>
                                                     <td class="px-4 py-3 text-right whitespace-nowrap">
                                                         <Link
-                                                            v-if="engine.id"
-                                                            :href="route('assets.show', engine.id)"
+                                                            v-if="assetUnitShowHref(engine)"
+                                                            :href="assetUnitShowHref(engine)"
                                                             class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium me-3"
                                                         >
                                                             View
@@ -1172,8 +1214,8 @@ async function removeEventAsset(row) {
                                                     </td>
                                                     <td class="px-4 py-3 text-right whitespace-nowrap">
                                                         <Link
-                                                            v-if="trailer.id"
-                                                            :href="route('assets.show', trailer.id)"
+                                                            v-if="assetUnitShowHref(trailer)"
+                                                            :href="assetUnitShowHref(trailer)"
                                                             class="text-primary-600 hover:text-primary-700 dark:text-primary-400 text-xs font-medium me-3"
                                                         >
                                                             View

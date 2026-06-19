@@ -1,6 +1,8 @@
 <script setup>
 import { useForm, Link } from '@inertiajs/vue3';
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
+import EnumButtonGroup from '@/Components/Tenant/FormComponents/EnumButtonGroup.vue';
+import FormFixedActionBar from '@/Components/Tenant/FormComponents/FormFixedActionBar.vue';
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
@@ -229,7 +231,11 @@ const headerSubtitle = computed(() => {
 
 const selectOptionValue = (_key, opt) => opt.id;
 
-const isFullWidthField = (key) => fieldDef(key).type === 'textarea';
+const isEnumSelectField = (key) => fieldDef(key).type === 'select' && !!fieldDef(key).enum;
+
+const isFullWidthField = (key) => fieldDef(key).type === 'textarea' || isEnumSelectField(key);
+
+const submitLabel = computed(() => (props.mode === 'edit' ? 'Save changes' : 'Create contact'));
 
 const submit = () => {
     if (props.mode === 'view') {
@@ -273,7 +279,7 @@ const handleCancel = () => {
 
 <template>
     <div class="w-full flex flex-col space-y-6">
-        <form @submit.prevent="submit">
+        <form id="contact-form" :class="!isView ? 'pb-28' : ''" @submit.prevent="submit">
             <div class="w-full">
                 <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div
@@ -399,6 +405,27 @@ const handleCancel = () => {
                                             </div>
 
                                             <!-- enum select -->
+                                            <div v-else-if="isEnumSelectField(field.key)" class="md:col-span-2">
+                                                <label
+                                                    :for="`contact-${field.key}`"
+                                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                                                >
+                                                    {{ fieldDef(field.key).label || field.key }}
+                                                    <span v-if="field.required" class="text-red-500">*</span>
+                                                </label>
+                                                <EnumButtonGroup
+                                                    :id="`contact-${field.key}`"
+                                                    v-model="form[field.key]"
+                                                    :options="enumOptionsFor(field.key)"
+                                                    :disabled="isView"
+                                                />
+                                                <p
+                                                    v-if="form.errors[field.key]"
+                                                    class="mt-1 text-xs text-red-600 dark:text-red-400"
+                                                >
+                                                    {{ form.errors[field.key] }}
+                                                </p>
+                                            </div>
                                             <div v-else-if="fieldDef(field.key).type === 'select'">
                                                 <label
                                                     :for="`contact-${field.key}`"
@@ -413,7 +440,6 @@ const handleCancel = () => {
                                                     :disabled="isView"
                                                     class="input-style"
                                                 >
-                                                    <option value="">—</option>
                                                     <option
                                                         v-for="opt in enumOptionsFor(field.key)"
                                                         :key="`${field.key}-${opt.id}-${opt.value}`"
@@ -481,9 +507,10 @@ const handleCancel = () => {
                         </div>
 
                         <div
+                            v-if="isView"
                             class="flex flex-wrap items-center justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-900/40"
                         >
-                            <template v-if="isView && record?.id">
+                            <template v-if="record?.id">
                                 <Link
                                     :href="route(`${recordType}.index`)"
                                     class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
@@ -504,33 +531,18 @@ const handleCancel = () => {
                                     Edit contact
                                 </Link>
                             </template>
-                            <template v-else>
-                                <button
-                                    type="button"
-                                    :disabled="form.processing"
-                                    class="inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 rounded-lg transition-colors"
-                                    @click="handleCancel"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    :disabled="form.processing"
-                                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                                >
-                                    {{
-                                        form.processing
-                                            ? 'Saving…'
-                                            : mode === 'edit'
-                                              ? 'Save changes'
-                                              : 'Create contact'
-                                    }}
-                                </button>
-                            </template>
                         </div>
                     </div>
             </div>
         </form>
+
+        <FormFixedActionBar
+            v-if="!isView"
+            form-id="contact-form"
+            :processing="form.processing"
+            :submit-label="submitLabel"
+            @cancel="handleCancel"
+        />
 
         <Teleport to="body">
             <div

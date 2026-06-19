@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Domain\EmailTemplate\Models\EmailTemplate as TenantEmailTemplate;
+use App\Domain\Lead\Models\Lead;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
 use App\Models\Post;
 use App\Models\User;
+use App\Observers\LeadObserver;
 use App\Observers\PostObserver;
 use App\Policies\WarrantyClaimPolicy;
 use App\Services\WorkspaceNavCache;
@@ -47,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Post::observe(PostObserver::class);
+        Lead::observe(LeadObserver::class);
 
         Gate::policy(WarrantyClaim::class, WarrantyClaimPolicy::class);
 

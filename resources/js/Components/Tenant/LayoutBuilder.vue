@@ -1,11 +1,18 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import axios from 'axios';
 import {
     defaultRectPerimeter,
     footprintOutsidePolygon,
     isDefaultRectPerimeter,
     nearestEdgeInsertIfClose,
 } from '@/Utils/layoutGeometry.js';
+import {
+    layoutCustomNameForSave,
+    layoutDisplayName,
+    layoutItemLabel,
+    resolveUnitLabel,
+} from '@/Utils/layoutLabels.js';
 
 const props = defineProps({
     /** Assigned boats, engines, and trailers for this event (each row includes `type` from the asset). */
@@ -15,9 +22,15 @@ const props = defineProps({
         default: () => ({ width_ft: 60, height_ft: 40 }),
     },
     attachAssetConfig: { type: Object, default: null },
+    /** Payload key for placement row id (event_asset_id | placement_id). */
+    itemLinkField: { type: String, default: 'event_asset_id' },
+    /** When true, parent pages debounce-save after @change. */
+    autoSave: { type: Boolean, default: true },
+    /** POST URL to enroll a unit on the layout (location floor plans). */
+    unitStoreUrl: { type: String, default: null },
 });
 
-const emit = defineEmits(['save', 'change', 'request-attach-asset']);
+const emit = defineEmits(['save', 'change', 'request-attach-asset', 'update:autoSave']);
 
 const MARGIN = 28;
 
@@ -106,6 +119,14 @@ function itemIsOutOfBounds(item) {
     );
 }
 
+function itemNotAtLocation(item) {
+    if (isFixture(item) || item.linkId == null) {
+        return false;
+    }
+
+    return item.isAtLocation === false;
+}
+
 function nudgeItemToFreeSpot(item) {
     if (!item.includeInLayout) return;
     const maxY = Math.max(0, Math.ceil(spaceH.value));
@@ -120,8 +141,12 @@ function nudgeItemToFreeSpot(item) {
 }
 
 const canvasRef = ref(null);
+const stageRef = ref(null);
 const containerRef = ref(null);
 const containerW = ref(800);
+const containerH = ref(400);
+const isFullscreen = ref(false);
+const fitToScreen = ref(false);
 
 const spaceW = ref(60);
 const spaceH = ref(40);
@@ -141,12 +166,33 @@ const modalMode = ref('add'); // 'add' | 'edit'
 const form = reactive({ name: '', length: 20, width: 8, shape: 'rectangle' });
 const editingBoat = ref(null);
 
+const showDimensionsModal = ref(false);
+const dimensionsForm = reactive({ length: 20, width: 8 });
+const editingDimensionsBoat = ref(null);
+const dimensionsSaving = ref(false);
+const dimensionsError = ref(null);
+
 const drag = { active: false, offX: 0, offY: 0, lastValidX: 0, lastValidY: 0 };
 const vertexDrag = { active: false, index: -1, offX: 0, offY: 0 };
 
-const SCALE = computed(() =>
-    Math.max(4, Math.floor((containerW.value - MARGIN * 2) / spaceW.value)),
-);
+const SCALE = computed(() => {
+    const fitPadding = isFullscreen.value && fitToScreen.value ? 8 : 0;
+    const availW = Math.max(0, containerW.value - MARGIN * 2 - fitPadding);
+    const availH = Math.max(0, containerH.value - MARGIN * 2 - fitPadding);
+
+    if (availW <= 0) {
+        return 4;
+    }
+
+    if (fitToScreen.value && isFullscreen.value && availH > 0) {
+        const byW = availW / spaceW.value;
+        const byH = availH / spaceH.value;
+
+        return Math.max(4, Math.floor(Math.min(byW, byH)));
+    }
+
+    return Math.max(4, Math.floor(availW / spaceW.value));
+});
 
 const canvasW = computed(() => spaceW.value * SCALE.value + MARGIN * 2);
 const canvasH = computed(() => spaceH.value * SCALE.value + MARGIN * 2);
@@ -187,12 +233,15 @@ const selectedInfo = computed(() => {
     const l = b.rotated ? b.w : b.l;
     const w = b.rotated ? b.l : b.w;
     const oob = itemIsOutOfBounds(b);
+    const notAtLocation = itemNotAtLocation(b);
     const shapeLabel = isFixture(b) ? itemShape(b) : null;
     return {
         name: b.name,
         dims: itemShape(b) === 'circle' ? `Ø ${b.l} ft` : `${b.l} × ${b.w} ft`,
         pos: `${b.x}', ${b.y}'`,
         oob,
+        notAtLocation,
+        currentLocationName: b.currentLocationName ?? null,
         onLayout: b.includeInLayout,
         hasEventAsset: b.eventAssetId != null,
         isFixture: isFixture(b),
@@ -202,32 +251,39 @@ const selectedInfo = computed(() => {
 
 const boatCount = computed(() => boats.value.length);
 
-function layoutItemLabel(b, i) {
-    if (b.layout_label && String(b.layout_label).trim()) {
-        return String(b.layout_label).trim();
-    }
-    const base = b.display_name ?? b.name ?? `Asset ${i + 1}`;
-    const unitLabel = b.unit_label ?? b.asset_unit?.unit_label ?? null;
-    if (unitLabel) {
-        return `${base} · ${unitLabel}`;
+function formatDimensionFt(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) {
+        return '—';
     }
 
-    return base;
+    return parseFloat(n.toFixed(2)).toString();
 }
 
 function rowToBoat(b, i) {
     const rot = Number(b.rotation ?? 0);
     const assetType = b.type != null ? Number(b.type) : null;
+    const unitLabel = resolveUnitLabel(b);
+    const displayName = layoutDisplayName(b, i);
     const label = layoutItemLabel(b, i);
+    const linkId = b[props.itemLinkField] ?? b.event_asset_id ?? b.placement_id ?? null;
     return {
         id: ++boatIdCounter.value,
         fixtureId: null,
         shape: null,
-        eventAssetId: b.event_asset_id ?? null,
-        assetId: b.id ?? null,
+        linkId,
+        eventAssetId: linkId,
+        assetId: b.id ?? b.asset_id ?? null,
+        assetUnitId: b.asset_unit_id ?? b.asset_unit?.id ?? null,
+        poolOnly: !!(b.pool_only && linkId == null),
+        isAtLocation: b.is_at_location ?? true,
+        currentLocationName: b.current_location_name ?? null,
         assetType,
         includeInLayout: !!b.include_in_layout,
         name: label,
+        displayName,
+        unitLabel,
+        assetDisplayName: b.display_name ?? null,
         l: parseFloat(b.length_ft ?? b.length) || 20,
         w: parseFloat(b.width_ft ?? b.width) || 8,
         x: Number.isFinite(Number(b.x)) ? Number(b.x) : 2 + (i % 5) * 4,
@@ -332,15 +388,15 @@ function buildSyncPayload() {
                 width_ft: itemShape(b) === 'circle' || itemShape(b) === 'square' ? b.l : b.w,
             })),
         items: boats.value
-            .filter((b) => b.eventAssetId != null)
+            .filter((b) => b.linkId != null)
             .map((b) => ({
-                event_asset_id: b.eventAssetId,
+                [props.itemLinkField]: b.linkId,
                 include_in_layout: !!b.includeInLayout,
                 x: b.x,
                 y: b.y,
                 rotation: b.rotated ? 90 : 0,
                 z_index: b.zIndex ?? 0,
-                name: b.name?.trim() ? b.name.trim() : null,
+                name: layoutCustomNameForSave(b),
                 length_ft: b.l,
                 width_ft: b.w,
             })),
@@ -458,12 +514,14 @@ function drawBoat(ctx, boat, isSel, S, dimmed) {
     const ph = (boat.rotated ? boat.l : boat.w) * S;
 
     const oob = itemIsOutOfBounds(boat);
+    const notAtLocation = itemNotAtLocation(boat);
+    const warnFill = oob || notAtLocation;
     const shape = itemShape(boat);
     const isCircle = shape === 'circle';
     const isFixtureItem = isFixture(boat);
 
     ctx.globalAlpha = dimmed ? 0.38 : 0.9;
-    ctx.fillStyle = oob ? '#E24B4A' : layoutFillColor(boat);
+    ctx.fillStyle = warnFill ? '#E24B4A' : layoutFillColor(boat);
     ctx.strokeStyle = isSel ? '#fff' : 'rgba(0,0,0,0.22)';
     ctx.lineWidth = isSel ? 2.5 : 1;
     ctx.beginPath();
@@ -508,10 +566,15 @@ function drawBoat(ctx, boat, isSel, S, dimmed) {
     ctx.fillText(label, px + (pw - bowLen) / 2, py + ph / 2 - (ph > 22 ? 7 : 0));
 
     if (ph > 22) {
-        const dim = isCircle ? `Ø${boat.l}ft` : `${boat.l}×${boat.w}ft`;
         ctx.font = `400 ${Math.min(10, Math.max(8, ph * 0.18))}px sans-serif`;
-        ctx.fillStyle = 'rgba(255,255,255,0.72)';
-        ctx.fillText(dim, px + (pw - bowLen) / 2, py + ph / 2 + 7);
+        if (notAtLocation) {
+            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+            ctx.fillText('Not at location', px + (pw - bowLen) / 2, py + ph / 2 + 7);
+        } else {
+            const dim = isCircle ? `Ø${boat.l}ft` : `${boat.l}×${boat.w}ft`;
+            ctx.fillStyle = 'rgba(255,255,255,0.72)';
+            ctx.fillText(dim, px + (pw - bowLen) / 2, py + ph / 2 + 7);
+        }
     }
 }
 
@@ -661,8 +724,12 @@ function onPointerMove(e) {
 }
 
 function onPointerUp() {
+    const wasDragging = drag.active || vertexDrag.active;
     drag.active = false;
     vertexDrag.active = false;
+    if (wasDragging) {
+        emit('change', buildSyncPayload());
+    }
 }
 
 function applyShapePreset(preset) {
@@ -693,11 +760,123 @@ function openEditModal() {
     if (!selected.value) return;
     modalMode.value = 'edit';
     editingBoat.value = selected.value;
-    form.name = selected.value.name;
+    form.name = selected.value.displayName ?? selected.value.name;
     form.length = selected.value.l;
     form.width = selected.value.w;
     form.shape = isFixture(selected.value) ? itemShape(selected.value) : 'rectangle';
     showModal.value = true;
+}
+
+function openDimensionsModal(boat) {
+    if (!boat || isFixture(boat) || boat.linkId == null) {
+        return;
+    }
+
+    editingDimensionsBoat.value = boat;
+    dimensionsForm.length = boat.l;
+    dimensionsForm.width = boat.w;
+    dimensionsError.value = null;
+    showDimensionsModal.value = true;
+}
+
+function closeDimensionsModal() {
+    showDimensionsModal.value = false;
+    editingDimensionsBoat.value = null;
+    dimensionsError.value = null;
+}
+
+function parseDimensionFeet(value, fallback) {
+    const parsed = parseFloat(value);
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function applyDimensionsToBoat(boat, length, width) {
+    boat.l = length;
+    boat.w = width;
+    if (boat.includeInLayout && hasSameTypeFootprintOverlap(boat, boats.value)) {
+        nudgeItemToFreeSpot(boat);
+    }
+}
+
+function saveDimensionsFloorPlanOnly() {
+    const boat = editingDimensionsBoat.value;
+    if (!boat) return;
+
+    const length = parseDimensionFeet(dimensionsForm.length, 0);
+    const width = parseDimensionFeet(dimensionsForm.width, 0);
+    if (!length || !width) {
+        dimensionsError.value = 'Enter valid length and width in feet.';
+        return;
+    }
+
+    applyDimensionsToBoat(boat, length, width);
+    closeDimensionsModal();
+    draw();
+    emit('change', buildSyncPayload());
+}
+
+async function saveDimensionsFloorPlanAndUnit() {
+    const boat = editingDimensionsBoat.value;
+    if (!boat) return;
+
+    const length = parseDimensionFeet(dimensionsForm.length, 0);
+    const width = parseDimensionFeet(dimensionsForm.width, 0);
+    if (!length || !width) {
+        dimensionsError.value = 'Enter valid length and width in feet.';
+        return;
+    }
+
+    if (!boat.assetUnitId) {
+        dimensionsError.value = 'This placement is not linked to an inventory unit.';
+        return;
+    }
+
+    dimensionsSaving.value = true;
+    dimensionsError.value = null;
+
+    try {
+        await axios.patch(
+            route('assetunits.layout-footprint', boat.assetUnitId),
+            { length_ft: length, width_ft: width },
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        );
+        applyDimensionsToBoat(boat, length, width);
+        closeDimensionsModal();
+        draw();
+        emit('change', buildSyncPayload());
+    } catch (e) {
+        dimensionsError.value =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Could not update unit dimensions.';
+    } finally {
+        dimensionsSaving.value = false;
+    }
+}
+
+function onCanvasDblClick(e) {
+    if (perimeterMode.value) return;
+
+    const { mx, my } = getXY(e, canvasRef.value);
+    const hit = hitTest(mx, my);
+    if (!hit) return;
+
+    selected.value = hit;
+
+    if (isFixture(hit)) {
+        openEditModal();
+        return;
+    }
+
+    if (hit.linkId != null) {
+        openDimensionsModal(hit);
+    }
 }
 
 function submitModal() {
@@ -767,6 +946,11 @@ function rotateSelected() {
 }
 
 function addToGrid(boat) {
+    if (boat.poolOnly && boat.assetUnitId && props.unitStoreUrl) {
+        enrollPoolUnitAndAddToGrid(boat);
+        return;
+    }
+
     boat.includeInLayout = true;
     if (!Number.isFinite(boat.x)) boat.x = 2;
     if (!Number.isFinite(boat.y)) boat.y = 2;
@@ -776,6 +960,59 @@ function addToGrid(boat) {
     selected.value = boat;
     draw();
     emit('change', buildSyncPayload());
+}
+
+const poolUnitEnrolling = ref(false);
+
+async function enrollPoolUnitAndAddToGrid(boat) {
+    if (!props.unitStoreUrl || !boat.assetUnitId || poolUnitEnrolling.value) {
+        return;
+    }
+
+    poolUnitEnrolling.value = true;
+
+    try {
+        const response = await axios.post(
+            props.unitStoreUrl,
+            { asset_unit_id: boat.assetUnitId, transfer: false },
+            {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        );
+
+        const items = response.data.layoutUnits ?? response.data.placement ?? [];
+        const match = items.find(
+            (item) => Number(item.asset_unit_id) === Number(boat.assetUnitId),
+        );
+
+        boats.value = boats.value.filter((b) => b !== boat);
+
+        if (match) {
+            const enrolled = rowToBoat(match, boats.value.length);
+            enrolled.includeInLayout = true;
+            if (!Number.isFinite(enrolled.x)) enrolled.x = 2;
+            if (!Number.isFinite(enrolled.y)) enrolled.y = 2;
+            if (hasSameTypeFootprintOverlap(enrolled, boats.value)) {
+                nudgeItemToFreeSpot(enrolled);
+            }
+            boats.value.push(enrolled);
+            selected.value = enrolled;
+        }
+
+        draw();
+        emit('change', buildSyncPayload());
+    } catch (e) {
+        const msg =
+            e.response?.data?.message ??
+            (e.response?.data?.errors ? Object.values(e.response.data.errors).flat().join(' ') : null) ??
+            'Could not add unit to floor plan.';
+        window.alert(msg);
+    } finally {
+        poolUnitEnrolling.value = false;
+    }
 }
 
 function removeFromGrid(boat) {
@@ -846,24 +1083,94 @@ function clearAll() {
 
 function saveLayout() { emit('save', buildSyncPayload()); }
 
+function measureContainer() {
+    const heightEl = stageRef.value ?? containerRef.value;
+    const widthEl = containerRef.value ?? stageRef.value;
+
+    if (widthEl) {
+        containerW.value = widthEl.clientWidth || 800;
+    }
+
+    if (heightEl) {
+        containerH.value = heightEl.clientHeight || 400;
+    }
+}
+
+function scheduleMeasureAndDraw() {
+    requestAnimationFrame(() => {
+        measureContainer();
+        draw();
+    });
+}
+
+function toggleFullscreen() {
+    isFullscreen.value = !isFullscreen.value;
+
+    if (isFullscreen.value) {
+        fitToScreen.value = true;
+        document.body.style.overflow = 'hidden';
+    } else {
+        fitToScreen.value = false;
+        document.body.style.overflow = '';
+    }
+
+    nextTick(() => {
+        scheduleMeasureAndDraw();
+        requestAnimationFrame(scheduleMeasureAndDraw);
+    });
+}
+
+function toggleFitToScreen() {
+    if (!isFullscreen.value) {
+        return;
+    }
+
+    fitToScreen.value = !fitToScreen.value;
+
+    nextTick(() => {
+        scheduleMeasureAndDraw();
+        requestAnimationFrame(scheduleMeasureAndDraw);
+    });
+}
+
+function onWindowResize() {
+    if (!isFullscreen.value) {
+        return;
+    }
+
+    scheduleMeasureAndDraw();
+}
+
+function onFullscreenKeydown(event) {
+    if (event.key === 'Escape' && isFullscreen.value) {
+        toggleFullscreen();
+    }
+}
+
 let ro;
 
 onMounted(() => {
     applyLayoutSpaceFromProps();
     applyPerimeterFromProps();
-    ro = new ResizeObserver((entries) => {
-        containerW.value = entries[0].contentRect.width;
-        requestAnimationFrame(draw);
+    ro = new ResizeObserver(() => {
+        scheduleMeasureAndDraw();
     });
-    if (containerRef.value) {
-        ro.observe(containerRef.value);
-        containerW.value = containerRef.value.clientWidth || 800;
-    }
+    nextTick(() => {
+        if (stageRef.value) {
+            ro.observe(stageRef.value);
+        }
+        if (containerRef.value) {
+            ro.observe(containerRef.value);
+        }
+        scheduleMeasureAndDraw();
+    });
     if (props.initialLayoutItems?.length) {
         boats.value = props.initialLayoutItems.map((b, i) => rowToBoat(b, i));
     }
     syncFixturesFromProps();
     draw();
+    window.addEventListener('keydown', onFullscreenKeydown);
+    window.addEventListener('resize', onWindowResize);
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw);
 });
 
@@ -882,19 +1189,40 @@ watch(
     () => props.initialLayoutItems,
     (newItems) => {
         const list = newItems ?? [];
-        const byEventAsset = new Map(list.map((b) => [b.event_asset_id, b]));
+        const byLink = new Map(list.map((b) => [b[props.itemLinkField] ?? b.event_asset_id ?? b.placement_id, b]));
+        const poolCandidates = list.filter((b) => b.pool_only && !(b[props.itemLinkField] ?? b.event_asset_id ?? b.placement_id));
         boats.value = boats.value.filter((b) => {
             if (b.fixtureId) return true;
-            if (!b.eventAssetId) return false;
-            return byEventAsset.has(b.eventAssetId);
+            if (b.poolOnly && !b.linkId) {
+                return poolCandidates.some(
+                    (candidate) => Number(candidate.asset_unit_id) === Number(b.assetUnitId),
+                );
+            }
+            if (!b.linkId) return false;
+            return byLink.has(b.linkId);
         });
         for (const b of list) {
-            if (!b.event_asset_id) continue;
-            const existing = boats.value.find((x) => x.eventAssetId === b.event_asset_id);
+            const linkId = b[props.itemLinkField] ?? b.event_asset_id ?? b.placement_id;
+            if (!linkId) {
+                if (b.pool_only && !boats.value.some(
+                    (existing) => existing.poolOnly && Number(existing.assetUnitId) === Number(b.asset_unit_id),
+                )) {
+                    boats.value.push(rowToBoat(b, boats.value.length));
+                }
+                continue;
+            }
+            const existing = boats.value.find((x) => x.linkId === linkId);
             if (existing) {
                 Object.assign(existing, {
                     includeInLayout: !!b.include_in_layout,
                     assetType: b.type != null ? Number(b.type) : existing.assetType,
+                    assetUnitId: b.asset_unit_id ?? b.asset_unit?.id ?? existing.assetUnitId ?? null,
+                    poolOnly: !!(b.pool_only && linkId == null),
+                    isAtLocation: b.is_at_location ?? true,
+                    currentLocationName: b.current_location_name ?? existing.currentLocationName ?? null,
+                    assetDisplayName: b.display_name ?? existing.assetDisplayName ?? null,
+                    displayName: layoutDisplayName(b, boats.value.indexOf(existing)),
+                    unitLabel: resolveUnitLabel(b),
                     name: layoutItemLabel(b, boats.value.indexOf(existing)),
                     l: parseFloat(b.length_ft ?? b.length) || existing.l,
                     w: parseFloat(b.width_ft ?? b.width) || existing.w,
@@ -914,17 +1242,36 @@ watch(
 
 onUnmounted(() => {
     ro?.disconnect();
+    window.removeEventListener('keydown', onFullscreenKeydown);
+    window.removeEventListener('resize', onWindowResize);
+    document.body.style.overflow = '';
     window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', draw);
+});
+
+watch(isFullscreen, () => {
+    nextTick(scheduleMeasureAndDraw);
+});
+
+watch(fitToScreen, () => {
+    if (isFullscreen.value) {
+        nextTick(scheduleMeasureAndDraw);
+    }
 });
 
 watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
 </script>
 
 <template>
-    <div class="flex flex-col rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800 select-none">
+    <Teleport to="body" :disabled="!isFullscreen">
+        <div
+            class="flex flex-col overflow-hidden bg-white dark:bg-slate-800 select-none"
+            :class="isFullscreen
+                ? 'fixed inset-0 z-[200] h-dvh w-screen shadow-2xl'
+                : 'rounded-lg border border-slate-300 dark:border-slate-700'"
+        >
 
         <!-- ── Toolbar row 1: actions ── -->
-        <div class="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
+        <div class="shrink-0 flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50">
             <button
                 v-if="attachAssetConfig"
                 type="button"
@@ -971,6 +1318,33 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 @click="removeSelectedVertex"
             >
                 Remove corner
+            </button>
+
+            <div class="w-px h-5 bg-slate-200 dark:bg-slate-600 hidden sm:block"></div>
+
+            <button
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors"
+                :class="isFullscreen
+                    ? 'text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700'
+                    : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-600 border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-500'"
+                @click="toggleFullscreen"
+            >
+                <span class="material-icons text-[14px]">{{ isFullscreen ? 'close_fullscreen' : 'open_in_full' }}</span>
+                {{ isFullscreen ? 'Exit full screen' : 'Full screen' }}
+            </button>
+
+            <button
+                v-if="isFullscreen"
+                type="button"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors"
+                :class="fitToScreen
+                    ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700'
+                    : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-600 border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-500'"
+                @click="toggleFitToScreen"
+            >
+                <span class="material-icons text-[14px]">fit_screen</span>
+                {{ fitToScreen ? 'Fit to screen on' : 'Fit to screen' }}
             </button>
 
             <div class="w-px h-5 bg-slate-200 dark:bg-slate-600 hidden sm:block"></div>
@@ -1053,21 +1427,40 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 >Apply</button>
                 <button
                     type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md border transition-colors"
+                    :class="autoSave
+                        ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700'
+                        : 'text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-600 border-slate-300 dark:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-500'"
+                    :title="autoSave ? 'Changes save automatically after you stop editing' : 'Turn on to save changes automatically'"
+                    @click="emit('update:autoSave', !autoSave)"
+                >
+                    <span class="material-icons text-[14px]">{{ autoSave ? 'cloud_done' : 'cloud_off' }}</span>
+                    Auto-save {{ autoSave ? 'on' : 'off' }}
+                </button>
+                <button
+                    type="button"
                     @click="saveLayout"
                     class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 rounded-md transition-colors"
                 >
                     <span class="material-icons text-[14px]">save</span>
-                    Save
+                    Save now
                 </button>
             </div>
         </div>
 
         <!-- ── Selection status bar ── -->
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 text-xs border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 min-h-[34px]">
+        <div class="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-1.5 text-xs border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 min-h-[34px]">
             <template v-if="selectedInfo">
                 <span class="font-medium text-slate-900 dark:text-white">{{ selectedInfo.name }}</span>
                 <span class="text-slate-400">{{ selectedInfo.dims }}</span>
                 <span class="text-slate-400">@ {{ selectedInfo.pos }}</span>
+                <span v-if="selectedInfo.notAtLocation" class="flex items-center gap-1 text-red-500 font-medium">
+                    <span class="material-icons text-[13px]">location_off</span>
+                    No longer at location
+                    <span v-if="selectedInfo.currentLocationName" class="font-normal text-red-400">
+                        · {{ selectedInfo.currentLocationName }}
+                    </span>
+                </span>
                 <span v-if="selectedInfo.oob" class="flex items-center gap-1 text-red-500 font-medium">
                     <span class="material-icons text-[13px]">warning</span>
                     Outside boundary
@@ -1077,7 +1470,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                 <span class="text-sky-600 dark:text-sky-400">Drag blue corners to reshape the lot. Click within ~4 ft of an edge to add a corner.</span>
             </template>
             <template v-else>
-                <span class="text-slate-400">Click an asset or shape to select, then drag to reposition</span>
+                <span class="text-slate-400">Click to select · double-click a unit to edit dimensions</span>
             </template>
             <span class="ml-auto text-slate-500 dark:text-slate-400">
                 {{ onLayoutBoats.length }} on layout · {{ boatCount }} total
@@ -1085,15 +1478,28 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
         </div>
 
         <!-- ── Main content: canvas + off-layout panel ── -->
-        <div class="flex min-h-0">
+        <div
+            ref="stageRef"
+            class="flex min-h-0 min-w-0"
+            :class="isFullscreen ? 'flex-1 overflow-hidden' : ''"
+        >
 
             <!-- Canvas -->
-            <div ref="containerRef" class="flex-1 min-w-0 bg-slate-200 dark:bg-slate-900">
+            <div
+                ref="containerRef"
+                class="flex-1 min-w-0 min-h-0 bg-slate-200 dark:bg-slate-900"
+                :class="isFullscreen
+                    ? (fitToScreen ? 'h-full overflow-hidden flex items-center justify-center' : 'h-full overflow-auto')
+                    : ''"
+            >
                 <canvas
                     ref="canvasRef"
                     :width="canvasW"
                     :height="canvasH"
-                    class="block w-full touch-none cursor-default"
+                    :class="[
+                        'block touch-none cursor-default',
+                        isFullscreen && fitToScreen ? 'max-w-full max-h-full w-auto h-auto' : 'w-full h-auto',
+                    ]"
                     @mousedown="onPointerDown"
                     @mousemove="onPointerMove"
                     @mouseup="onPointerUp"
@@ -1101,6 +1507,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                     @touchstart.prevent="onPointerDown"
                     @touchmove.prevent="onPointerMove"
                     @touchend="onPointerUp"
+                    @dblclick="onCanvasDblClick"
                 />
             </div>
 
@@ -1114,30 +1521,52 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                         Not on grid
                     </p>
                     <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        {{ offLayoutBoats.length }} asset{{ offLayoutBoats.length !== 1 ? 's' : '' }} hidden from layout
+                        {{ unitStoreUrl
+                            ? `${offLayoutBoats.length} at location, not on grid`
+                            : `${offLayoutBoats.length} asset${offLayoutBoats.length !== 1 ? 's' : ''} hidden from layout` }}
                     </p>
                 </div>
                 <div class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700/60">
                     <div
                         v-for="boat in offLayoutBoats"
-                        :key="boat.id"
+                        :key="boat.linkId ?? `pool-${boat.assetUnitId}` ?? boat.id"
                         class="px-3 py-2.5 flex items-start gap-2.5 group hover:bg-white dark:hover:bg-slate-700/40 transition-colors"
                     >
                         <!-- Color swatch -->
                         <span
                             class="mt-0.5 w-2.5 h-2.5 rounded-full shrink-0"
-                            :style="{ background: layoutFillColor(boat) }"
+                            :style="{ background: itemNotAtLocation(boat) ? '#E24B4A' : layoutFillColor(boat) }"
                         ></span>
                         <div class="flex-1 min-w-0">
-                            <p class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate leading-tight">{{ boat.name }}</p>
-                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{{ boat.l }} × {{ boat.w }} ft</p>
+                            <p class="text-xs font-medium text-slate-800 dark:text-slate-100 truncate leading-tight">
+                                {{ boat.displayName ?? boat.name }}
+                            </p>
+                            <p
+                                v-if="boat.unitLabel"
+                                class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate"
+                                :title="boat.unitLabel"
+                            >
+                                {{ boat.unitLabel }}
+                            </p>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                {{ formatDimensionFt(boat.l) }} × {{ formatDimensionFt(boat.w) }} ft
+                            </p>
+                            <p
+                                v-if="itemNotAtLocation(boat)"
+                                class="text-[11px] text-red-500 dark:text-red-400 mt-0.5 flex items-center gap-1"
+                            >
+                                <span class="material-icons text-[12px]">location_off</span>
+                                No longer at location
+                                <span v-if="boat.currentLocationName">· {{ boat.currentLocationName }}</span>
+                            </p>
                             <button
                                 type="button"
+                                :disabled="poolUnitEnrolling"
                                 @click="addToGrid(boat)"
-                                class="mt-1.5 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded transition-colors hover:bg-primary-100 dark:hover:bg-primary-900/50"
+                                class="mt-1.5 inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-primary-700 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-700 rounded transition-colors hover:bg-primary-100 dark:hover:bg-primary-900/50 disabled:opacity-50"
                             >
                                 <span class="material-icons text-[11px]">grid_on</span>
-                                Add to grid
+                                {{ boat.poolOnly ? 'Add to floor plan' : 'Add to grid' }}
                             </button>
                         </div>
                     </div>
@@ -1146,7 +1575,7 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
         </div>
 
         <!-- ── Legend footer ── -->
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 text-xs text-slate-500 dark:text-slate-400">
+        <div class="shrink-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30 text-xs text-slate-500 dark:text-slate-400">
             <span class="flex items-center gap-1.5">
                 <span class="inline-block w-3 h-3 rounded-sm bg-[#3B82F6]"></span>
                 Boat
@@ -1165,23 +1594,25 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
             </span>
             <span class="flex items-center gap-1.5">
                 <span class="inline-block w-3 h-3 rounded-sm bg-[#E24B4A]"></span>
-                Out of bounds
+                Out of bounds / not at location
             </span>
             <span class="text-slate-400 hidden lg:block">Stacking: trailer under boat under engine. Same type cannot overlap.</span>
             <span class="ml-auto">{{ spaceW }}' × {{ spaceH }}' floor plan</span>
+            <span v-if="isFullscreen" class="text-slate-400">Esc to exit</span>
         </div>
-    </div>
+        </div>
+    </Teleport>
 
     <!-- ── Add / Edit modal ── -->
     <Teleport to="body">
         <Transition name="modal-fade">
             <div
                 v-if="showModal"
-                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                class="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm"
                 @click.self="showModal = false"
             >
                 <div
-                    class="relative z-[101] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 w-80"
+                    class="relative z-[211] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 w-80"
                     @click.stop
                 >
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white mb-4">
@@ -1256,6 +1687,85 @@ watch([canvasW, canvasH], () => { requestAnimationFrame(draw); });
                             class="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             {{ modalMode === 'edit' ? 'Save changes' : 'Add to map' }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </Teleport>
+
+    <!-- ── Unit dimensions modal (double-click asset unit) ── -->
+    <Teleport to="body">
+        <Transition name="modal-fade">
+            <div
+                v-if="showDimensionsModal"
+                class="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+                @click.self="closeDimensionsModal"
+            >
+                <div
+                    class="relative z-[211] w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+                    @click.stop
+                >
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Edit unit dimensions</h3>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {{ editingDimensionsBoat?.displayName ?? editingDimensionsBoat?.name ?? 'Unit' }}
+                        <span v-if="editingDimensionsBoat?.unitLabel"> · {{ editingDimensionsBoat.unitLabel }}</span>
+                    </p>
+
+                    <div class="mt-4 grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Length (ft)</label>
+                            <input
+                                v-model.number="dimensionsForm.length"
+                                type="number"
+                                min="0.01"
+                                max="500"
+                                step="0.1"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                @keydown.enter="saveDimensionsFloorPlanOnly"
+                            />
+                        </div>
+                        <div>
+                            <label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Width (ft)</label>
+                            <input
+                                v-model.number="dimensionsForm.width"
+                                type="number"
+                                min="0.01"
+                                max="500"
+                                step="0.1"
+                                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                                @keydown.enter="saveDimensionsFloorPlanOnly"
+                            />
+                        </div>
+                    </div>
+
+                    <p v-if="dimensionsError" class="mt-3 text-xs text-red-600 dark:text-red-400">{{ dimensionsError }}</p>
+
+                    <div class="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            :disabled="dimensionsSaving"
+                            @click="closeDimensionsModal"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg border border-primary-200 bg-primary-50 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-100 disabled:opacity-50 dark:border-primary-800 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50"
+                            :disabled="dimensionsSaving"
+                            @click="saveDimensionsFloorPlanOnly"
+                        >
+                            Floor plan only
+                        </button>
+                        <button
+                            type="button"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                            :disabled="dimensionsSaving || !editingDimensionsBoat?.assetUnitId"
+                            :title="!editingDimensionsBoat?.assetUnitId ? 'Not linked to an inventory unit' : undefined"
+                            @click="saveDimensionsFloorPlanAndUnit"
+                        >
+                            {{ dimensionsSaving ? 'Saving…' : 'Floor plan & unit' }}
                         </button>
                     </div>
                 </div>

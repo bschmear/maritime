@@ -200,11 +200,27 @@ class CustomerController extends RecordController
         );
     }
 
+    protected function appendShowRelationships(array &$relationships): void
+    {
+        if (! isset($relationships['converted_from_lead'])) {
+            $relationships['converted_from_lead'] = function ($query): void {
+                $query->select(['id', 'contact_id']);
+            };
+        }
+
+        if (! isset($relationships['leads'])) {
+            $relationships['leads'] = function ($query): void {
+                $query->select(['id', 'contact_id', 'converted_customer_id'])->orderBy('id');
+            };
+        }
+    }
+
     protected function hydrateRecordAfterLoad(Model $record): void
     {
         parent::hydrateRecordAfterLoad($record);
 
         if ($record instanceof RecordModel) {
+            $record->hydrateLinkedLeadProfile();
             SurveyResponsesForRecord::hydrate($record, 'customer');
         }
     }

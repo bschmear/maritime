@@ -10,6 +10,9 @@ use App\Domain\Location\Actions\CreateLocation;
 use App\Domain\Location\Actions\DeleteLocation;
 use App\Domain\Location\Actions\UpdateLocation;
 use App\Domain\Location\Models\Location;
+use App\Domain\Location\Models\LocationLayout;
+use App\Domain\Location\Support\LocationUnitsPayload;
+use App\Enums\Inventory\UnitStatus;
 use App\Enums\Locations\LocationType;
 use App\Enums\Timezone;
 use App\Http\Controllers\Concerns\EnforcesTenantRecordPermissions;
@@ -127,6 +130,34 @@ class LocationController extends BaseController
         $locationTypeMatch = collect(LocationType::options())->firstWhere('id', (int) $record->location_type);
         $locationTypeLabel = $locationTypeMatch['name'] ?? null;
 
+        $layouts = $record->layouts()->orderBy('id')->get(['id', 'name', 'width_ft', 'height_ft']);
+
+        if ($layouts->isEmpty()) {
+            LocationLayout::query()->create([
+                'location_id' => $record->id,
+                'name' => 'Default',
+                'width_ft' => 60,
+                'height_ft' => 40,
+                'grid_size' => 1,
+                'scale' => 10,
+                'meta' => [],
+            ]);
+            $layouts = $record->layouts()->orderBy('id')->get(['id', 'name', 'width_ft', 'height_ft']);
+        }
+
+        $requestedLayoutId = $request->integer('layout');
+        $activeLayout = $requestedLayoutId > 0
+            ? $layouts->firstWhere('id', $requestedLayoutId)
+            : null;
+        $activeLayoutModel = $activeLayout !== null
+            ? LocationLayout::query()->find($activeLayout['id'])
+            : LocationLayout::query()->find($layouts->first()['id']);
+
+        $layoutSpace = LocationUnitsPayload::layoutSpaceFrom($activeLayoutModel);
+        $layoutUnits = $activeLayoutModel !== null
+            ? LocationUnitsPayload::forLayoutSidebar($activeLayoutModel, $record)
+            : [];
+
         return inertia('Tenant/Location/Show', [
             'record' => $record,
             'recordType' => $this->recordType,
@@ -145,6 +176,12 @@ class LocationController extends BaseController
             ] : null,
             'pendingDeliveryRequestCount' => $pendingCount,
             'canManageDeliveryApprovers' => tenant_has_permission('location.edit'),
+            'layouts' => $layouts->values()->all(),
+            'activeLayoutId' => $activeLayoutModel?->id,
+            'layoutSpace' => $layoutSpace,
+            'layoutUnits' => $layoutUnits,
+            'unitStatusOptions' => UnitStatus::options(),
+            'defaultUnitStatusFilter' => LocationUnitsPayload::defaultStatusFilterIds(),
         ]);
     }
 

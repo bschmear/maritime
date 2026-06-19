@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { defaultRectPerimeter } from '@/Utils/layoutGeometry.js';
 import { formatCalendarDateShort } from '@/Utils/calendarDate.js';
+import { layoutItemLabel } from '@/Utils/layoutLabels.js';
 
 const props = defineProps({
     event: { type: Object, required: true },
@@ -11,6 +12,9 @@ const props = defineProps({
         default: () => ({ width_ft: 60, height_ft: 40, perimeter: null, fixtures: [] }),
     },
     companyName: { type: String, default: '' },
+    layoutName: { type: String, default: '' },
+    subtitle: { type: String, default: '' },
+    titleFallback: { type: String, default: 'Boat show event' },
 });
 
 const canvasRef = ref(null);
@@ -43,15 +47,6 @@ const scale = computed(() =>
 
 const canvasW = computed(() => spaceW.value * scale.value + MARGIN * 2);
 const canvasH = computed(() => spaceH.value * scale.value + MARGIN * 2);
-
-function layoutItemLabel(row) {
-    if (row.layout_label && String(row.layout_label).trim()) {
-        return String(row.layout_label).trim();
-    }
-    const base = row.display_name ?? row.name ?? 'Item';
-    const unit = row.unit_label ?? row.asset_unit?.unit_label ?? null;
-    return unit ? `${base} · ${unit}` : base;
-}
 
 function typeLabelFor(row, isFixture, shape) {
     if (isFixture) {
@@ -299,15 +294,19 @@ watch([legendItems, canvasW, canvasH, perimeterPoints], () => redraw());
                     {{ companyName }}
                 </p>
                 <h1 class="mt-1 text-2xl font-bold text-gray-900">
-                    {{ event.display_name ?? 'Boat show event' }}
+                    {{ event.display_name ?? titleFallback }}
                 </h1>
-                <p class="mt-2 text-sm text-gray-600">
+                <p v-if="subtitle" class="mt-2 text-sm text-gray-600">
+                    {{ subtitle }}
+                </p>
+                <p v-else-if="event.venue || eventDates" class="mt-2 text-sm text-gray-600">
                     <span v-if="event.venue">{{ event.venue }}</span>
                     <span v-if="event.venue && eventDates"> · </span>
                     <span v-if="eventDates">{{ eventDates }}</span>
                 </p>
                 <p class="mt-1 text-sm text-gray-500">
                     Floor plan {{ spaceW }}′ × {{ spaceH }}′
+                    <span v-if="layoutName"> · {{ layoutName }}</span>
                     <span v-if="legendItems.length"> · {{ legendItems.length }} item{{ legendItems.length === 1 ? '' : 's' }} on layout</span>
                 </p>
             </header>

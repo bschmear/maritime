@@ -1629,7 +1629,7 @@ const handleCancel = () => emit('cancelled');
 
             <Teleport v-if="mode !== 'view'" to="body">
                 <div class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90 dark:border-gray-700 dark:bg-gray-900/95 dark:supports-[backdrop-filter]:bg-gray-900/90">
-                    <div class="mx-auto flex w-full  items-center justify-end gap-3">
+                    <div class="flex w-full items-center justify-end gap-3">
                         <button
                             type="button"
                             @click="handleCancel"

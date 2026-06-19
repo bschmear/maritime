@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Domain\Score\Actions\CalculateBehavioralScore;
 use App\Domain\Score\Actions\CreateScore;
 use App\Domain\Score\Actions\DeleteScore;
 use App\Domain\Score\Actions\UpdateScore;
 use App\Domain\Score\Models\Score;
-use App\Domain\Score\Support\ScorableTypeResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -19,6 +19,7 @@ class ScoreController extends Controller
         private CreateScore $createScore,
         private UpdateScore $updateScore,
         private DeleteScore $deleteScore,
+        private CalculateBehavioralScore $calculateBehavioralScore,
     ) {}
 
     /**
@@ -125,23 +126,19 @@ class ScoreController extends Controller
             'update_current' => ['sometimes', 'boolean'],
         ]);
 
-        $entityClass = ScorableTypeResolver::toClass($validated['scorable_type']);
-        if ($entityClass === null) {
+        $result = ($this->calculateBehavioralScore)(
+            $validated['scorable_type'],
+            (int) $validated['scorable_id'],
+            current_tenant_user_id(),
+            (bool) ($validated['update_current'] ?? false),
+        );
+
+        if (! ($result['success'] ?? false) || ! isset($result['record'])) {
             return response()->json([
-                'message' => 'The selected scorable type is invalid.',
-                'errors' => ['scorable_type' => ['The selected scorable type is invalid.']],
+                'message' => $result['message'] ?? 'Could not calculate behavioral score.',
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $entity = $entityClass::query()->findOrFail($validated['scorable_id']);
-
-        $updateCurrent = $validated['update_current'] ?? false;
-
-        return response()->json([
-            'message' => 'Score calculation not yet implemented',
-            'scorable_type' => $validated['scorable_type'],
-            'scorable_id' => $entity->getKey(),
-            'update_current' => $updateCurrent,
-        ]);
+        return response()->json($result['record']);
     }
 }

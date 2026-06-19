@@ -199,6 +199,55 @@ class Customer extends Model
         return $this->belongsTo(Lead::class, 'converted_from_lead_id');
     }
 
+    /**
+     * Lead profile for this customer: explicit conversion, lead.converted_customer_id, or shared contact.
+     */
+    public function resolveLinkedLeadProfile(): ?Lead
+    {
+        if ($this->converted_from_lead_id) {
+            if ($this->relationLoaded('converted_from_lead') && $this->converted_from_lead) {
+                return $this->converted_from_lead;
+            }
+
+            return $this->converted_from_lead()->first();
+        }
+
+        if ($this->id) {
+            $fromCustomer = Lead::query()
+                ->where('converted_customer_id', $this->id)
+                ->orderBy('id')
+                ->first();
+
+            if ($fromCustomer) {
+                return $fromCustomer;
+            }
+        }
+
+        if ($this->contact_id) {
+            return Lead::query()
+                ->where('contact_id', $this->contact_id)
+                ->orderBy('id')
+                ->first();
+        }
+
+        return null;
+    }
+
+    /**
+     * Populate {@see converted_from_lead} for Inertia/forms when linked via contact or converted_customer_id.
+     */
+    public function hydrateLinkedLeadProfile(): void
+    {
+        if ($this->relationLoaded('converted_from_lead') && $this->converted_from_lead) {
+            return;
+        }
+
+        $lead = $this->resolveLinkedLeadProfile();
+        if ($lead) {
+            $this->setRelation('converted_from_lead', $lead);
+        }
+    }
+
     public function asset_units()
     {
         return $this->hasMany(AssetUnit::class, 'customer_id');

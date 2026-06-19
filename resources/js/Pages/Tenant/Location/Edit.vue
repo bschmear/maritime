@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import LocationForm from '@/Components/Tenant/LocationForm.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -44,6 +44,15 @@ const handleCancelled = () => {
         </template>
 
         <div class="w-full p-4">
+            <div class="mb-4 flex justify-end">
+                <Link
+                    :href="route('locations.show', { location: record.id, tab: 'floor_plans' })"
+                    class="inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline dark:text-primary-300"
+                >
+                    Manage floor plans
+                    <span class="material-icons text-base">arrow_forward</span>
+                </Link>
+            </div>
             <LocationForm
                 mode="edit"
                 record-type="locations"

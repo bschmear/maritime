@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\Asset\Support\AssetLayoutFootprint;
 use App\Domain\AssetUnit\Actions\CreateAssetUnit as CreateAction;
 use App\Domain\AssetUnit\Actions\DeleteAssetUnit as DeleteAction;
 use App\Domain\AssetUnit\Actions\UpdateAssetUnit as UpdateAction;
@@ -255,5 +256,47 @@ class AssetUnitController extends RecordController
             ])
             ->values()
             ->all();
+    }
+
+    public function transferLocation(Request $request, AssetUnit $assetUnit): JsonResponse
+    {
+        $validated = $request->validate([
+            'location_id' => ['required', 'integer', 'exists:locations,id'],
+        ]);
+
+        $assetUnit->update(['location_id' => $validated['location_id']]);
+
+        return response()->json([
+            'success' => true,
+            'location_id' => (int) $validated['location_id'],
+        ]);
+    }
+
+    public function updateLayoutFootprint(Request $request, AssetUnit $assetUnit): JsonResponse
+    {
+        $validated = $request->validate([
+            'length_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
+            'width_ft' => ['required', 'numeric', 'min:0.01', 'max:500'],
+        ]);
+
+        $assetUnit->load(['asset', 'assetVariant']);
+
+        $asset = $assetUnit->asset;
+        if ($asset === null) {
+            return response()->json(['message' => 'Unit has no linked asset.'], 422);
+        }
+
+        AssetLayoutFootprint::applyFootprintFeet(
+            $asset,
+            $assetUnit,
+            (float) $validated['length_ft'],
+            (float) $validated['width_ft'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'length_ft' => (float) $validated['length_ft'],
+            'width_ft' => (float) $validated['width_ft'],
+        ]);
     }
 }

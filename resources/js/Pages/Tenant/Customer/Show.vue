@@ -1,6 +1,5 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
-import CustomerForm from '@/Components/Tenant/CustomerForm.vue';
 import Modal from '@/Components/Modal.vue';
 import SendSurveyModal from '@/Components/Tenant/SendSurveyModal.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
@@ -24,7 +23,6 @@ const props = defineProps({
     specSheetShares: { type: Array, default: () => [] },
 });
 
-const isEditMode = ref(false);
 const showDeleteModal = ref(false);
 const showSendSurveyModal = ref(false);
 const isDeleting = ref(false);
@@ -39,6 +37,16 @@ const displayName = computed(
         [props.record.first_name, props.record.last_name].filter(Boolean).join(' ') ||
         `Customer #${props.record.id}`,
 );
+
+const hasContact = computed(() => Boolean(props.record?.contact?.id ?? props.record?.contact_id));
+const linkedLeadId = computed(
+    () =>
+        props.record?.converted_from_lead?.id ??
+        props.record?.converted_from_lead_id ??
+        props.record?.leads?.[0]?.id ??
+        null,
+);
+const hasLead = computed(() => Boolean(linkedLeadId.value));
 
 const surveyRecipientEmail = computed(() => (props.record.email || '').trim());
 
@@ -132,15 +140,6 @@ const priorityColor = computed(() => {
     return 'gray';
 });
 
-const handleSaved = () => {
-    isEditMode.value = false;
-    router.reload({ only: ['record'] });
-};
-
-const handleCancelEdit = () => {
-    isEditMode.value = false;
-};
-
 function formatDateTime(d) {
     if (!d) return '—';
     try {
@@ -207,7 +206,7 @@ const confirmDelete = () => {
                     <h2 class="text-xl font-semibold leading-tight text-gray-800 dark:text-gray-200">
                         {{ displayName }}
                     </h2>
-                    <div v-if="!isEditMode" class="flex items-center gap-2">
+                    <div class="flex items-center gap-2">
                         <button
                             type="button"
                             class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
@@ -218,15 +217,15 @@ const confirmDelete = () => {
                             <span class="material-icons text-[16px]">assignment</span>
                             Send survey
                         </button>
-                        <button
+                        <Link
+                            :href="route('customers.edit', record.id)"
                             class="inline-flex items-center px-4 py-2 text-md font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
-                            @click="isEditMode = true"
                         >
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             Edit
-                        </button>
+                        </Link>
                         <button
                             class="inline-flex items-center px-4 py-2 text-md font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
                             @click="showDeleteModal = true"
@@ -237,39 +236,11 @@ const confirmDelete = () => {
                             Delete
                         </button>
                     </div>
-                    <div v-else class="flex items-center gap-2">
-                        <button
-                            class="inline-flex items-center px-4 py-2 text-md font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-                            @click="handleCancelEdit"
-                        >
-                            Cancel
-                        </button>
-                    </div>
                 </div>
             </div>
         </template>
 
-        <!-- ── EDIT MODE ─────────────────────────────────────────── -->
-        <div v-if="isEditMode" class="w-full">
-            <CustomerForm
-                :record="record"
-                :form-schema="formSchema"
-                :fields-schema="fieldsSchema"
-                :enum-options="enumOptions"
-                :account="account"
-                :timezones="timezones"
-                :image-urls="imageUrls"
-                mode="edit"
-                :record-type="recordType"
-                :record-title="recordTitle"
-                @saved="handleSaved"
-                @cancelled="handleCancelEdit"
-            />
-        </div>
-
-        <!-- ── VIEW / DASHBOARD MODE ─────────────────────────────── -->
-        <template v-else>
-            <div v-if="page.props.flash?.success" class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
+        <div v-if="page.props.flash?.success" class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
                 {{ page.props.flash.success }}
             </div>
             <div v-if="page.props.flash?.error" class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
@@ -688,6 +659,35 @@ const confirmDelete = () => {
                         </div>
                     </div>
 
+                    <!-- Linked records -->
+                    <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                        <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                            <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Linked records</span>
+                        </div>
+                        <ul class="divide-y divide-gray-50 dark:divide-gray-700/60">
+                            <li class="flex items-center gap-3 px-5 py-3">
+                                <span class="material-icons text-[16px]" :class="hasContact ? 'text-primary-500' : 'text-gray-300 dark:text-gray-600'">person</span>
+                                <span class="text-sm flex-1" :class="hasContact ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Contact</span>
+                                <Link
+                                    v-if="hasContact"
+                                    :href="route('contacts.show', record.contact?.id ?? record.contact_id)"
+                                    class="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                                >View</Link>
+                                <span v-else class="text-sm text-gray-300 dark:text-gray-600">—</span>
+                            </li>
+                            <li class="flex items-center gap-3 px-5 py-3">
+                                <span class="material-icons text-[16px]" :class="hasLead ? 'text-amber-500' : 'text-gray-300 dark:text-gray-600'">trending_up</span>
+                                <span class="text-sm flex-1" :class="hasLead ? 'text-gray-700 dark:text-gray-300' : 'text-gray-300 dark:text-gray-600'">Lead</span>
+                                <Link
+                                    v-if="hasLead"
+                                    :href="route('leads.show', linkedLeadId)"
+                                    class="text-sm text-primary-600 dark:text-primary-400 hover:underline"
+                                >View</Link>
+                                <span v-else class="text-sm text-gray-300 dark:text-gray-600">—</span>
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- Customer portal -->
                     <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                         <div class="px-5 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -925,7 +925,6 @@ const confirmDelete = () => {
             <div v-if="sublists.length > 0 && domainName" class="mt-6">
                 <Sublist :parent-record="record" :parent-domain="domainName" :sublists="sublists" />
             </div>
-        </template>
 
         <SendSurveyModal
             :show="showSendSurveyModal"

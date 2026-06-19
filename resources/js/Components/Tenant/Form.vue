@@ -13,6 +13,7 @@ import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
 import MeasurementImperialInput from '@/Components/Tenant/FormComponents/MeasurementImperialInput.vue';
+import EnumButtonGroup from '@/Components/Tenant/FormComponents/EnumButtonGroup.vue';
 import TipTapEditor from '@/Components/TipTapEditor.vue';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
@@ -753,6 +754,11 @@ const getFieldType = (fieldKey) => {
     }
     return d.type || 'text';
 };
+
+const isEnumSelectField = (fieldKey) => {
+    const def = getFieldDefinition(fieldKey);
+    return def.type === 'select' && !!def.enum;
+};
 const getFieldLabel = (fieldKey) => getFieldDefinition(fieldKey).label || fieldKey;
 const isFieldRequired = (field) => {
     if (!field || typeof field !== 'object') return false;
@@ -887,8 +893,10 @@ const toggleSection = (key) => { openSections.value[key] = !openSections.value[k
 const getFieldColSpan = (field) => {
     if (field.col_span) return field.col_span;
     if (field.span) return `sm:col-span-${field.span}`;
-    const fieldType = getFieldType(field.key);
-    if (fieldType === 'textarea' || field.key === 'address_line_1' || field.key === 'address_line_2' ||
+    const fieldKey = field.key;
+    const fieldType = getFieldType(fieldKey);
+    if (isEnumSelectField(fieldKey)) return 'sm:col-span-12';
+    if (fieldType === 'textarea' || fieldKey === 'address_line_1' || fieldKey === 'address_line_2' ||
         fieldType === 'editor' || fieldType === 'wysiwyg') return 'sm:col-span-12';
     return `sm:col-span-${Math.floor(12 / columnCount.value)}`;
 };
@@ -1391,7 +1399,7 @@ defineExpose({
                                             class="input-style"
                                         >
                                         <select
-                                            v-else-if="getFieldType(sk) === 'select'"
+                                            v-else-if="getFieldType(sk) === 'select' && !getFieldDefinition(sk).enum"
                                             :id="getFieldId(sk)"
                                             v-model="form[sk]"
                                             :required="isFieldRequired({ key: sk })"
@@ -1405,6 +1413,13 @@ defineExpose({
                                                 {{ opt.name }}
                                             </option>
                                         </select>
+                                        <EnumButtonGroup
+                                            v-else-if="isEnumSelectField(sk)"
+                                            :id="getFieldId(sk)"
+                                            v-model="form[sk]"
+                                            :options="getEnumOptions(sk)"
+                                            :disabled="isFieldDisabled(sk)"
+                                        />
                                     </div>
                                 </div>
                                 </div>
@@ -1631,6 +1646,13 @@ defineExpose({
                                             <input v-else-if="['text', 'email'].includes(getFieldType(field.key))" :id="getFieldId(field.key)" v-model="form[field.key]" :type="getFieldType(field.key)" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" class="input-style" />
                                             <textarea v-else-if="getFieldType(field.key) === 'textarea'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" rows="4" class="block p-2.5 w-full input-style" />
                                             <RecordSelect v-else-if="getFieldType(field.key) === 'record'" :id="getFieldId(field.key)" :field="getFieldDefinition(field.key)" v-model="form[field.key]" :disabled="isFieldDisabled(field.key) || isFieldDisabledByFilter(field.key)" :enum-options="getEnumOptions(field.key)" :record="record || (Object.keys(props.initialData).length > 0 ? props.initialData : null)" :field-key="field.key" :filter-by="getFieldDefinition(field.key).record_filter_field || getFieldDefinition(field.key).filterby || null" :filter-value="getFieldFilterValue(field.key)" :overlay-z-index="resolvedRecordSelectOverlayZIndex" @record-selected="(selectedRecord) => applySourcedDefaults(field.key, selectedRecord)" />
+                                            <EnumButtonGroup
+                                                v-else-if="isEnumSelectField(field.key)"
+                                                :id="getFieldId(field.key)"
+                                                v-model="form[field.key]"
+                                                :options="getEnumOptions(field.key)"
+                                                :disabled="isFieldDisabled(field.key)"
+                                            />
                                             <select v-else-if="getFieldType(field.key) === 'select'" :id="getFieldId(field.key)" v-model="form[field.key]" :required="isFieldRequired(field)" :disabled="isFieldDisabled(field.key)" :class="['input-style', !form[field.key] ? 'text-gray-400 dark:text-gray-500' : 'text-gray-900']">
                                                 <option v-if="!isFieldRequired(field)" value="" disabled>Select {{ getFieldLabel(field.key) }}</option>
                                                 <option v-for="option in getEnumOptions(field.key)" :key="option.id" :value="option.id">{{ option.name }}</option>

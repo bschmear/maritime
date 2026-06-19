@@ -66,4 +66,9 @@ final class LengthMillimeters
 
         return null;
     }
+
+    public static function fromFeetFloat(float $feet): int
+    {
+        return (int) round(max(0, $feet) * self::MM_PER_FOOT);
+    }
 }
