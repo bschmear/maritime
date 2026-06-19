@@ -6,9 +6,8 @@ namespace App\Domain\Bill\Actions;
 
 use App\Domain\Bill\Models\Bill;
 use App\Domain\BillPayment\Actions\CreateBillPayment;
-use App\Domain\BillPayment\Actions\StoreBillPayment;
 use App\Domain\BillPayment\Models\BillPayment;
-use App\Support\QuickBooks\QuickBooksBankAccountResolver;
+use App\Support\QuickBooks\QuickBooksPaymentAccountResolver;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -40,7 +39,7 @@ class PayBill
         }
 
         $amount = round((float) $bill->balance, 2);
-        $bankAccount = QuickBooksBankAccountResolver::resolve();
+        $bankAccount = QuickBooksPaymentAccountResolver::resolveBankAccount();
 
         $payload = [
             'vendor_id' => $bill->vendor_id,
@@ -77,7 +76,6 @@ class PayBill
             }
 
             $payment = $createResult['record'];
-            app(StoreBillPayment::class)->applyFromPayment($payment);
 
             return [
                 'success' => true,

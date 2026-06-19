@@ -16,6 +16,7 @@ use App\Domain\InvoiceItem\Models\InvoiceItem;
 use App\Enums\Integration\IntegrationType;
 use App\Enums\Payments\Terms;
 use App\Support\QuickBooks\QuickBooksBillMapper;
+use App\Support\QuickBooks\QuickBooksPaymentAccountResolver;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -1344,6 +1345,8 @@ class QuickBooksAccountingService
     public function buildBillPaymentPayload(BillPayment $payment, string $vendorQboId): array
     {
         $payType = (string) ($payment->pay_type ?: 'Check');
+        $isCreditCard = strcasecmp($payType, 'CreditCard') === 0;
+
         $payload = [
             'VendorRef' => ['value' => $vendorQboId],
             'PayType' => $payType,
@@ -1359,17 +1362,37 @@ class QuickBooksAccountingService
         if ($payment->private_note) {
             $payload['PrivateNote'] = (string) $payment->private_note;
         }
-        if ($payment->ap_account_ref_id) {
-            $payload['APAccountRef'] = ['value' => (string) $payment->ap_account_ref_id];
+
+        $apAccountId = QuickBooksPaymentAccountResolver::validatedAccountsPayableQuickbooksId(
+            $payment->ap_account_ref_id ? (string) $payment->ap_account_ref_id : null,
+        );
+        if ($apAccountId !== null) {
+            $payload['APAccountRef'] = ['value' => $apAccountId];
         }
 
-        if (strcasecmp($payType, 'CreditCard') === 0 && $payment->cc_account_ref_id) {
+        if ($isCreditCard) {
+            $ccAccountId = QuickBooksPaymentAccountResolver::validatedCreditCardQuickbooksId(
+                $payment->cc_account_ref_id ? (string) $payment->cc_account_ref_id : null,
+            );
+            if ($ccAccountId === null) {
+                throw new RuntimeException(
+                    'A QuickBooks credit card account is required. Import your chart of accounts and choose a Credit Card account for this payment.',
+                );
+            }
             $payload['CreditCardPayment'] = [
-                'CCAccountRef' => ['value' => (string) $payment->cc_account_ref_id],
+                'CCAccountRef' => ['value' => $ccAccountId],
             ];
-        } elseif ($payment->bank_account_ref_id) {
+        } else {
+            $bankAccountId = QuickBooksPaymentAccountResolver::validatedBankQuickbooksId(
+                $payment->bank_account_ref_id ? (string) $payment->bank_account_ref_id : null,
+            );
+            if ($bankAccountId === null) {
+                throw new RuntimeException(
+                    'A QuickBooks bank account is required. Import your chart of accounts and choose a Bank account (checking/savings) for this payment.',
+                );
+            }
             $payload['CheckPayment'] = [
-                'BankAccountRef' => ['value' => (string) $payment->bank_account_ref_id],
+                'BankAccountRef' => ['value' => $bankAccountId],
             ];
         }
 

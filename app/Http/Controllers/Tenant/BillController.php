@@ -225,13 +225,6 @@ class BillController extends RecordController
         }
 
         $payment = $result['record'];
-        $sync = $result['quickbooks_sync'] ?? null;
-
-        if (is_array($sync) && ($sync['success'] ?? true) === false) {
-            return redirect()
-                ->route('bill-payments.show', $payment->id)
-                ->with('warning', 'Payment recorded locally. QuickBooks sync failed: '.($sync['message'] ?? 'Unknown error'));
-        }
 
         return redirect()
             ->route('bill-payments.show', $payment->id)

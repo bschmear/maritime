@@ -119,6 +119,15 @@ class QuickBooksBillPayloadTest extends TestCase
     #[Test]
     public function build_bill_payment_payload_links_bill_transactions(): void
     {
+        ChartOfAccount::query()->create([
+            'name' => 'Checking',
+            'quickbooks_account_id' => '35',
+            'fully_qualified_name' => 'Checking',
+            'account_type' => 'Bank',
+            'detail_type' => 'Checking',
+            'active' => true,
+        ]);
+
         $payment = new BillPayment([
             'pay_type' => 'Check',
             'total_amt' => 200,

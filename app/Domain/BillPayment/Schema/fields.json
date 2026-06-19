@@ -5,7 +5,7 @@
     "disabled": true
   },
   "quickbooks_bill_payment_id": {
-    "label": "QuickBooks Payment ID",
+    "label": "QuickBooks payment ID",
     "type": "text",
     "disabled": true
   },
@@ -17,7 +17,7 @@
     "relationship": "vendor"
   },
   "quickbooks_vendor_id": {
-    "label": "QuickBooks Vendor ID",
+    "label": "QuickBooks vendor ID",
     "type": "text",
     "disabled": true
   },
@@ -35,7 +35,11 @@
   },
   "pay_type": {
     "label": "Pay type",
-    "type": "text"
+    "type": "select",
+    "options": [
+      { "value": "Check", "name": "Check" },
+      { "value": "CreditCard", "name": "Credit card" }
+    ]
   },
   "currency_code": {
     "label": "Currency",

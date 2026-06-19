@@ -12,6 +12,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use RuntimeException;
 use Throwable;
 
 class CreateBillPayment
@@ -22,8 +23,9 @@ class CreateBillPayment
     public function __invoke(array $data): array
     {
         $forImport = filter_var($data['for_import'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $applyToBills = filter_var($data['apply_to_bills'] ?? true, FILTER_VALIDATE_BOOLEAN);
         $lines = $data['lines'] ?? [];
-        unset($data['for_import'], $data['lines']);
+        unset($data['for_import'], $data['apply_to_bills'], $data['lines']);
 
         $validated = Validator::make($data, [
             'vendor_id' => [$forImport ? 'nullable' : 'required', 'integer', 'exists:vendors,id'],
@@ -48,22 +50,37 @@ class CreateBillPayment
         ])->validate();
 
         try {
-            $record = DB::transaction(function () use ($validated, $lines): RecordModel {
+            if (! $forImport) {
+                $this->assertQuickBooksReadyForCreate();
+            }
+
+            $syncedToQuickBooks = false;
+
+            $record = DB::transaction(function () use ($validated, $lines, $forImport, $applyToBills, &$syncedToQuickBooks): RecordModel {
                 $record = RecordModel::query()->create($validated);
                 $this->syncLines($record, is_array($lines) ? $lines : []);
-
-                return $record->fresh(['lines.bill', 'vendor']);
-            });
-
-            $quickbooksSync = $this->pushToQuickBooksIfEnabled($record, $forImport);
-            if ($quickbooksSync !== null) {
                 $record = $record->fresh(['lines.bill', 'vendor']);
-            }
+
+                if (! $forImport && $applyToBills && $record->lines->isNotEmpty()) {
+                    app(StoreBillPayment::class)->applyFromPayment($record);
+                    $record = $record->fresh(['lines.bill', 'vendor']);
+                }
+
+                if (! $forImport && $this->requiresQuickBooksSyncFirst()) {
+                    PushBillPaymentToQuickBooks::runSync((int) $record->id);
+                    $syncedToQuickBooks = true;
+                    $record = $record->fresh(['lines.bill', 'vendor']);
+                }
+
+                return $record;
+            });
 
             return [
                 'success' => true,
                 'record' => $record,
-                'quickbooks_sync' => $quickbooksSync,
+                'quickbooks_sync' => $syncedToQuickBooks
+                    ? ['success' => true, 'message' => 'Synced to QuickBooks.']
+                    : null,
             ];
         } catch (QueryException $e) {
             Log::error('Database query error in CreateBillPayment', ['error' => $e->getMessage(), 'data' => $data]);
@@ -76,36 +93,22 @@ class CreateBillPayment
         }
     }
 
-    /**
-     * @return array{success: bool, message?: string}|null
-     */
-    private function pushToQuickBooksIfEnabled(RecordModel $record, bool $forImport): ?array
+    private function requiresQuickBooksSyncFirst(): bool
     {
-        if ($forImport || ! QuickBooksSettings::forCurrentTenant()->isSyncBillPaymentsEnabled()) {
-            return null;
+        return QuickBooksSettings::forCurrentTenant()->isSyncBillPaymentsEnabled()
+            && app(QuickBooksAccountingService::class)->isConnected();
+    }
+
+    private function assertQuickBooksReadyForCreate(): void
+    {
+        if (! QuickBooksSettings::forCurrentTenant()->isSyncBillPaymentsEnabled()) {
+            return;
         }
 
         if (! app(QuickBooksAccountingService::class)->isConnected()) {
-            return null;
-        }
-
-        try {
-            PushBillPaymentToQuickBooks::runSync($record->id);
-
-            return [
-                'success' => true,
-                'message' => 'Synced to QuickBooks.',
-            ];
-        } catch (Throwable $e) {
-            Log::error('QuickBooks sync after bill payment create failed', [
-                'bill_payment_id' => $record->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-            ];
+            throw new RuntimeException(
+                'QuickBooks bill payment sync is enabled. Connect QuickBooks before creating a payment.',
+            );
         }
     }
 

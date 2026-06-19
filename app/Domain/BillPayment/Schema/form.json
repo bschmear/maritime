@@ -1,14 +1,14 @@
 {
-  "settings": { "max_width": "3xl" },
+  "settings": { "max_width": "4xl" },
   "form": {
     "primary": {
       "label": "Payment details",
       "fields": [
         { "key": "vendor_id", "required": true },
-        { "key": "doc_number" },
         { "key": "txn_date" },
-        { "key": "total_amt" },
         { "key": "pay_type" },
+        { "key": "doc_number" },
+        { "key": "total_amt" },
         { "key": "currency_code" },
         { "key": "private_note" }
       ]
