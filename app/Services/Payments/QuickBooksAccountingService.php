@@ -13,6 +13,7 @@ use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\QuickBooksSettings;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\InvoiceItem\Models\InvoiceItem;
+use App\Enums\BillPayment\PayType;
 use App\Enums\Integration\IntegrationType;
 use App\Enums\Payments\Terms;
 use App\Support\QuickBooks\QuickBooksBillMapper;
@@ -1344,12 +1345,12 @@ class QuickBooksAccountingService
      */
     public function buildBillPaymentPayload(BillPayment $payment, string $vendorQboId): array
     {
-        $payType = (string) ($payment->pay_type ?: 'Check');
-        $isCreditCard = strcasecmp($payType, 'CreditCard') === 0;
+        $payType = PayType::fromValue($payment->pay_type);
+        $isCreditCard = $payType->usesCreditCardAccount();
 
         $payload = [
             'VendorRef' => ['value' => $vendorQboId],
-            'PayType' => $payType,
+            'PayType' => $payType->quickbooksValue(),
             'TotalAmt' => round((float) $payment->total_amt, 2),
         ];
 

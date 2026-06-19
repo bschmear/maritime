@@ -9,6 +9,7 @@ use App\Domain\BillItem\Models\BillItem;
 use App\Domain\BillPayment\Models\BillPayment;
 use App\Domain\BillPayment\Models\BillPaymentLine;
 use App\Domain\ChartOfAccount\Models\ChartOfAccount;
+use App\Enums\BillPayment\PayType;
 use App\Services\Payments\QuickBooksAccountingService;
 use App\Support\QuickBooks\QuickBooksBillMapper;
 use App\Support\QuickBooks\QuickBooksBillPaymentMapper;
@@ -129,7 +130,7 @@ class QuickBooksBillPayloadTest extends TestCase
         ]);
 
         $payment = new BillPayment([
-            'pay_type' => 'Check',
+            'pay_type' => PayType::Check->value,
             'total_amt' => 200,
             'bank_account_ref_id' => '35',
         ]);

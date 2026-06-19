@@ -6,11 +6,13 @@ namespace App\Domain\BillPayment\Actions;
 
 use App\Domain\BillPayment\Models\BillPayment as RecordModel;
 use App\Domain\Integration\Support\QuickBooksSettings;
+use App\Enums\BillPayment\PayType;
 use App\Jobs\PushBillPaymentToQuickBooks;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class UpdateBillPayment
@@ -32,7 +34,7 @@ class UpdateBillPayment
             'doc_number' => ['sometimes', 'nullable', 'string', 'max:255'],
             'txn_date' => ['sometimes', 'nullable', 'date'],
             'total_amt' => ['sometimes', 'numeric', 'min:0'],
-            'pay_type' => ['sometimes', 'nullable', 'string', 'max:32'],
+            'pay_type' => ['sometimes', 'nullable', Rule::enum(PayType::class)],
             'ap_account_ref_id' => ['sometimes', 'nullable', 'string', 'max:64'],
             'ap_account_ref_name' => ['sometimes', 'nullable', 'string', 'max:255'],
             'bank_account_ref_id' => ['sometimes', 'nullable', 'string', 'max:64'],

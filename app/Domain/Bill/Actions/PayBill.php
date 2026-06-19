@@ -7,6 +7,7 @@ namespace App\Domain\Bill\Actions;
 use App\Domain\Bill\Models\Bill;
 use App\Domain\BillPayment\Actions\CreateBillPayment;
 use App\Domain\BillPayment\Models\BillPayment;
+use App\Enums\BillPayment\PayType;
 use App\Support\QuickBooks\QuickBooksPaymentAccountResolver;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -46,7 +47,7 @@ class PayBill
             'quickbooks_vendor_id' => $bill->quickbooks_vendor_id ?: $bill->vendor?->quickbooks_id,
             'txn_date' => now()->format('Y-m-d'),
             'total_amt' => $amount,
-            'pay_type' => 'Check',
+            'pay_type' => PayType::Check->value,
             'currency_code' => $bill->currency_code ?: 'USD',
             'ap_account_ref_id' => $bill->ap_account_ref_id,
             'ap_account_ref_name' => $bill->ap_account_ref_name,

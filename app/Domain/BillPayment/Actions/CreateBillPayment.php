@@ -6,12 +6,14 @@ namespace App\Domain\BillPayment\Actions;
 
 use App\Domain\BillPayment\Models\BillPayment as RecordModel;
 use App\Domain\Integration\Support\QuickBooksSettings;
+use App\Enums\BillPayment\PayType;
 use App\Jobs\PushBillPaymentToQuickBooks;
 use App\Services\Payments\QuickBooksAccountingService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 use Throwable;
 
@@ -33,7 +35,7 @@ class CreateBillPayment
             'doc_number' => ['nullable', 'string', 'max:255'],
             'txn_date' => ['nullable', 'date'],
             'total_amt' => ['nullable', 'numeric', 'min:0'],
-            'pay_type' => ['nullable', 'string', 'max:32'],
+            'pay_type' => ['nullable', Rule::enum(PayType::class)],
             'ap_account_ref_id' => ['nullable', 'string', 'max:64'],
             'ap_account_ref_name' => ['nullable', 'string', 'max:255'],
             'bank_account_ref_id' => ['nullable', 'string', 'max:64'],

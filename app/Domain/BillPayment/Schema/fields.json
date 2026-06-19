@@ -36,10 +36,7 @@
   "pay_type": {
     "label": "Pay type",
     "type": "select",
-    "options": [
-      { "value": "Check", "name": "Check" },
-      { "value": "CreditCard", "name": "Credit card" }
-    ]
+    "enum": "App\\Enums\\BillPayment\\PayType"
   },
   "currency_code": {
     "label": "Currency",

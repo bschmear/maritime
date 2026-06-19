@@ -92,6 +92,21 @@ const payAccountLabel = computed(() => {
     return props.record.bank_account_ref_name || '—';
 });
 
+const payTypeDisplay = computed(() => {
+    const value = props.record.pay_type;
+    if (!value) {
+        return '—';
+    }
+
+    const labels = {
+        Check: 'Check',
+        CreditCard: 'Credit card',
+        ACH: 'ACH',
+    };
+
+    return labels[value] ?? value;
+});
+
 const vendorHref = computed(() => {
     const vendorId = props.record.vendor_id ?? props.record.vendor?.id;
     if (!vendorId) {
@@ -296,7 +311,7 @@ function pullFromQuickbooks() {
                                         <div class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                             Pay type
                                         </div>
-                                        <div class="text-sm text-gray-900 dark:text-white">{{ record.pay_type || '—' }}</div>
+                                        <div class="text-sm text-gray-900 dark:text-white">{{ payTypeDisplay }}</div>
                                     </div>
                                     <div>
                                         <div class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">

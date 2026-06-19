@@ -39,6 +39,10 @@ const { beginCreateSync, endCreateSync } = useQuickBooksApSyncOverlay({
     entityLabel: computed(() => props.quickbooksApSync?.entityLabel || 'bill payment'),
 });
 
+function payTypeUsesCreditCard(payType) {
+    return payType === 'CreditCard';
+}
+
 const emit = defineEmits(['saved', 'cancelled']);
 
 const READONLY_FIELDS = new Set([
@@ -333,11 +337,11 @@ watch(linesTotal, (total) => {
 });
 
 const payFromAccountFilterValue = computed(() =>
-    form.pay_type === 'CreditCard' ? 'Credit Card' : 'Bank',
+    payTypeUsesCreditCard(form.pay_type) ? 'Credit Card' : 'Bank',
 );
 
 const payFromAccountLabel = computed(() =>
-    form.pay_type === 'CreditCard' ? 'Credit card account' : 'Bank account',
+    payTypeUsesCreditCard(form.pay_type) ? 'Credit card account' : 'Bank account',
 );
 
 watch(
@@ -471,7 +475,7 @@ function applyAccountRefs(raw) {
     }
 
     const name = account.fully_qualified_name || account.name || null;
-    if (String(raw.pay_type || 'Check').toLowerCase() === 'creditcard') {
+    if (payTypeUsesCreditCard(raw.pay_type)) {
         raw.cc_account_ref_id = account.quickbooks_account_id;
         raw.cc_account_ref_name = name;
         raw.bank_account_ref_id = null;

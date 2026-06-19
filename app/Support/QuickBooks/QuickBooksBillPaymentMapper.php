@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support\QuickBooks;
 
+use App\Enums\BillPayment\PayType;
+
 final class QuickBooksBillPaymentMapper
 {
     /**
@@ -28,7 +30,9 @@ final class QuickBooksBillPaymentMapper
             'doc_number' => QuickBooksRowMapper::normalizeString($row['DocNumber'] ?? null) ?: null,
             'txn_date' => ! empty($row['TxnDate']) ? (string) $row['TxnDate'] : null,
             'total_amt' => QuickBooksRowMapper::parseMoney($row['TotalAmt'] ?? null),
-            'pay_type' => QuickBooksRowMapper::normalizeString($row['PayType'] ?? null) ?: null,
+            'pay_type' => PayType::fromQuickBooks(
+                QuickBooksRowMapper::normalizeString($row['PayType'] ?? null),
+            )->value,
             'ap_account_ref_id' => QuickBooksRowMapper::refValue($row['APAccountRef'] ?? null) ?: null,
             'ap_account_ref_name' => QuickBooksRowMapper::refName($row['APAccountRef'] ?? null) ?: null,
             'bank_account_ref_id' => $checkPayment
