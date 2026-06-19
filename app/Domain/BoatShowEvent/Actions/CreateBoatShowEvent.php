@@ -3,6 +3,7 @@
 namespace App\Domain\BoatShowEvent\Actions;
 
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
+use App\Domain\BoatShowEvent\Support\BoatShowEventDisplayName;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -14,7 +15,8 @@ class CreateBoatShowEvent
     {
         $validated = Validator::make($data, [
             'boat_show_id' => ['required', 'exists:boat_shows,id'],
-            'display_name' => ['required', 'string', 'max:255'],
+            'display_name' => ['nullable', 'string', 'max:255'],
+            'use_custom_display_name' => ['sometimes', 'boolean'],
             'year' => ['required', 'integer', 'min:2000', 'max:2100'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
@@ -47,6 +49,9 @@ class CreateBoatShowEvent
             $validated['recipients'] = $ids === [] ? null : ['user_ids' => $ids];
             unset($validated['recipient_user_ids']);
         }
+
+        $validated['display_name'] = BoatShowEventDisplayName::resolve($validated);
+        unset($validated['use_custom_display_name']);
 
         try {
             $record = RecordModel::query()->create($validated);

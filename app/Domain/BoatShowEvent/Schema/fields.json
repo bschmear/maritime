@@ -11,8 +11,8 @@
     "display_name": {
         "label": "Display Name",
         "type": "text",
-        "validation": "required|string|max:255",
-        "help": "Label for this event (e.g. Miami 2026)"
+        "validation": "nullable|string|max:255",
+        "help": "Optional custom label. When empty, generated from boat show, year, and booth."
     },
     "year": {
         "label": "Year",

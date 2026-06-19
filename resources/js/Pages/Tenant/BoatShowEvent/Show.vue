@@ -100,7 +100,6 @@ const breadcrumbItems = computed(() => {
             label: props.record.boat_show.name,
             href: route('boat-shows.show', props.record.boat_show.id),
         });
-        items.push({ label: 'Events', href: indexHref.value });
     } else {
         items.push({ label: 'Boat Show Events', href: indexHref.value });
     }

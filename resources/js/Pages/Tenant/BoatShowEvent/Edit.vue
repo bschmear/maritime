@@ -58,11 +58,32 @@ function dateInput(val) {
     return '';
 }
 
+function buildAutoDisplayName(boatShowName, year, booth) {
+    const showName = String(boatShowName ?? '').trim();
+    const yearPart = year !== null && year !== undefined && year !== '' ? String(year) : '';
+    const boothPart = String(booth ?? '').trim();
+    const parts = [showName, yearPart].filter((p) => p !== '');
+    let name = parts.join(' ');
+    if (boothPart !== '') {
+        name = name !== '' ? `${name} — Booth ${boothPart}` : `Booth ${boothPart}`;
+    }
+    return name !== '' ? name : 'Boat show event';
+}
+
 const recipientIds = [...(props.record.recipients?.user_ids ?? [])].map((id) => Number(id)).filter((n) => n > 0);
+
+const storedDisplayName = props.record.display_name ?? '';
+const autoDisplayNameOnLoad = buildAutoDisplayName(
+    parentShowLabel.value,
+    props.record.year,
+    props.record.booth,
+);
+const usesCustomDisplayName = storedDisplayName !== '' && storedDisplayName !== autoDisplayNameOnLoad;
 
 const form = useForm({
     boat_show_id: props.record.boat_show_id,
-    display_name: props.record.display_name ?? '',
+    display_name: usesCustomDisplayName ? storedDisplayName : '',
+    use_custom_display_name: usesCustomDisplayName ? 1 : 0,
     year: props.record.year ?? new Date().getFullYear(),
     starts_at: dateInput(props.record.starts_at),
     ends_at: dateInput(props.record.ends_at),
@@ -123,6 +144,13 @@ const submit = () => {
             out.active = out.active === true || out.active === 1 || out.active === '1' ? 1 : 0;
             out.auto_followup =
                 out.auto_followup === true || out.auto_followup === 1 || out.auto_followup === '1' ? 1 : 0;
+            out.use_custom_display_name =
+                out.use_custom_display_name === true || out.use_custom_display_name === 1 || out.use_custom_display_name === '1'
+                    ? 1
+                    : 0;
+            if (!out.use_custom_display_name) {
+                out.display_name = '';
+            }
             if (out.starts_at === '') {
                 out.starts_at = null;
             }
@@ -185,8 +213,8 @@ const fieldError = (key) => {
             </div>
         </template>
 
-        <div class="mx-auto flex w-full max-w-4xl flex-col space-y-6 p-4">
-            <form class="space-y-8" @submit.prevent="submit">
+        <div class="w-full p-4">
+            <form id="boat-show-event-form" class="space-y-8 pb-28" @submit.prevent="submit">
                 <BoatShowEventFormFields
                     :form="form"
                     :field-error="fieldError"
@@ -197,25 +225,37 @@ const fieldError = (key) => {
                     mode="edit"
                     address-field-id="boat-show-event-edit-address"
                 />
-
-                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button
-                        type="button"
-                        class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                        :disabled="form.processing"
-                        @click="router.visit(showHref)"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="inline-flex justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                        :disabled="form.processing"
-                    >
-                        {{ form.processing ? 'Saving…' : 'Save changes' }}
-                    </button>
-                </div>
             </form>
+
+            <Teleport to="body">
+                <div class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90 dark:border-gray-700 dark:bg-gray-900/95 dark:supports-[backdrop-filter]:bg-gray-900/90">
+                    <div class="flex w-full items-center justify-end gap-3">
+                        <button
+                            type="button"
+                            class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            :disabled="form.processing"
+                            @click="router.visit(showHref)"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="boat-show-event-form"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            :disabled="form.processing"
+                        >
+                            <svg v-if="form.processing" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                            </svg>
+                            <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            {{ form.processing ? 'Saving…' : 'Save changes' }}
+                        </button>
+                    </div>
+                </div>
+            </Teleport>
         </div>
     </TenantLayout>
 </template>

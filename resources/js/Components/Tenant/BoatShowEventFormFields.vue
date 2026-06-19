@@ -102,6 +102,70 @@ watch(
         props.form.ends_at = start;
     },
 );
+
+function isRecipientSelected(userId) {
+    const id = Number(userId);
+    if (!Array.isArray(props.form.recipient_user_ids)) {
+        return false;
+    }
+
+    return props.form.recipient_user_ids.map((x) => Number(x)).includes(id);
+}
+
+function toggleRecipient(userId) {
+    const id = Number(userId);
+    if (!Array.isArray(props.form.recipient_user_ids)) {
+        props.form.recipient_user_ids = [];
+    }
+    const arr = props.form.recipient_user_ids.map((x) => Number(x));
+    const i = arr.indexOf(id);
+    if (i >= 0) {
+        arr.splice(i, 1);
+    } else {
+        arr.push(id);
+    }
+    props.form.recipient_user_ids = arr;
+}
+
+function buildAutoDisplayName(boatShowName, year, booth) {
+    const showName = String(boatShowName ?? '').trim();
+    const yearPart = year !== null && year !== undefined && year !== '' ? String(year) : '';
+    const boothPart = String(booth ?? '').trim();
+
+    const parts = [showName, yearPart].filter((p) => p !== '');
+    let name = parts.join(' ');
+
+    if (boothPart !== '') {
+        name = name !== '' ? `${name} — Booth ${boothPart}` : `Booth ${boothPart}`;
+    }
+
+    return name !== '' ? name : 'Boat show event';
+}
+
+const resolvedBoatShowName = computed(() => {
+    if (props.parentBoatShow?.name) {
+        return props.parentBoatShow.name;
+    }
+    const id = Number(props.form.boat_show_id);
+    if (!id) {
+        return '';
+    }
+    const match = (props.boatShowOptions ?? []).find((opt) => Number(opt.id) === id);
+
+    return match?.name ?? '';
+});
+
+const autoDisplayName = computed(() =>
+    buildAutoDisplayName(resolvedBoatShowName.value, props.form.year, props.form.booth),
+);
+
+const effectiveDisplayName = computed(() =>
+    props.form.use_custom_display_name === true
+    || props.form.use_custom_display_name === 1
+    || props.form.use_custom_display_name === '1'
+        ? String(props.form.display_name ?? '').trim() || autoDisplayName.value
+        : autoDisplayName.value,
+);
 </script>
 
 <template>
@@ -152,22 +216,50 @@ watch(
             </p>
         </div>
 
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+            <div class="space-y-8 lg:col-span-2">
         <!-- Event details -->
         <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800 sm:p-8">
             <h3 class="mb-6 text-base font-semibold text-gray-900 dark:text-white">Event details</h3>
             <div class="grid gap-6 sm:grid-cols-12">
                 <div class="sm:col-span-12">
+                    <p class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Event name</p>
+                    <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700/50">
+                        <p class="text-sm font-medium text-gray-900 dark:text-white">
+                            {{ effectiveDisplayName }}
+                        </p>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            Generated from boat show, year, and booth. Enable custom name below to override.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="sm:col-span-12">
+                    <label
+                        class="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-700/50"
+                    >
+                        <input
+                            v-model="form.use_custom_display_name"
+                            type="checkbox"
+                            :true-value="1"
+                            :false-value="0"
+                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
+                        <span class="text-sm font-medium text-gray-900 dark:text-white">Use custom display name</span>
+                    </label>
+                </div>
+
+                <div v-if="form.use_custom_display_name" class="sm:col-span-12">
                     <label for="display_name" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">
-                        Display name <span class="text-red-500">*</span>
+                        Custom display name
                     </label>
                     <input
                         id="display_name"
                         v-model="form.display_name"
                         type="text"
-                        required
                         maxlength="255"
                         class="input-style w-full"
-                        placeholder="e.g. Miami 2026"
+                        placeholder="e.g. Miami VIP preview"
                     />
                     <p v-if="fieldError('display_name')" class="mt-2 text-sm text-red-600 dark:text-red-500">
                         {{ fieldError('display_name') }}
@@ -303,72 +395,88 @@ watch(
                         {{ fieldError('delay_unit') }}
                     </p>
                 </div>
+            </div>
+        </div>
+            </div>
 
-                <div class="sm:col-span-12">
-                    <label for="recipient_user_ids" class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">
-                        Notify users
-                    </label>
-                    <select
-                        id="recipient_user_ids"
-                        v-model="form.recipient_user_ids"
-                        multiple
-                        class="input-style min-h-[140px] w-full max-w-xl"
-                        size="6"
+            <div class="space-y-6">
+                <!-- Venue address -->
+                <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+                    <h3 class="mb-2 text-base font-semibold text-gray-900 dark:text-white">
+                        Venue address
+                        <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(optional)</span>
+                    </h3>
+                    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                        Search for the street address; city, state, postal code, and map coordinates are filled automatically.
+                    </p>
+                    <AddressAutocomplete
+                        :id="addressFieldId"
+                        :street="form.address_line_1"
+                        :unit="form.address_line_2"
+                        :city="form.city"
+                        :state="form.state"
+                        :postal-code="form.postal_code"
+                        :country="form.country"
+                        :latitude="form.latitude"
+                        :longitude="form.longitude"
+                        :disabled="form.processing"
+                        @update="
+                            (data) => {
+                                form.address_line_1 = data.street ?? '';
+                                form.address_line_2 = data.unit ?? '';
+                                form.city = data.city ?? '';
+                                form.state = data.state || data.stateCode || '';
+                                form.country = data.country ?? '';
+                                form.postal_code = data.postalCode ?? '';
+                                form.latitude = data.latitude != null && data.latitude !== '' ? data.latitude : '';
+                                form.longitude = data.longitude != null && data.longitude !== '' ? data.longitude : '';
+                            }
+                        "
+                    />
+                    <p v-if="fieldError('address_line_1')" class="mt-2 text-sm text-red-600 dark:text-red-500">
+                        {{ fieldError('address_line_1') }}
+                    </p>
+                    <p v-if="fieldError('city')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('city') }}</p>
+                    <p v-if="fieldError('state')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('state') }}</p>
+                    <p v-if="fieldError('country')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('country') }}</p>
+                    <p v-if="fieldError('postal_code')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('postal_code') }}</p>
+                    <p v-if="fieldError('latitude')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('latitude') }}</p>
+                    <p v-if="fieldError('longitude')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('longitude') }}</p>
+                </div>
+
+                <!-- Notify users -->
+                <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800 sm:p-6">
+                    <h3 class="mb-2 text-base font-semibold text-gray-900 dark:text-white">Notify users</h3>
+                    <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                        Staff who receive follow-up notifications. Leave all unchecked to notify the account owner only.
+                    </p>
+                    <div
+                        v-if="recipientUserOptions.length"
+                        class="max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-600 dark:bg-gray-700/50"
                     >
-                        <option v-for="u in recipientUserOptions" :key="u.id" :value="u.id">
-                            {{ u.name }} — {{ u.email }}
-                        </option>
-                    </select>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Hold Cmd/Ctrl to select multiple. Empty = account owner.</p>
+                        <label
+                            v-for="u in recipientUserOptions"
+                            :key="u.id"
+                            class="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 hover:bg-white dark:hover:bg-gray-700"
+                        >
+                            <input
+                                type="checkbox"
+                                class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                :checked="isRecipientSelected(u.id)"
+                                @change="toggleRecipient(u.id)"
+                            />
+                            <span class="min-w-0 text-sm text-gray-800 dark:text-gray-200">
+                                <span class="block font-medium">{{ u.name }}</span>
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ u.email }}</span>
+                            </span>
+                        </label>
+                    </div>
+                    <p v-else class="text-sm text-gray-500 dark:text-gray-400">No staff users available.</p>
                     <p v-if="fieldError('recipient_user_ids')" class="mt-2 text-sm text-red-600 dark:text-red-500">
                         {{ fieldError('recipient_user_ids') }}
                     </p>
                 </div>
             </div>
-        </div>
-
-        <!-- Venue address -->
-        <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-md dark:border-gray-700 dark:bg-gray-800 sm:p-8">
-            <h3 class="mb-2 text-base font-semibold text-gray-900 dark:text-white">
-                Venue address
-                <span class="text-sm font-normal text-gray-500 dark:text-gray-400">(optional)</span>
-            </h3>
-            <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
-                Search for the street address; city, state, postal code, and map coordinates are filled automatically.
-            </p>
-            <AddressAutocomplete
-                :id="addressFieldId"
-                :street="form.address_line_1"
-                :unit="form.address_line_2"
-                :city="form.city"
-                :state="form.state"
-                :postal-code="form.postal_code"
-                :country="form.country"
-                :latitude="form.latitude"
-                :longitude="form.longitude"
-                :disabled="form.processing"
-                @update="
-                    (data) => {
-                        form.address_line_1 = data.street ?? '';
-                        form.address_line_2 = data.unit ?? '';
-                        form.city = data.city ?? '';
-                        form.state = data.state || data.stateCode || '';
-                        form.country = data.country ?? '';
-                        form.postal_code = data.postalCode ?? '';
-                        form.latitude = data.latitude != null && data.latitude !== '' ? data.latitude : '';
-                        form.longitude = data.longitude != null && data.longitude !== '' ? data.longitude : '';
-                    }
-                "
-            />
-            <p v-if="fieldError('address_line_1')" class="mt-2 text-sm text-red-600 dark:text-red-500">
-                {{ fieldError('address_line_1') }}
-            </p>
-            <p v-if="fieldError('city')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('city') }}</p>
-            <p v-if="fieldError('state')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('state') }}</p>
-            <p v-if="fieldError('country')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('country') }}</p>
-            <p v-if="fieldError('postal_code')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('postal_code') }}</p>
-            <p v-if="fieldError('latitude')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('latitude') }}</p>
-            <p v-if="fieldError('longitude')" class="mt-2 text-sm text-red-600 dark:text-red-500">{{ fieldError('longitude') }}</p>
         </div>
     </div>
 </template>

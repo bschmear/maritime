@@ -7,7 +7,6 @@
             "label": "Event",
             "fields": [
                 { "key": "boat_show_id", "required": true },
-                { "key": "display_name", "required": true },
                 { "key": "year", "required": true },
                 { "key": "starts_at" },
                 { "key": "ends_at" },
