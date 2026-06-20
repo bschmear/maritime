@@ -28,8 +28,8 @@ const props = defineProps({
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: 'Bill payments', href: route('bill-payments.index') },
-    { label: 'New' },
+    { label: 'Bills', href: route('bills.index') },
+    { label: 'Bill Payments' },
 ]);
 
 const handleSaved = (payload) => {

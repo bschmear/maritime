@@ -41,7 +41,8 @@ const pageTitle = computed(() => (isEditRestricted.value ? `Link records · ${pa
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: 'Bill payments', href: route('bill-payments.index') },
+    { label: 'Bills', href: route('bills.index') },
+    { label: 'Bill Payments', href: route('bill-payments.index') },
     {
         label: paymentLabel.value,
         href: route('bill-payments.show', buildResourceRouteParams('bill-payments', props.record.id)),

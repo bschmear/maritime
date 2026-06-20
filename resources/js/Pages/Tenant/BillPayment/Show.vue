@@ -65,7 +65,8 @@ const canPull = computed(() =>
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: 'Bill payments', href: indexHref.value },
+    { label: 'Bills', href: route('bills.index') },
+    { label: 'Bill Payments', href: indexHref.value },
     { label: paymentLabel.value },
 ]);
 

@@ -1,6 +1,7 @@
 <script setup>
 import RecordSelect from '@/Components/Tenant/RecordSelect.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
+import EnumButtonGroup from '@/Components/Tenant/FormComponents/EnumButtonGroup.vue';
 import FormFixedActionBar from '@/Components/Tenant/FormComponents/FormFixedActionBar.vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
@@ -38,6 +39,8 @@ const READONLY_FIELDS = new Set([
     'department_ref_name',
 ]);
 
+const SIDEBAR_AMOUNT_FIELDS = new Set(['total_amt', 'balance']);
+
 const normalizedForm = computed(() => {
     const s = props.formSchema;
     if (s?.form && typeof s.form === 'object') {
@@ -67,6 +70,9 @@ const formGroups = computed(() => {
     return out;
 });
 
+const visibleFieldsForGroup = (group) =>
+    group.fields.filter((field) => !SIDEBAR_AMOUNT_FIELDS.has(field.key));
+
 const fieldDef = (key) => props.fieldsSchema[key] || {};
 
 const isQuickbooksManaged = computed(() => {
@@ -86,7 +92,7 @@ const isEditRestricted = computed(() => {
 
 const editableWhenRestricted = computed(() => {
     const allowed = props.editRestrictions?.allowedFields;
-    return new Set(Array.isArray(allowed) && allowed.length ? allowed : ['vendor_id', 'chart_of_account_id']);
+    return new Set(Array.isArray(allowed) && allowed.length ? allowed : ['vendor_id']);
 });
 
 const isFieldEditable = (key) => {
@@ -112,17 +118,19 @@ const restrictionBannerMessage = computed(() => {
         ?? (isPaid.value ? 'paid' : (isQuickbooksManaged.value ? 'quickbooks' : null));
 
     if (reason === 'paid') {
-        return 'This bill is paid. Amounts, dates, and status cannot be changed here. You can link the vendor and chart of accounts below.';
+        return 'This bill is paid. Amounts, dates, and status cannot be changed here. You can link the vendor and line item accounts below.';
     }
 
     if (reason === 'quickbooks') {
-        return 'This bill is synced with QuickBooks. Financial details are managed in QuickBooks. You can link the vendor and chart of accounts below.';
+        return 'This bill is synced with QuickBooks. Financial details are managed in QuickBooks. You can link the vendor and line item accounts below.';
     }
 
-    return 'This bill has limited editing. You can link the vendor and chart of accounts below.';
+    return 'This bill has limited editing. You can link the vendor and line item accounts below.';
 });
 
-const isFullWidthField = (key) => fieldDef(key).type === 'textarea';
+const isEnumSelectField = (key) => fieldDef(key).type === 'select' && !!fieldDef(key).enum;
+
+const isFullWidthField = (key) => fieldDef(key).type === 'textarea' || isEnumSelectField(key);
 
 function extractDate(val) {
     if (!val) {
@@ -182,14 +190,13 @@ function buildInitialForm() {
 
     const values = {
         vendor_id: init.vendor_id ?? r?.vendor_id ?? null,
-        chart_of_account_id: init.chart_of_account_id ?? r?.chart_of_account_id ?? null,
         doc_number: init.doc_number ?? r?.doc_number ?? '',
         txn_date: extractDate(init.txn_date ?? r?.txn_date) || (props.mode === 'create' ? todayInputDate() : ''),
         due_date: extractDate(init.due_date ?? r?.due_date),
-        status: init.status ?? r?.status ?? 'open',
+        status: normalizeEnumFormValue('status', init.status ?? r?.status ?? 'open'),
         total_amt: init.total_amt ?? r?.total_amt ?? '',
         balance: init.balance ?? r?.balance ?? '',
-        currency_code: init.currency_code ?? r?.currency_code ?? 'USD',
+        currency_code: normalizeEnumFormValue('currency_code', init.currency_code ?? r?.currency_code ?? 'USD'),
         private_note: init.private_note ?? r?.private_note ?? '',
         quickbooks_bill_id: r?.quickbooks_bill_id ?? '',
         ap_account_ref_name: r?.ap_account_ref_name ?? '',
@@ -199,10 +206,6 @@ function buildInitialForm() {
 
     if (values.vendor_id && r?.vendor) {
         values.vendor = r.vendor;
-    }
-
-    if (values.chart_of_account_id && (r?.chart_of_account || r?.chartOfAccount)) {
-        values.chartOfAccount = r.chart_of_account ?? r.chartOfAccount;
     }
 
     return values;
@@ -239,7 +242,7 @@ const submitLabel = computed(() => {
 
 const headerSubtitle = computed(() => {
     if (props.mode === 'edit' && isEditRestricted.value) {
-        return 'Link vendor and chart of account records in Helmful';
+        return 'Link vendor and line item accounts in Helmful';
     }
 
     return props.mode === 'edit'
@@ -262,22 +265,67 @@ function selectOptionsForField(key) {
     return opts;
 }
 
+function normalizeEnumFormValue(key, value) {
+    const def = fieldDef(key);
+    if (def.type !== 'select' || !def.enum) {
+        return value;
+    }
+
+    const opts = selectOptionsForField(key);
+    if (value == null || value === '') {
+        if (def.default != null) {
+            const defaultOpt = opts.find(
+                (o) => o.value === def.default || o.id === def.default || String(o.value) === String(def.default),
+            );
+            return defaultOpt?.id ?? value;
+        }
+
+        return value;
+    }
+
+    const hit = opts.find(
+        (o) =>
+            o.id === value
+            || o.value === value
+            || String(o.id) === String(value)
+            || String(o.value) === String(value),
+    );
+
+    return hit?.id ?? value;
+}
+
 const lineItemsTotal = computed(() =>
     form.items.reduce((sum, line) => sum + (parseFloat(line.amount) || 0), 0),
 );
 
+const filledLineItemCount = computed(() =>
+    form.items.filter((line) => {
+        const amount = parseFloat(line.amount);
+        return line.description?.trim() || line.chart_of_account_id || (amount && amount !== 0);
+    }).length,
+);
+
+const currencyLabel = computed(() => {
+    const opt = selectOptionsForField('currency_code').find(
+        (o) =>
+            o.id === form.currency_code
+            || o.value === form.currency_code
+            || String(o.id) === String(form.currency_code)
+            || String(o.value) === String(form.currency_code),
+    );
+
+    return opt?.name ?? form.currency_code ?? 'USD';
+});
+
 watch(lineItemsTotal, (total) => {
-    if (isEditRestricted.value || total <= 0) {
+    if (isEditRestricted.value) {
         return;
     }
-    const rounded = total.toFixed(2);
-    if (form.total_amt === '' || form.total_amt == null) {
-        form.total_amt = rounded;
-    }
-    if (form.balance === '' || form.balance == null) {
-        form.balance = rounded;
-    }
-});
+
+    const rounded = Number(total).toFixed(2);
+    form.total_amt = rounded;
+    form.balance = rounded;
+}, { immediate: true });
 
 function addLineItem() {
     form.items.push(emptyLineItem());
@@ -321,7 +369,13 @@ function readOnlyDisplayValue(key) {
     const v = form[key];
 
     if (def.type === 'select') {
-        const opt = selectOptionsForField(key).find((o) => o.value === v);
+        const opt = selectOptionsForField(key).find(
+            (o) =>
+                o.value === v
+                || o.id === v
+                || String(o.id) === String(v)
+                || String(o.value) === String(v),
+        );
         return opt?.name ?? v ?? '—';
     }
 
@@ -358,11 +412,9 @@ function lineItemAccountLabel(line) {
 function preparePayload() {
     if (isEditRestricted.value) {
         const vendorId = form.vendor_id;
-        const chartOfAccountId = form.chart_of_account_id;
 
         return {
             vendor_id: vendorId === '' || vendorId === undefined ? null : vendorId,
-            chart_of_account_id: chartOfAccountId === '' || chartOfAccountId === undefined ? null : chartOfAccountId,
             items: (form.items || [])
                 .filter((line) => line?.id)
                 .map((line) => ({
@@ -373,8 +425,9 @@ function preparePayload() {
     }
 
     const raw = { ...form.data() };
+    delete raw.chart_of_account_id;
 
-    for (const key of ['vendor_id', 'chart_of_account_id']) {
+    for (const key of ['vendor_id']) {
         if (raw[key] === '' || raw[key] === undefined) {
             raw[key] = null;
         }
@@ -404,12 +457,8 @@ function preparePayload() {
             position: index,
         }));
 
-    if (raw.total_amt === '' || raw.total_amt == null) {
-        raw.total_amt = lineItemsTotal.value > 0 ? lineItemsTotal.value : 0;
-    }
-    if (raw.balance === '' || raw.balance == null) {
-        raw.balance = raw.total_amt;
-    }
+    raw.total_amt = lineItemsTotal.value;
+    raw.balance = lineItemsTotal.value;
 
     for (const key of READONLY_FIELDS) {
         if (props.mode === 'create') {
@@ -474,28 +523,30 @@ function handleCancel() {
                 This bill is linked to QuickBooks. AP account and department come from QuickBooks.
             </div>
 
-            <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
-                <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4 dark:from-primary-700 dark:to-primary-800">
-                    <div class="flex flex-wrap items-start justify-between gap-4">
-                        <div>
-                            <h1 class="text-2xl font-bold text-white">{{ headerTitle }}</h1>
-                            <p class="mt-1 text-sm text-primary-100">{{ headerSubtitle }}</p>
+            <div class="grid gap-6 lg:grid-cols-12">
+                <div class="space-y-6 lg:col-span-8">
+                    <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
+                        <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4 dark:from-primary-700 dark:to-primary-800">
+                            <div class="flex flex-wrap items-start justify-between gap-4">
+                                <div>
+                                    <h1 class="text-2xl font-bold text-white">{{ headerTitle }}</h1>
+                                    <p class="mt-1 text-sm text-primary-100">{{ headerSubtitle }}</p>
+                                </div>
+                                <div v-if="record?.id" class="text-right">
+                                    <div class="text-xs font-medium text-primary-200">Reference</div>
+                                    <div class="font-mono text-lg text-white">{{ billLabel }}</div>
+                                </div>
+                            </div>
                         </div>
-                        <div v-if="record?.id" class="text-right">
-                            <div class="text-xs font-medium text-primary-200">Reference</div>
-                            <div class="font-mono text-lg text-white">{{ billLabel }}</div>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="space-y-8 border-t border-primary-500/20 p-6 dark:border-primary-900/40">
-                    <template v-for="group in formGroups" :key="group.key">
-                        <div>
-                            <h3 class="mb-4 border-b border-gray-200 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                {{ group.label }}
-                            </h3>
-                            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
-                                <template v-for="field in group.fields" :key="field.key">
+                        <div class="space-y-8 border-t border-primary-500/20 p-6 dark:border-primary-900/40">
+                            <template v-for="group in formGroups" :key="group.key">
+                                <div v-if="visibleFieldsForGroup(group).length">
+                                    <h3 class="mb-4 border-b border-gray-200 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                                        {{ group.label }}
+                                    </h3>
+                                    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                                        <template v-for="field in visibleFieldsForGroup(group)" :key="field.key">
                                     <div
                                         v-if="isReadOnlyField(field.key)"
                                         :class="isFullWidthField(field.key) ? 'md:col-span-2' : ''"
@@ -558,6 +609,21 @@ function handleCancel() {
                                     </div>
 
                                     <div
+                                        v-else-if="isEnumSelectField(field.key)"
+                                        class="md:col-span-2"
+                                    >
+                                        <label :for="`bill-${field.key}`" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ fieldDef(field.key).label || field.key }}
+                                        </label>
+                                        <EnumButtonGroup
+                                            :id="`bill-${field.key}`"
+                                            v-model="form[field.key]"
+                                            :options="selectOptionsForField(field.key)"
+                                        />
+                                        <p v-if="form.errors[field.key]" class="mt-1 text-xs text-red-600">{{ form.errors[field.key] }}</p>
+                                    </div>
+
+                                    <div
                                         v-else-if="fieldDef(field.key).type === 'select'"
                                         :class="isFullWidthField(field.key) ? 'md:col-span-2' : ''"
                                     >
@@ -569,7 +635,7 @@ function handleCancel() {
                                             v-model="form[field.key]"
                                             class="input-style w-full"
                                         >
-                                            <option v-for="opt in selectOptionsForField(field.key)" :key="opt.value" :value="opt.value">
+                                            <option v-for="opt in selectOptionsForField(field.key)" :key="opt.value ?? opt.id" :value="opt.value ?? opt.id">
                                                 {{ opt.name }}
                                             </option>
                                         </select>
@@ -713,17 +779,61 @@ function handleCancel() {
                             </div>
                         </div>
 
-                        <div class="mt-4 flex justify-end border-t border-gray-200 pt-3 dark:border-gray-700">
-                            <div class="text-sm text-gray-600 dark:text-gray-300">
-                                Lines total:
-                                <span class="ml-2 font-semibold text-gray-900 dark:text-white">
-                                    ${{ lineItemsTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
-                                </span>
-                            </div>
-                        </div>
                         <p v-if="form.errors.items" class="mt-2 text-xs text-red-600">{{ form.errors.items }}</p>
                     </div>
+                        </div>
+                    </div>
                 </div>
+
+                <aside class="lg:col-span-4">
+                    <div class="space-y-6 lg:sticky-below-nav">
+                        <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
+                            <div class="border-b border-gray-200 bg-gray-700 px-5 py-4 dark:border-gray-600 dark:bg-gray-700">
+                                <span class="text-sm font-semibold text-white">Bill summary</span>
+                            </div>
+                            <div class="space-y-4 p-5">
+                                <div class="flex items-center justify-between gap-3 text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">Line items</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ filledLineItemCount }}</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-3 text-sm">
+                                    <span class="text-gray-500 dark:text-gray-400">Currency</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ currencyLabel }}</span>
+                                </div>
+                                <div class="flex items-center justify-between gap-3 border-t border-gray-100 pt-3 text-sm dark:border-gray-700">
+                                    <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
+                                    <span class="font-medium text-gray-900 dark:text-white">{{ formatCurrencyDisplay(lineItemsTotal) }}</span>
+                                </div>
+                                <div class="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ fieldDef('total_amt').label || 'Total' }}
+                                        </span>
+                                        <span class="text-xl font-bold text-gray-900 dark:text-white">
+                                            {{ formatCurrencyDisplay(form.total_amt) }}
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            {{ fieldDef('balance').label || 'Balance' }}
+                                        </span>
+                                        <span class="text-lg font-semibold text-primary-600 dark:text-primary-400">
+                                            {{ formatCurrencyDisplay(form.balance) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <p
+                                    v-if="!isEditRestricted"
+                                    class="text-xs text-gray-500 dark:text-gray-400"
+                                >
+                                    Total and balance update automatically from line item amounts.
+                                </p>
+                                <p v-if="form.errors.total_amt" class="text-xs text-red-600">{{ form.errors.total_amt }}</p>
+                                <p v-if="form.errors.balance" class="text-xs text-red-600">{{ form.errors.balance }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
             </div>
         </form>
 

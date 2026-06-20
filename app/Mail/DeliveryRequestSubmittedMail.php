@@ -33,10 +33,10 @@ class DeliveryRequestSubmittedMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        $tenant = tenant();
-        $domain = $tenant?->domains->first()?->domain;
-        $path = route('deliveries.show', ['delivery' => $this->delivery->id], false);
-        $deliveryUrl = $domain ? 'https://'.$domain.$path : url($path);
+        $domain = tenant()?->domains->first()?->domain;
+        $deliveryUrl = $domain
+            ? "https://{$domain}/deliveries/{$this->delivery->id}"
+            : '#';
 
         $this->delivery->loadMissing(['customer', 'location', 'requestedBy']);
 

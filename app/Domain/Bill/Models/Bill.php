@@ -126,7 +126,6 @@ class Bill extends Model
      */
     public const RESTRICTED_EDIT_ALLOWED_FIELDS = [
         'vendor_id',
-        'chart_of_account_id',
     ];
 
     public function hasRestrictedEditing(): bool

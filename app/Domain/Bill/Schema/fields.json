@@ -26,7 +26,8 @@
     "type": "record",
     "typeDomain": "ChartOfAccount",
     "nullable": true,
-    "relationship": "chartOfAccount"
+    "relationship": "chartOfAccount",
+    "disabled": true
   },
   "txn_date": {
     "label": "Bill date",

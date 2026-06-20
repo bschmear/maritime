@@ -419,25 +419,6 @@ function pullFromQuickbooks() {
                                         </div>
                                         <div class="text-sm text-gray-900 dark:text-white">{{ record.department_ref_name }}</div>
                                     </div>
-                                    <div v-if="record.chart_of_account || record.chartOfAccount">
-                                        <div class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                            Primary account
-                                        </div>
-                                        <Link
-                                            v-if="chartOfAccountHref(record.chart_of_account ?? record.chartOfAccount)"
-                                            :href="chartOfAccountHref(record.chart_of_account ?? record.chartOfAccount)"
-                                            class="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
-                                        >
-                                            {{ (record.chart_of_account ?? record.chartOfAccount)?.fully_qualified_name
-                                                || (record.chart_of_account ?? record.chartOfAccount)?.name
-                                                || '—' }}
-                                        </Link>
-                                        <div v-else class="text-sm text-gray-900 dark:text-white">
-                                            {{ (record.chart_of_account ?? record.chartOfAccount)?.fully_qualified_name
-                                                || (record.chart_of_account ?? record.chartOfAccount)?.name
-                                                || '—' }}
-                                        </div>
-                                    </div>
                                 </div>
                             </section>
 

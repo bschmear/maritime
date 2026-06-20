@@ -1,11 +1,10 @@
 {
-  "settings": { "max_width": "4xl" },
+  "settings": { "max_width": "7xl" },
   "form": {
     "primary": {
       "label": "Bill details",
       "fields": [
         { "key": "vendor_id", "required": true },
-        { "key": "chart_of_account_id" },
         { "key": "txn_date" },
         { "key": "due_date" },
         { "key": "status" },

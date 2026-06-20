@@ -22,7 +22,8 @@ const quickBooksImportRef = ref(null);
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
-    { label: props.pluralTitle },
+    { label: 'Bills', href: route('bills.index') },
+    { label: 'Bill Payments' },
 ]);
 
 const bulkActions = computed(() => {

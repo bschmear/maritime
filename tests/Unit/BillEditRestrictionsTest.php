@@ -43,6 +43,6 @@ class BillEditRestrictionsTest extends TestCase
 
     public function test_link_fields_are_allowed_when_editing_is_restricted(): void
     {
-        $this->assertSame(['vendor_id', 'chart_of_account_id'], Bill::RESTRICTED_EDIT_ALLOWED_FIELDS);
+        $this->assertSame(['vendor_id'], Bill::RESTRICTED_EDIT_ALLOWED_FIELDS);
     }
 }
