@@ -12,6 +12,7 @@ use App\Enums\Integration\IntegrationSyncStatus;
 use App\Enums\Integration\IntegrationType;
 use App\Jobs\Concerns\MarksQuickBooksImportFailure;
 use App\Services\Payments\QuickBooksOAuthService;
+use App\Support\QuickBooks\ChartOfAccountImportMatcher;
 use App\Support\QuickBooks\QuickBooksChartOfAccountsMapper;
 use App\Support\QuickBooks\QuickBooksRowMapper;
 use Illuminate\Bus\Queueable;
@@ -26,10 +27,11 @@ class PullChartOfAccountsFromQuickBooks implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
     use MarksQuickBooksImportFailure;
 
-    /** @var array{created: int, updated: int, parent_links_updated: int, skipped_no_id: int, skipped_no_name: int, failed_create: int, failed_update: int} */
+    /** @var array{created: int, updated: int, linked: int, parent_links_updated: int, skipped_no_id: int, skipped_no_name: int, failed_create: int, failed_update: int} */
     private array $importStats = [
         'created' => 0,
         'updated' => 0,
+        'linked' => 0,
         'parent_links_updated' => 0,
         'skipped_no_id' => 0,
         'skipped_no_name' => 0,
@@ -184,11 +186,16 @@ class PullChartOfAccountsFromQuickBooks implements ShouldQueue
             return;
         }
 
-        $existing = ChartOfAccount::query()->where('quickbooks_account_id', $qboId)->first();
+        $existing = ChartOfAccountImportMatcher::findExisting($accountPayload);
         if ($existing !== null) {
+            $wasUnlinked = blank($existing->quickbooks_account_id);
             $result = $updateChartOfAccount((int) $existing->id, $accountPayload);
             if (($result['success'] ?? false) === true && ($result['record'] ?? null) !== null) {
-                $this->importStats['updated']++;
+                if ($wasUnlinked) {
+                    $this->importStats['linked']++;
+                } else {
+                    $this->importStats['updated']++;
+                }
                 $this->idMap[$qboId] = (int) $result['record']->id;
 
                 return;
