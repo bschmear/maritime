@@ -6,6 +6,7 @@ enum IntegrationType: int
 {
     case MailChimp = 1;
     case QuickBooks = 2;
+    case Google = 3;
 
     public function isEnabled(): bool
     {
@@ -19,6 +20,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => 'MailChimp',
             self::QuickBooks => 'QuickBooks Online',
+            self::Google => 'Google Workspace',
         };
     }
 
@@ -27,6 +29,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => 'Online platform for sending professional e-mails to mass recipients.',
             self::QuickBooks => 'Accounting platform — sync customers with contacts and leads in Helmful.',
+            self::Google => 'Connect Google Drive and Sheets to sync inventory with a shared spreadsheet.',
         };
     }
 
@@ -35,6 +38,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => 'get',
             self::QuickBooks => 'get',
+            self::Google => 'get',
         };
     }
 
@@ -43,6 +47,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => 'mailchimp',
             self::QuickBooks => 'account_balance_wallet',
+            self::Google => 'cloud',
         };
     }
 
@@ -51,6 +56,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => 'email',
             self::QuickBooks => 'accounting',
+            self::Google => 'productivity',
         };
     }
 
@@ -59,6 +65,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => true,
             self::QuickBooks => true,
+            self::Google => true,
         };
     }
 
@@ -67,6 +74,7 @@ enum IntegrationType: int
         return match ($this) {
             self::MailChimp => 'mailchimp',
             self::QuickBooks => 'quickbooks',
+            self::Google => 'google',
         };
     }
 

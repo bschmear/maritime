@@ -5,6 +5,7 @@ import DateInput from '@/Components/Tenant/FormComponents/Date.vue';
 import DateTimeInput from '@/Components/Tenant/FormComponents/DateTime.vue';
 import CurrencyInput from '@/Components/Tenant/FormComponents/Currency.vue';
 import NumberInput from '@/Components/Tenant/FormComponents/Number.vue';
+import EnumButtonGroup from '@/Components/Tenant/FormComponents/EnumButtonGroup.vue';
 import axios from 'axios';
 import { computed, ref, watch } from 'vue';
 import { buildRecordShowUrl, buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
@@ -96,6 +97,8 @@ const enumOptionsFor = (key) => {
     }
     return props.enumOptions[key] ?? [];
 };
+
+const isEnumSelectField = (key) => fieldDef(key).type === 'select' && !!fieldDef(key).enum;
 
 const pseudoRecord = computed(() => {
     if (props.record) {
@@ -666,7 +669,10 @@ const relatedRecordShowUrl = (fieldKey) => {
                                                 </div>
 
                                                 <!-- select -->
-                                                <div v-else-if="fieldDef(field.key).type === 'select'">
+                                                <div
+                                                    v-else-if="fieldDef(field.key).type === 'select'"
+                                                    :class="isEnumSelectField(field.key) ? 'md:col-span-2' : ''"
+                                                >
                                                     <label
                                                         :for="`au-${field.key}`"
                                                         class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -679,6 +685,13 @@ const relatedRecordShowUrl = (fieldKey) => {
                                                             {{ getEnumLabel(field.key, form[field.key]) }}
                                                         </p>
                                                     </template>
+                                                    <EnumButtonGroup
+                                                        v-else-if="isEnumSelectField(field.key)"
+                                                        :id="`au-${field.key}`"
+                                                        v-model="form[field.key]"
+                                                        :options="enumOptionsFor(field.key)"
+                                                        :disabled="isFieldDisabled(field)"
+                                                    />
                                                     <select
                                                         v-else
                                                         :id="`au-${field.key}`"

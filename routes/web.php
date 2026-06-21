@@ -7,6 +7,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FaviconController;
+use App\Http\Controllers\GoogleOAuthController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\Kiosk\AccountController as KioskAccountController;
 use App\Http\Controllers\Kiosk\CategoryController;
@@ -87,6 +88,9 @@ Route::get('/integrations/mailchimp/oauth/callback', [MailchimpOAuthController::
 // Single QuickBooks Online OAuth redirect for all tenants (QUICKBOOKS_REDIRECT_URI must point here).
 Route::get('/quickbooks/callback', [QuickBooksOAuthController::class, 'callback'])
     ->name('quickbooks.oauth.callback');
+
+Route::get('/integrations/google/oauth/callback', [GoogleOAuthController::class, 'callback'])
+    ->name('google.oauth.callback');
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
 Route::get('/blog', [BlogController::class, 'index'])->name('blog');

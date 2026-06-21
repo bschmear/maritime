@@ -100,6 +100,11 @@ return [
     ],
 
     'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+        'scopes' => env('GOOGLE_OAUTH_SCOPES', 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email'),
+        'drive_app_folder_name' => env('GOOGLE_DRIVE_APP_FOLDER_NAME', 'Helmful'),
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
         'analytics_id' => env('GOOGLE_ANALYTICS_ID', 'G-8RV63EJXH6'),
     ],

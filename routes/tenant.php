@@ -47,6 +47,7 @@ use App\Http\Controllers\Tenant\FleetMaintenanceController;
 use App\Http\Controllers\Tenant\GeneralController;
 use App\Http\Controllers\Tenant\HelpController;
 use App\Http\Controllers\Tenant\IntegrationController;
+use App\Http\Controllers\Tenant\Integrations\GoogleController;
 use App\Http\Controllers\Tenant\Integrations\MailchimpController;
 use App\Http\Controllers\Tenant\Integrations\QuickbooksController;
 use App\Http\Controllers\Tenant\InventoryImageController;
@@ -658,6 +659,15 @@ Route::middleware([
         Route::get('asset/units', [AssetUnitController::class, 'unitsIndex'])->name('asset.units.index');
 
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
+            Route::get('/export', [AssetUnitController::class, 'export'])->name('export');
+            Route::get('/import', [AssetUnitController::class, 'import'])->name('import');
+            Route::post('/import/parse', [AssetUnitController::class, 'importParse'])->name('import.parse');
+            Route::post('/import/confirm-header', [AssetUnitController::class, 'importConfirmHeader'])->name('import.confirm-header');
+            Route::post('/import/preview', [AssetUnitController::class, 'importPreview'])->name('import.preview');
+            Route::post('/import/run', [AssetUnitController::class, 'importRun'])->name('import.run');
+            Route::post('/google-sheet/push', [AssetUnitController::class, 'googleSheetPush'])->name('google-sheet.push');
+            Route::post('/google-sheet/pull', [AssetUnitController::class, 'googleSheetPull'])->name('google-sheet.pull');
+            Route::post('/google-sheet/recreate', [AssetUnitController::class, 'googleSheetRecreate'])->name('google-sheet.recreate');
             Route::patch('{assetunit}/transfer-location', [AssetUnitController::class, 'transferLocation'])
                 ->name('transfer-location');
             Route::patch('{assetunit}/layout-footprint', [AssetUnitController::class, 'updateLayoutFootprint'])
@@ -896,6 +906,15 @@ Route::middleware([
                 Route::post('/import-bill-payments', [QuickbooksController::class, 'importBillPayments'])->name('quickbooks.import-bill-payments');
                 Route::get('/import-status', [QuickbooksController::class, 'importStatus'])->name('quickbooks.import-status');
                 Route::post('/import-status/clear', [QuickbooksController::class, 'clearImportStatus'])->name('quickbooks.import-status.clear');
+            });
+
+            Route::prefix('google')->group(function () {
+                Route::get('/', [GoogleController::class, 'show'])->name('google');
+                Route::get('/connect', [GoogleController::class, 'connect'])->name('google.connect');
+                Route::delete('/', [GoogleController::class, 'destroy'])->name('google.destroy');
+                Route::post('/sheet/push', [GoogleController::class, 'pushSheet'])->name('google.sheet.push');
+                Route::post('/sheet/pull', [GoogleController::class, 'pullSheet'])->name('google.sheet.pull');
+                Route::post('/sheet/recreate', [GoogleController::class, 'recreateSheet'])->name('google.sheet.recreate');
             });
         });
 

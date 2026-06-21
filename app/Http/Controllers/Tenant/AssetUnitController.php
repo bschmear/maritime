@@ -9,15 +9,25 @@ use App\Domain\AssetUnit\Actions\DeleteAssetUnit as DeleteAction;
 use App\Domain\AssetUnit\Actions\UpdateAssetUnit as UpdateAction;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetUnit\Models\AssetUnit as RecordModel;
+use App\Domain\AssetUnit\Support\AssetUnitGoogleSheetSyncService;
+use App\Domain\AssetUnit\Support\AssetUnitImportService;
+use App\Domain\AssetUnit\Support\AssetUnitSpreadsheetExporter;
+use App\Domain\AssetUnit\Support\AssetUnitSpreadsheetParser;
+use App\Domain\Financing\Models\Financing;
+use App\Domain\Integration\Support\GoogleIntegrationSettings;
 use App\Domain\MsoRecord\Models\MsoRecord;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
+use App\Services\Google\GoogleOAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
 use Inertia\Response as InertiaResponse;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AssetUnitController extends RecordController
 {
@@ -47,6 +57,18 @@ class AssetUnitController extends RecordController
     public function unitsIndex(Request $request): JsonResponse|InertiaResponse
     {
         return parent::index($request);
+    }
+
+    protected function indexSupplementInertiaProps(Request $request): array
+    {
+        $oauth = app(GoogleOAuthService::class);
+        $integration = $oauth->integration();
+        $settings = GoogleIntegrationSettings::from($integration);
+
+        return [
+            'googleConnected' => $oauth->hasCredentials(),
+            'googleSheetSettings' => $settings->toArray(),
+        ];
     }
 
     /**
@@ -158,7 +180,7 @@ class AssetUnitController extends RecordController
 
         $linkFinancing = null;
         if ($linkFinancingId) {
-            $fin = \App\Domain\Financing\Models\Financing::query()
+            $fin = Financing::query()
                 ->with(['vendor:id,display_name'])
                 ->select([
                     'id', 'sequence', 'serial_vin', 'model_year', 'model_number',
@@ -373,5 +395,201 @@ class AssetUnitController extends RecordController
             'length_ft' => (float) $validated['length_ft'],
             'width_ft' => (float) $validated['width_ft'],
         ]);
+    }
+
+    public function export(Request $request, AssetUnitSpreadsheetExporter $exporter): StreamedResponse
+    {
+        $format = strtolower((string) $request->query('format', 'xlsx'));
+
+        $units = AssetUnit::query()
+            ->with(['asset:id,display_name'])
+            ->orderBy('id')
+            ->get();
+
+        return $format === 'csv'
+            ? $exporter->toCsv($units)
+            : $exporter->toXlsx($units);
+    }
+
+    public function import(): InertiaResponse
+    {
+        return inertia('Tenant/AssetUnit/Import', $this->importPageProps());
+    }
+
+    public function importParse(Request $request, AssetUnitSpreadsheetParser $parser): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt,xlsx,xls|max:10240',
+        ]);
+
+        $rawRows = $parser->readRawRows($request->file('file'));
+        $cacheKey = 'asset_unit_spreadsheet_import:'.uniqid('', true);
+
+        Cache::put($cacheKey, [
+            'raw_rows' => $rawRows,
+            'parsed' => null,
+        ], now()->addHour());
+
+        return response()->json([
+            'cache_key' => $cacheKey,
+            'suggested_header_row_index' => $parser->suggestHeaderRowIndex($rawRows),
+            'preview_rows' => array_slice($rawRows, 0, 20),
+            'total_raw_rows' => count($rawRows),
+        ]);
+    }
+
+    public function importConfirmHeader(Request $request, AssetUnitSpreadsheetParser $parser): JsonResponse
+    {
+        $validated = $request->validate([
+            'cache_key' => 'required|string',
+            'header_row_index' => 'required|integer|min:0',
+        ]);
+
+        $session = Cache::get($validated['cache_key']);
+        if (! is_array($session) || ! is_array($session['raw_rows'] ?? null)) {
+            return response()->json(['message' => 'Import session expired. Upload the file again.'], 422);
+        }
+
+        try {
+            $parsed = $parser->parseRawRows($session['raw_rows'], (int) $validated['header_row_index']);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        Cache::put($validated['cache_key'], [
+            'raw_rows' => $session['raw_rows'],
+            'parsed' => $parsed,
+        ], now()->addHour());
+
+        return response()->json([
+            'cache_key' => $validated['cache_key'],
+            'columns' => $parsed['columns'],
+            'row_count' => count($parsed['rows']),
+            'header_row_index' => $parsed['header_row_index'],
+            'preamble' => $parsed['preamble'],
+            'default_column_map' => AssetUnitSpreadsheetParser::defaultColumnMap(),
+            'suggested_match_column' => $this->suggestMatchColumn($parsed['columns']),
+        ]);
+    }
+
+    public function importPreview(Request $request, AssetUnitImportService $importService): JsonResponse
+    {
+        $validated = $request->validate([
+            'cache_key' => 'required|string',
+            'match_column' => 'required|string',
+            'match_field' => 'required|string|in:id,hin,serial_number',
+            'column_map' => 'nullable|array',
+        ]);
+
+        $parsed = $this->parsedImportSession($validated['cache_key']);
+        if ($parsed === null) {
+            return response()->json(['message' => 'Confirm the header row before continuing.'], 422);
+        }
+
+        return response()->json($importService->preview(
+            $parsed['rows'],
+            $validated['match_column'],
+            $validated['match_field'],
+            $validated['column_map'] ?? [],
+        ));
+    }
+
+    public function importRun(Request $request, AssetUnitImportService $importService): JsonResponse
+    {
+        $validated = $request->validate([
+            'cache_key' => 'required|string',
+            'match_column' => 'required|string',
+            'match_field' => 'required|string|in:id,hin,serial_number',
+            'column_map' => 'nullable|array',
+        ]);
+
+        $parsed = $this->parsedImportSession($validated['cache_key']);
+        if ($parsed === null) {
+            return response()->json(['message' => 'Confirm the header row before continuing.'], 422);
+        }
+
+        $result = $importService->import(
+            $parsed['rows'],
+            $validated['match_column'],
+            $validated['match_field'],
+            $validated['column_map'] ?? [],
+        );
+
+        Cache::forget($validated['cache_key']);
+
+        return response()->json($result);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function importPageProps(): array
+    {
+        return [
+            'importDefaults' => [
+                'column_map' => AssetUnitSpreadsheetParser::defaultColumnMap(),
+                'match_fields' => [
+                    ['value' => 'id', 'label' => 'Unit ID'],
+                    ['value' => 'hin', 'label' => 'Hull number (HIN)'],
+                    ['value' => 'serial_number', 'label' => 'Serial number'],
+                ],
+                'match_columns' => AssetUnitSpreadsheetParser::defaultMatchColumns(),
+            ],
+            'importFieldOptions' => AssetUnitSpreadsheetParser::importFieldOptions(),
+        ];
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function suggestMatchColumn(array $columns): ?string
+    {
+        foreach (AssetUnitSpreadsheetParser::defaultMatchColumns() as $preferred) {
+            if (in_array($preferred, $columns, true)) {
+                return $preferred;
+            }
+        }
+
+        return $columns[0] ?? null;
+    }
+
+    /**
+     * @return array{columns: list<string>, header_row_index: int, rows: list<array<string, string|null>>, preamble: list<string>}|null
+     */
+    private function parsedImportSession(string $cacheKey): ?array
+    {
+        $session = Cache::get($cacheKey);
+        if (! is_array($session) || ! is_array($session['parsed'] ?? null)) {
+            return null;
+        }
+
+        return $session['parsed'];
+    }
+
+    public function googleSheetPush(AssetUnitGoogleSheetSyncService $syncService): JsonResponse
+    {
+        try {
+            return response()->json($syncService->push());
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function googleSheetPull(AssetUnitGoogleSheetSyncService $syncService): JsonResponse
+    {
+        try {
+            return response()->json($syncService->pull());
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function googleSheetRecreate(AssetUnitGoogleSheetSyncService $syncService): JsonResponse
+    {
+        try {
+            return response()->json($syncService->recreate());
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
     }
 }

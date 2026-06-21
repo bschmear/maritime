@@ -41,6 +41,9 @@ function configureHref(slug) {
     if (slug === 'quickbooks') {
         return route('quickbooks');
     }
+    if (slug === 'google') {
+        return route('google');
+    }
     return null;
 }
 </script>
