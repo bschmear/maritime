@@ -72,6 +72,7 @@ enum BoatMake: string
     case ZarMini                       = 'zar-mini';
     case Zodiac                        = 'zodiac';
     case ZodiacMilpro                  = 'zodiac-milpro';
+    case ZodiacHurricane               = 'zodiac-hurricane';
 
     public function id(): int
     {

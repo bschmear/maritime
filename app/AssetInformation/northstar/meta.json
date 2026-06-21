@@ -1,0 +1,535 @@
+[
+  {
+    "id": "northstar-axis",
+    "brand": "Northstar",
+    "name": "AXIS Series",
+    "type_display": "Luxury Yacht Tender",
+    "boat_type_key": "power-tender",
+    "hull_type_key": "planing",
+    "hull_material_key": "hypalon",
+    "description": "Northstar AXIS Luxury Tenders, available in six lengths from 3.1m to 5.3m, are high-performing yacht tenders designed with a Delfa-lift Hull shape for easy planing and a dry ride.",
+    "features": [
+      "Delta-lift hull for easy planing and a dry ride",
+      "Heavy-duty CSM Hypalon tubes",
+      "Hydraulic steering",
+      "Integrated fuel system with gauge and water separator",
+      "LED navigation and all-round lighting",
+      "Automatic bilge pump",
+      "Self-bailing deck when underway",
+      "Marine upholstery and ergonomic console"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "RTM GRP Hull / CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 3250,
+      "max": 5350
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "axis-3-1",
+        "name": "AXIS 3.1",
+        "description": "Axis series is designed for those who want a tender that feels solid, balanced, and ready from the first moment on the water - and the Axis 3.1 is no exception. Its easy-planing hull with integrated flaps delivers a smooth, dry, and impressively stable ride, setting a new standard for comfort and control in its class. Equipped with a comprehensive list of standard features, including hydraulic steering, a bilge and electrical system, and a built-in fuel tank, the Axis 3.1 packs big-boat capability into a compact, refined design. Simple, secure, and remarkably complete - it\u2019s a luxury tender built to perform without compromise.",
+        "specifications": {
+          "length_mm": 3250,
+          "width_mm": 1810,
+          "height_mm": null,
+          "weight_kg": 210,
+          "capacity_persons": 4,
+          "max_hp": 30,
+          "fuel_capacity_l": 33
+        }
+      },
+      {
+        "id": "axis-3-4",
+        "name": "AXIS 3.4",
+        "description": "The Axis 3.4 builds on the proven design of the Axis series, combining easy planing, excellent balance, and dry stability in a perfectly proportioned 3.4-meter form. With room for up to four people and power options of up to 40 HP, it delivers confident performance and precise control whether used as a tender or a stand-alone day boat. Equipped with hydraulic steering, a bilge and electrical system, and a built-in fuel tank as standard, the Axis 3.4 offers everything you need straight out of the box. Simple, sturdy, and thoughtfully built, it\u2019s a luxury tender that turns practicality into pure ease.",
+        "specifications": {
+          "length_mm": 3400,
+          "width_mm": 1750,
+          "height_mm": null,
+          "weight_kg": 210,
+          "capacity_persons": 4,
+          "max_hp": 40,
+          "fuel_capacity_l": 33
+        }
+      },
+      {
+        "id": "axis-3-8",
+        "name": "AXIS 3.8",
+        "description": "The Axis 3.8 brings together strength, stability, and control in a refined 3.8-meter form. Its easy-planing hull with integrated flaps ensures a dry, smooth, and steady ride, even when fully loaded. Designed to carry up to five people and compatible with engines up to 50 HP, it offers the perfect mix of comfort and confident performance. Fully equipped with hydraulic steering, a bilge and electrical system, and a built-in fuel tank, the Axis 3.8 comes ready to go. It\u2019s a luxury tender that makes every trip effortless - solid, responsive, and designed for lasting enjoyment on the water.",
+        "specifications": {
+          "length_mm": 3850,
+          "width_mm": 1910,
+          "height_mm": null,
+          "weight_kg": 245,
+          "capacity_persons": 5,
+          "max_hp": 50,
+          "fuel_capacity_l": 33
+        }
+      },
+      {
+        "id": "axis-4-2",
+        "name": "AXIS 4.2",
+        "description": "The Axis 4.2 stands at the heart of the Axis range - the best-selling model known for its versatility, reliability, and all-round capability. Its easy-planing hull with integrated flaps delivers a smooth, dry, and stable ride, even at speed. With capacity for six people and up to 60 HP of power, it offers the ideal balance of performance, comfort, and control. Complete with hydraulic steering, a bilge and electrical system, and a built-in fuel tank, the Axis 4.2 is the definition of simple, capable, and trusted. An optional ski tow pylon adds to its flexibility, making it perfect for watersports or relaxed coastal cruising.",
+        "specifications": {
+          "length_mm": 4250,
+          "width_mm": 1960,
+          "height_mm": null,
+          "weight_kg": 282,
+          "capacity_persons": 6,
+          "max_hp": 60,
+          "fuel_capacity_l": 42
+        }
+      },
+      {
+        "id": "axis-4-8",
+        "name": "AXIS 4.8",
+        "description": "The Axis 4.8 takes everything that makes the Axis range exceptional and scales it up for more people and more power. With capacity for eight passengers and up to 80 HP, it combines strength, balance, and smooth handling for total confidence on the water. Its easy-planing hull with integrated flaps delivers the dry, stable ride the Axis series is known for, whether used as a luxury tender or a standalone day boat. Fully equipped with hydraulic steering, a bilge and electrical system, and a built-in fuel tank, the Axis 4.8 is a versatile performer built for bigger adventures.",
+        "specifications": {
+          "length_mm": 4850,
+          "width_mm": 2230,
+          "height_mm": null,
+          "weight_kg": 420,
+          "capacity_persons": 8,
+          "max_hp": 80,
+          "fuel_capacity_l": 51
+        }
+      },
+      {
+        "id": "axis-5-3",
+        "name": "AXIS 5.3",
+        "description": "The Axis 5.3 has dual personalities - a large yacht tender when you need practicality, and a perfect day boat when it\u2019s time to enjoy the water. With capacity for up to nine people and power options reaching 115 HP, it combines impressive performance with the dry, stable handling that defines the Axis range. Its easy-planing hull and integrated flaps ensure confident control and smooth cruising in any condition. Fully equipped with hydraulic steering, a bilge and electrical system, and a built-in fuel tank, the Axis 5.3 delivers pure versatility - one boat, two experiences, zero compromise.",
+        "specifications": {
+          "length_mm": 5350,
+          "width_mm": 2330,
+          "height_mm": null,
+          "weight_kg": 495,
+          "capacity_persons": 9,
+          "max_hp": 115,
+          "fuel_capacity_l": 62
+        }
+      }
+    ]
+  },
+  {
+    "id": "northstar-vega",
+    "brand": "Northstar",
+    "name": "VEGA Series",
+    "type_display": "Sport RIB / Tender",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "hypalon",
+    "description": "Northstar Vegas between 2.9m to 4.2m are lightweight tenders with practical storage and seating on a dry-riding hull, while models 4.8m and up can easily be customized into sports/utility RIBs for fishing and water sports.",
+    "features": [
+      "Delta-lift hull for easy planing and a dry ride",
+      "Heavy-duty CSM Hypalon tubes",
+      "Hydraulic steering",
+      "Integrated fuel system with gauge and water separator",
+      "LED navigation and all-round lighting",
+      "Automatic bilge pump",
+      "Self-bailing deck when underway",
+      "Marine upholstery and ergonomic console"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "RTM GRP Hull / CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 2900,
+      "max": 6400
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "vega-2-9",
+        "name": "VEGA 2.9",
+        "description": "The Vega 2.9 is the perfect yacht tender for those who want maximum convenience without sacrificing comfort or safety. Designed to carry up to three people, it delivers a surprisingly smooth and stable ride for its size - proof that even the smallest tender can feel solid and secure. Weighing just 125 kg, the Vega 2.9 is light enough for two people to lift or launch with ease, making it effortless to handle both on deck and in the water. Built using RTM (Resin Transfer Molding), its rigid, wood-free composite hull offers strength and durability while keeping weight to a minimum. With its compact footprint, dry performance, and easy handling, the Vega 2.9 is a lightweight yacht tender that\u2019s always ready to go - smart, sturdy, and remarkably easy to live with.",
+        "specifications": {
+          "length_mm": 2900,
+          "width_mm": 1600,
+          "height_mm": null,
+          "weight_kg": 125,
+          "capacity_persons": 3,
+          "max_hp": 20,
+          "fuel_capacity_l": 12
+        }
+      },
+      {
+        "id": "vega-3-2",
+        "name": "VEGA 3.2",
+        "description": "The Vega 3.2 is a lightweight yacht tender that blends portability with capable performance. Designed to carry up to three people, it offers a stable, dry, and reassuring ride that inspires confidence in all conditions. Built using RTM (Resin Transfer Molding), its rigid composite hull combines strength and precision, making it easy to handle, launch, and store aboard larger yachts. Compatible with engines up to 25 HP, the Vega 3.2 delivers lively performance while maintaining safety and balance at every speed. With its clean design, durable construction, and easy handling, it\u2019s a reliable yacht tender built for owners who want simplicity, control, and lasting quality in one refined package.",
+        "specifications": {
+          "length_mm": 3200,
+          "width_mm": 1700,
+          "height_mm": null,
+          "weight_kg": 135,
+          "capacity_persons": 3,
+          "max_hp": 25,
+          "fuel_capacity_l": 12
+        }
+      },
+      {
+        "id": "vega-3-5",
+        "name": "VEGA 3.5",
+        "description": "The Vega 3.5 is a compact yacht tender designed for simple, stable, and dry transfers. Constructed using Resin Transfer Molding (RTM), it features a lightweight yet sturdy composite hull that feels solid underfoot while remaining easy to lift, launch, and handle. Despite its compact size, the Vega 3.5 delivers exceptional stability and performance, providing owners with a confident ride whether approaching the dock or exploring the shoreline. Completely wood-free and built from fully composite materials, the Vega 3.5 is designed for durability with minimal upkeep. It is foam-filled for added strength and buoyancy, making it a reliable, low-maintenance tender that\u2019s always ready for use. This yacht tender perfectly blends practicality, engineering, and reliability for discerning yacht owners.",
+        "specifications": {
+          "length_mm": 3500,
+          "width_mm": 1720,
+          "height_mm": null,
+          "weight_kg": 142,
+          "capacity_persons": 4,
+          "max_hp": 25,
+          "fuel_capacity_l": 25
+        }
+      },
+      {
+        "id": "vega-3-8",
+        "name": "VEGA 3.8",
+        "description": "The Vega 3.8 is a versatile yacht tender that combines light weight with impressive stability and space. Designed to carry up to four people, it offers a smooth, dry, and secure ride, whether you\u2019re transferring guests or heading ashore. Built using RTM (Resin Transfer Molding), its rigid composite hull feels firm underfoot yet remains easy to lift, launch, and store - perfect for yachts where practicality meets performance. Made entirely from wood-free composite materials with a foam-filled hull for added strength and buoyancy, the Vega 3.8 is durable, low-maintenance, and ready whenever you are. With thoughtful storage, comfortable seating, and a confident hull design, it\u2019s a lightweight yacht tender built for everyday reliability and refined simplicity.",
+        "specifications": {
+          "length_mm": 3800,
+          "width_mm": 1800,
+          "height_mm": null,
+          "weight_kg": 150,
+          "capacity_persons": 4,
+          "max_hp": 30,
+          "fuel_capacity_l": 25
+        }
+      },
+      {
+        "id": "vega-4-2",
+        "name": "VEGA 4.2",
+        "description": "The Vega 4.2 is a practical yacht tender designed for those who value space, stability, and ease of use. With room for family or guests and a steady, dry hull, it delivers a confident and comfortable ride in a minimalistic design. Built with proven composite construction, the Vega 4.2 is robust and dependable, with RTM (Resin Transfer Molding) technology currently in development to make future models even more refined. Thoughtful details such as an anchor locker and a bow step make anchoring, docking, and boarding effortless. Spacious yet compact, it\u2019s a simple and trustworthy tender - focused on safety, comfort, and smooth performance on the water.",
+        "specifications": {
+          "length_mm": 4200,
+          "width_mm": 2000,
+          "height_mm": null,
+          "weight_kg": 260,
+          "capacity_persons": 6,
+          "max_hp": 50,
+          "fuel_capacity_l": 45
+        }
+      },
+      {
+        "id": "vega-4-8",
+        "name": "VEGA 4.8",
+        "description": "As the newest member of the Vega Sport RIB range, Vega 4.8 combines compact dimensions with impressive capability. It delivers confident handling, strong performance, and excellent fuel efficiency in its class. The smart deck layout offers generous usable space, making it practical, versatile, and easy to enjoy despite its size. Northstar Vega 4.8 is also available in Fishmaster configuration, turning it into a capable fishing platform without sacrificing everyday usability.",
+        "specifications": {
+          "length_mm": 4800,
+          "width_mm": 2350,
+          "height_mm": null,
+          "weight_kg": 533,
+          "capacity_persons": 8,
+          "max_hp": 80,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "vega-5-4",
+        "name": "VEGA 5.4",
+        "description": "The Vega 5.4 is a versatile sport RIB designed for effortless enjoyment on the water. Built around a practical and functional layout, it offers plenty of storage space and confident handling whether you\u2019re exploring, cruising, or enjoying watersports with the optional ski tow pylon. Compact yet impressively capable, it delivers lively performance and precise control with up to 115 HP of power. Simple, reliable, and adaptable, the Vega 5.4 is built to make every day on the water easy, safe, and fun. Vega 5.4 is also available in Fishmaster edition.",
+        "specifications": {
+          "length_mm": 5400,
+          "width_mm": 2450,
+          "height_mm": null,
+          "weight_kg": 620,
+          "capacity_persons": 9,
+          "max_hp": 115,
+          "fuel_capacity_l": 90
+        }
+      },
+      {
+        "id": "vega-5-8",
+        "name": "VEGA 5.8",
+        "description": "The Vega 5.8 is built to do it all - the true Swiss Army knife of sport RIBs. Compact enough to handle with ease yet powerful enough for serious fun, it combines versatility, strength, and precision in one dynamic package. With up to 140 HP on tap, it delivers thrilling performance and confident handling for every kind of on-water adventure. From watersports to day cruising or tender duty, the Vega 5.8 packs everything you need in a boat - smart design, generous storage, and a practical layout that makes every outing simple, safe, and enjoyable. A reliable, all-purpose RIB engineered for those who want capability without compromise. Vega 5.8 is also available in Fishmaster edition.",
+        "specifications": {
+          "length_mm": 5800,
+          "width_mm": 2500,
+          "height_mm": null,
+          "weight_kg": 716,
+          "capacity_persons": 12,
+          "max_hp": 140,
+          "fuel_capacity_l": 116
+        }
+      },
+      {
+        "id": "vega-6-4",
+        "name": "VEGA 6.4",
+        "description": "The Vega 6.4 sits at the top of the Vega Sport RIB range, offering the most deck space in the lineup without sacrificing performance or agility. Designed for those who want more room to move, more comfort, and more capability, it\u2019s built to handle a wide range of activities - from watersports to coastal cruising. With up to 200 HP of power, the Vega 6.4 delivers strong, confident performance and stable handling in all conditions. Its spacious layout and smart storage make life on board easy and enjoyable, while its simple, functional design keeps operation straightforward and stress-free. The Vega 6.4 is a versatile, powerful RIB that turns every trip on the water into pure freedom.",
+        "specifications": {
+          "length_mm": 6400,
+          "width_mm": 2750,
+          "height_mm": null,
+          "weight_kg": 850,
+          "capacity_persons": 13,
+          "max_hp": 200,
+          "fuel_capacity_l": 189
+        }
+      }
+    ]
+  },
+  {
+    "id": "northstar-orion",
+    "brand": "Northstar",
+    "name": "ORION Series",
+    "type_display": "Premium Day Boat RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "hypalon",
+    "description": "Northstar's ORION series is ideal for day boating, offering top-notch features and a wide range of standard equipment. Designed by Adam Younger, the Stepped Hulls ensure efficiency and excellent seakeeping.",
+    "features": [
+      "Delta-lift hull for easy planing and a dry ride",
+      "Heavy-duty CSM Hypalon tubes",
+      "Hydraulic steering",
+      "Integrated fuel system with gauge and water separator",
+      "LED navigation and all-round lighting",
+      "Automatic bilge pump",
+      "Self-bailing deck when underway",
+      "Marine upholstery and ergonomic console"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "RTM GRP Hull / CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 5990,
+      "max": 10250
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "orion-6",
+        "name": "ORION 6",
+        "description": "The Orion 6 proves that small can be extraordinary. Designed by Adam Younger, it\u2019s the only 6-meter RIB in its class to feature an advanced stepped hull, reducing drag and enhancing stability for a smooth, dry, and fast ride that feels far beyond its size. With its deep deck, the Orion 6 keeps you securely in the boat, not on it - delivering a true sense of safety and confidence on the water. Nicknamed our \u201cpocket rocket,\u201d it combines dynamic handling with unexpected comfort. A clever deck layout with a comfortable seating area and a flip-up table transforms every outing into a shared experience of speed and relaxation. Powered by up to 150 HP, the Orion 6 sets a new benchmark for performance, safety, and enjoyment in the compact RIB class.",
+        "specifications": {
+          "length_mm": 5990,
+          "width_mm": 2570,
+          "height_mm": null,
+          "weight_kg": 940,
+          "capacity_persons": 10,
+          "max_hp": 150,
+          "fuel_capacity_l": 125
+        }
+      },
+      {
+        "id": "orion-7",
+        "name": "ORION 7",
+        "description": "The Orion 7 is a refined 7-meter day cruiser built for those who value performance, safety, and effortless style. Designed by Adam Younger, its advanced stepped hull channels air beneath the surface to reduce drag and enhance efficiency - delivering a smooth, dry, and stable ride in all conditions. With one of the deepest decks in its class, you feel securely in the boat, not on it, for exceptional confidence and peace of mind. Its smart deck layout includes a flip-up table and marine cooler, creating a comfortable space to relax and enjoy the water. Optional shade system, a spacious electric toilet, and electric windlass add convenience and versatility, making the Orion 7 the ideal choice for family cruising and coastal adventures in a compact, capable form. Compact but powerful, rated for up to 250 HP, the Orion 7 is a perfect runabout that balances agility, assurance, and modern elegance.",
+        "specifications": {
+          "length_mm": 6980,
+          "width_mm": 2830,
+          "height_mm": null,
+          "weight_kg": 1120,
+          "capacity_persons": 12,
+          "max_hp": 250,
+          "fuel_capacity_l": 227
+        }
+      },
+      {
+        "id": "orion-8",
+        "name": "ORION 8",
+        "description": "The Orion 8 is a premium 8-meter day cruiser designed for families and friends who seek comfort, versatility, and performance on the water. Created by Adam Younger, its advanced stepped hull delivers a smooth, stable, and dry ride, even in choppy seas - offering the confident handling of a true performance day boat. With one of the deepest decks in its class, you feel safely in the boat, not on it - for unmatched peace of mind. The spacious aft deck layout features facing seats, a removable table, and a marine cooler, creating a sociable space that\u2019s perfect for relaxing, dining, or enjoying long days afloat. Optional features - including different shade systems, an electric toilet, and electric refrigerator - allow you to personalize your boat for family cruising, coastal adventures, or leisure boating with friends. Orion 8 combines style, safety, and functionality - making it a standout choice among modern 26 ft powerboats.",
+        "specifications": {
+          "length_mm": 7920,
+          "width_mm": 2830,
+          "height_mm": null,
+          "weight_kg": 1340,
+          "capacity_persons": 14,
+          "max_hp": 350,
+          "fuel_capacity_l": 350
+        }
+      },
+      {
+        "id": "orion-10",
+        "name": "ORION 10",
+        "description": "Built to go further with grace and power, the Orion 10 redefines what a 10-meter day cruiser can be - spacious, secure, and effortlessly capable. Designed by Adam Younger, its advanced stepped hull delivers a smooth, dry, and stable ride, while one of the deepest decks in its class keeps everyone feeling securely in the boat - not on it - for exceptional safety and confidence. A wider hull gives the Orion 10 remarkable deck space without compromising performance or efficiency. Moving around the boat feels effortless, and the facing-seat layout, removable table, marine cooler, and spacious sundeck make it an inviting place to relax and connect. Comfort comes standard, with spacious and comfortable electric toilet, fresh-water shower system, and electric windlass, all designed for ease and enjoyment. Every detail of the Orion 10 reflects thoughtful craftsmanship - delivering comfort and performance in perfect harmony.",
+        "specifications": {
+          "length_mm": 10250,
+          "width_mm": 3160,
+          "height_mm": null,
+          "weight_kg": 2500,
+          "capacity_persons": 10,
+          "max_hp": 700,
+          "fuel_capacity_l": 673
+        }
+      }
+    ]
+  },
+  {
+    "id": "northstar-ion",
+    "brand": "Northstar",
+    "name": "ION Series",
+    "type_display": "Stepped-Hull Performance RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "hypalon",
+    "description": "With hulls designed by the \u201cStepped Hull Guru\u201d Adam Younger, Northstar\u2019s ION series offers unmatched seakeeping qualities with very high-performance levels.",
+    "features": [
+      "Adam Younger stepped-hull design for advanced seakeeping",
+      "Delta-lift hull for easy planing and a dry ride",
+      "Heavy-duty CSM Hypalon tubes",
+      "Hydraulic steering",
+      "Integrated fuel system with gauge and water separator",
+      "LED navigation and all-round lighting",
+      "Automatic bilge pump",
+      "Self-bailing deck when underway",
+      "Marine upholstery and ergonomic console"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "RTM GRP Hull / CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 10980,
+      "max": 11720
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "ion-10-5",
+        "name": "ION 10.5",
+        "description": "Ion 10.5 is all set to get you from point A to B in the shortest time using its advanced Stepped Hull for top performance.",
+        "specifications": {
+          "length_mm": 10980,
+          "width_mm": 2950,
+          "height_mm": null,
+          "weight_kg": 2800,
+          "capacity_persons": 10,
+          "max_hp": 900,
+          "fuel_capacity_l": 600
+        }
+      },
+      {
+        "id": "ion-12",
+        "name": "ION 12",
+        "description": "Ion 12, the ultimate combination of high performance and comfort.",
+        "specifications": {
+          "length_mm": 11720,
+          "width_mm": 3400,
+          "height_mm": null,
+          "weight_kg": 3150,
+          "capacity_persons": 10,
+          "max_hp": 1350,
+          "fuel_capacity_l": 900
+        }
+      }
+    ]
+  },
+  {
+    "id": "northstar-core",
+    "brand": "Northstar",
+    "name": "CORE Series",
+    "type_display": "Open-Deck Utility RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "hypalon",
+    "description": "Northstar CORE models are open-deck RIBs designed for versatility and simplicity in recreational and light-duty use. Currently being reconfigured with updated layouts and options, CORE boats can be adapted for activities such as diving support, coaching, or kite surfing.",
+    "features": [
+      "Open-deck layout for recreational and light-duty versatility",
+      "Delta-lift hull for easy planing and a dry ride",
+      "Heavy-duty CSM Hypalon tubes",
+      "Hydraulic steering",
+      "Integrated fuel system with gauge and water separator",
+      "LED navigation and all-round lighting",
+      "Automatic bilge pump",
+      "Self-bailing deck when underway",
+      "Marine upholstery and ergonomic console"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "RTM GRP Hull / CSM Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 4800,
+      "max": 5920
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "core-4-8",
+        "name": "CORE 4.8",
+        "description": "CORE 4.8 is a trusted, long-standing choice to support a variety of water sports like sailing, kite boarding, coaching, diving and other adventures.",
+        "specifications": {
+          "length_mm": 4800,
+          "width_mm": 1970,
+          "height_mm": null,
+          "weight_kg": 270,
+          "capacity_persons": 8,
+          "max_hp": 85,
+          "fuel_capacity_l": 50
+        }
+      },
+      {
+        "id": "core-5-4",
+        "name": "CORE 5.4",
+        "description": "CORE 5.4 is a versatile and dependable RIB designed to support a wide range of on-water activities. Ideal for sailing support, coaching, diving, and water sports, it offers a stable platform, practical layout, and reliable performance for everyday professional use.",
+        "specifications": {
+          "length_mm": 5400,
+          "width_mm": 2220,
+          "height_mm": null,
+          "weight_kg": 420,
+          "capacity_persons": 10,
+          "max_hp": 115,
+          "fuel_capacity_l": 50
+        }
+      },
+      {
+        "id": "core-5-9",
+        "name": "CORE 5.9",
+        "description": "CORE 5.9 builds on the versatility of the CORE range with more space, capacity, and power. At nearly 6 meters in length, it offers a stable and capable RIB for group activities, coaching, diving, and a wide range of water sports that require extra room and carrying ability.",
+        "specifications": {
+          "length_mm": 5920,
+          "width_mm": 2410,
+          "height_mm": null,
+          "weight_kg": 715,
+          "capacity_persons": 14,
+          "max_hp": 150,
+          "fuel_capacity_l": 120
+        }
+      }
+    ]
+  }
+]

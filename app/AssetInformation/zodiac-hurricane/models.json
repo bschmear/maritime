@@ -1,0 +1,23 @@
+[
+  {
+    "id": "hurricane-neo",
+    "name": "Hurricane NEO Series",
+    "url": "https://hurricanetender.com/models/",
+    "type": "listing_page",
+    "category": "NEO"
+  },
+  {
+    "id": "hurricane-x",
+    "name": "Hurricane X Series",
+    "url": "https://hurricanetender.com/models/",
+    "type": "listing_page",
+    "category": "Semi-Custom"
+  },
+  {
+    "id": "hurricane-signature",
+    "name": "Hurricane Signature Series",
+    "url": "https://hurricanetender.com/models/",
+    "type": "listing_page",
+    "category": "Full Custom"
+  }
+]

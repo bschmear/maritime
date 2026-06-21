@@ -1,0 +1,37 @@
+[
+  {
+    "id": "northstar-axis",
+    "name": "AXIS Series",
+    "url": "https://northstar.boats/category/axis",
+    "type": "listing_page",
+    "category": "Luxury Tenders"
+  },
+  {
+    "id": "northstar-vega",
+    "name": "VEGA Series",
+    "url": "https://northstar.boats/category/vega",
+    "type": "listing_page",
+    "category": "Sport RIBs"
+  },
+  {
+    "id": "northstar-orion",
+    "name": "ORION Series",
+    "url": "https://northstar.boats/category/orion",
+    "type": "listing_page",
+    "category": "Day Boats"
+  },
+  {
+    "id": "northstar-ion",
+    "name": "ION Series",
+    "url": "https://northstar.boats/category/ion",
+    "type": "listing_page",
+    "category": "Performance RIBs"
+  },
+  {
+    "id": "northstar-core",
+    "name": "CORE Series",
+    "url": "https://northstar.boats/category/core",
+    "type": "listing_page",
+    "category": "Utility RIBs"
+  }
+]

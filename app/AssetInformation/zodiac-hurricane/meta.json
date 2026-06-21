@@ -1,0 +1,235 @@
+[
+  {
+    "id": "hurricane-neo",
+    "brand": "Zodiac Hurricane",
+    "name": "Hurricane NEO Series",
+    "type_display": "High-Performance Adventure Tender",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "The Hurricane NEO line is a ready-for-action high-performance series built on the Mach II hull, offered in sun-top or cabin configurations from 28' to 59' with extensive personalization options.",
+    "features": [
+      "Mach II hull platform",
+      "Twin inboard or twin/triple outboard options",
+      "Sun-top or cabin configurations",
+      "Beach landing bow platform",
+      "Semi-custom color and detail personalization",
+      "Canadian-built with military-grade engineering heritage"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Aluminum Mach II Hull / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 11400,
+      "max": 18000
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "neo-37",
+        "name": "NEO 37",
+        "description": "37' adventure-ready tender on the Mach II hull; up to 60 knots and 1,050 hp per Hurricane and ONBOARD Magazine specifications.",
+        "specifications": {
+          "length_mm": 11400,
+          "width_mm": 3200,
+          "height_mm": null,
+          "weight_kg": 4500,
+          "capacity_persons": null,
+          "max_hp": 1050,
+          "fuel_capacity_l": null
+        }
+      },
+      {
+        "id": "neo-59",
+        "name": "NEO 59",
+        "description": "59' flagship NEO chase boat rated to 70 knots and 2,400 hp per Hurricane Tender published top-line data.",
+        "specifications": {
+          "length_mm": 18000,
+          "width_mm": null,
+          "height_mm": null,
+          "weight_kg": null,
+          "capacity_persons": null,
+          "max_hp": 2400,
+          "fuel_capacity_l": null
+        }
+      }
+    ]
+  },
+  {
+    "id": "hurricane-x",
+    "brand": "Zodiac Hurricane",
+    "name": "Hurricane X Series",
+    "type_display": "Semi-Custom Mach II RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "aluminum",
+    "description": "Hurricane X is the semi-custom line based on the Mach II platform, with a customizable console and feature set for chase boats and luxury tenders from 22' to 52'.",
+    "features": [
+      "Semi-custom Mach II platform",
+      "Customizable console and feature packages",
+      "Available from 22' (7 m) to 52' (16 m) across the X line",
+      "High-performance chase and tender configurations"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Mach II Hull / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 9630,
+      "max": 13700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hurricane-32-x",
+        "name": "32X",
+        "description": "32' semi-custom Hurricane X rated to 49.7 knots and 700 hp.",
+        "specifications": {
+          "length_mm": 9630,
+          "width_mm": 3200,
+          "height_mm": null,
+          "weight_kg": 3033,
+          "capacity_persons": 16,
+          "max_hp": 700,
+          "fuel_capacity_l": 875
+        }
+      },
+      {
+        "id": "hurricane-38-x",
+        "name": "38X",
+        "description": "38' Hurricane X with 60-knot capability and 1,050 hp installation.",
+        "specifications": {
+          "length_mm": 11120,
+          "width_mm": 3230,
+          "height_mm": null,
+          "weight_kg": 4369,
+          "capacity_persons": 20,
+          "max_hp": 1050,
+          "fuel_capacity_l": 1495
+        }
+      },
+      {
+        "id": "hurricane-44-x",
+        "name": "44X",
+        "description": "44' Hurricane X flagship semi-custom model rated to 61 knots and 1,800 hp.",
+        "specifications": {
+          "length_mm": 13700,
+          "width_mm": 3720,
+          "height_mm": null,
+          "weight_kg": null,
+          "capacity_persons": 22,
+          "max_hp": 1800,
+          "fuel_capacity_l": 1893
+        }
+      }
+    ]
+  },
+  {
+    "id": "hurricane-signature",
+    "brand": "Zodiac Hurricane",
+    "name": "Hurricane Signature Series",
+    "type_display": "Full-Custom Luxury RIB",
+    "boat_type_key": "power-rib",
+    "hull_type_key": "rib",
+    "hull_material_key": "fiberglass",
+    "description": "The Hurricane Signature line represents full-custom builds tailored to owner vision, blending Mach II performance with bespoke luxury layouts.",
+    "features": [
+      "Full-custom Signature builds",
+      "Mach II hull engineering",
+      "Tailored layouts, consoles, and mission equipment",
+      "Backed by Zodiac Hurricane design and build heritage"
+    ],
+    "has_variants": true,
+    "construction": {
+      "material": "Mach II Hull (fiberglass or composite) / Hypalon Tubes"
+    },
+    "length_range_mm": {
+      "min": 9500,
+      "max": 13700
+    },
+    "specifications": {
+      "length_mm": null,
+      "width_mm": null,
+      "height_mm": null,
+      "weight_kg": null,
+      "capacity_persons": null,
+      "max_hp": null,
+      "fuel_capacity_l": null
+    },
+    "variants": [
+      {
+        "id": "hurricane-31-signature",
+        "name": "31 Signature",
+        "description": "31' Signature custom chase boat rated to 50 knots.",
+        "specifications": {
+          "length_mm": 9500,
+          "width_mm": 3100,
+          "height_mm": null,
+          "weight_kg": 4264,
+          "capacity_persons": 11,
+          "max_hp": 870,
+          "fuel_capacity_l": 550
+        }
+      },
+      {
+        "id": "hurricane-37-s",
+        "name": "37 Signature",
+        "description": "37' Signature build with 47.7-knot capability and 1,200 hp.",
+        "specifications": {
+          "length_mm": 11240,
+          "width_mm": 3240,
+          "height_mm": null,
+          "weight_kg": 6538,
+          "capacity_persons": 24,
+          "max_hp": 1200,
+          "fuel_capacity_l": 1200
+        }
+      },
+      {
+        "id": "hurricane-38",
+        "name": "38 Signature",
+        "description": "38' Signature chase boat on an 11.7 m Mach II fiberglass hull with 1,200 hp.",
+        "specifications": {
+          "length_mm": 11700,
+          "width_mm": 3100,
+          "height_mm": null,
+          "weight_kg": 4990,
+          "capacity_persons": 24,
+          "max_hp": 1200,
+          "fuel_capacity_l": 1100
+        }
+      },
+      {
+        "id": "hurricane-45-s",
+        "name": "45 Signature",
+        "description": "45' Signature flagship with 52-knot capability and 1,700 hp.",
+        "specifications": {
+          "length_mm": 13700,
+          "width_mm": 3600,
+          "height_mm": null,
+          "weight_kg": 7207,
+          "capacity_persons": 34,
+          "max_hp": 1700,
+          "fuel_capacity_l": 1890
+        }
+      }
+    ]
+  }
+]

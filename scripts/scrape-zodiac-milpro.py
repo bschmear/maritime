@@ -16,7 +16,6 @@ SPEC_SOURCES = {
     "srr": "https://zodiacmilpro.com/wp-content/uploads/2024/09/srr-spec-good.png",
     "srmn": "https://zodiacmilpro.com/wp-content/uploads/2024/04/srmn.jpg",
     "sra": "https://zodiacmilpro.com/ribs-aluminium/",
-    "zodiac-hurricane": "https://zodiacmilpro.com/wp-content/uploads/2024/04/zod-spec.jpeg",
 }
 
 MODELS = {
@@ -50,7 +49,6 @@ MODELS = {
     "sra-800-ob": {"series_id": "sra", "specifications": {"length_mm": 8000, "width_mm": 2900, "height_mm": None, "weight_kg": 2900, "capacity_persons": 15, "max_hp": 600, "fuel_capacity_l": 600}},
     "sra-900-ob": {"series_id": "sra", "specifications": {"length_mm": 9000, "width_mm": 3020, "height_mm": None, "weight_kg": 2673, "capacity_persons": 16, "max_hp": 700, "fuel_capacity_l": 644}},
     "sra-1050-ob": {"series_id": "sra", "specifications": {"length_mm": 11000, "width_mm": 3020, "height_mm": None, "weight_kg": 3800, "capacity_persons": 16, "max_hp": 900, "fuel_capacity_l": 800}},
-    "zh-custom": {"series_id": "zodiac-hurricane", "specifications": {"length_mm": None, "width_mm": None, "height_mm": None, "weight_kg": None, "capacity_persons": None, "max_hp": None, "fuel_capacity_l": None}},
 }
 
 

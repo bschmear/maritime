@@ -729,54 +729,5 @@
         }
       }
     ]
-  },
-  {
-    "id": "zodiac-hurricane",
-    "brand": "Zodiac Milpro",
-    "name": "Zodiac Hurricane Series",
-    "type_display": "Custom High-Performance RIB",
-    "boat_type_key": "power-rib",
-    "hull_type_key": "rib",
-    "hull_material_key": "aluminum",
-    "description": "Zodiac Hurricane (ZH) boats are customizable high-end RIBs built for the most extreme maritime tasks, from 6 to 16 m with aluminum or composite hulls and multiple propulsion options.",
-    "features": [
-      "Aluminium or composite hull options",
-      "Custom build lengths from 6 to 16 m",
-      "Outboard, inboard, sterndrive, surface drive, or waterjet",
-      "Up to 70 knot capability"
-    ],
-    "has_variants": true,
-    "construction": {
-      "material": "Aluminum or Composite Hull / CSM (Hypalon) Tubes"
-    },
-    "length_range_mm": {
-      "min": null,
-      "max": null
-    },
-    "specifications": {
-      "length_mm": null,
-      "width_mm": null,
-      "height_mm": null,
-      "weight_kg": null,
-      "capacity_persons": null,
-      "max_hp": null,
-      "fuel_capacity_l": null
-    },
-    "variants": [
-      {
-        "id": "zh-custom",
-        "name": "ZH Custom",
-        "description": "Custom-configured Zodiac Hurricane built to mission requirements; contact Zodiac Milpro for specifications.",
-        "specifications": {
-          "length_mm": null,
-          "width_mm": null,
-          "height_mm": null,
-          "weight_kg": null,
-          "capacity_persons": null,
-          "max_hp": null,
-          "fuel_capacity_l": null
-        }
-      }
-    ]
   }
 ]
