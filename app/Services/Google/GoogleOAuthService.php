@@ -194,14 +194,65 @@ class GoogleOAuthService
 
     public function fetchUserEmail(string $accessToken): ?string
     {
+        return $this->fetchUserProfile($accessToken)['email'] ?? null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function loginScopes(): array
+    {
+        $raw = (string) config('services.google.login_scopes', '');
+        if ($raw === '') {
+            return [
+                'openid',
+                'https://www.googleapis.com/auth/userinfo.email',
+                'https://www.googleapis.com/auth/userinfo.profile',
+            ];
+        }
+
+        $parts = preg_split('/[\s,]+/', trim($raw)) ?: [];
+
+        return array_values(array_filter($parts, fn (string $scope) => $scope !== ''));
+    }
+
+    public function loginAuthorizeUrl(string $state, string $redirectUri): string
+    {
+        $params = [
+            'client_id' => (string) config('services.google.client_id'),
+            'response_type' => 'code',
+            'scope' => implode(' ', $this->loginScopes()),
+            'redirect_uri' => $redirectUri,
+            'state' => $state,
+            'access_type' => 'online',
+            'prompt' => 'select_account',
+        ];
+
+        return self::AUTH_BASE_URL.'?'.http_build_query($params);
+    }
+
+    /**
+     * @return array{id: string, email: string, first_name?: string|null, last_name?: string|null, name?: string|null, verified: bool}
+     */
+    public function fetchUserProfile(string $accessToken): array
+    {
         $response = Http::withToken($accessToken)
             ->acceptJson()
             ->get('https://www.googleapis.com/oauth2/v2/userinfo');
 
         if (! $response->successful()) {
-            return null;
+            throw new RuntimeException('Google did not return user profile information.');
         }
 
-        return $response->json('email');
+        $payload = $response->json();
+
+        return [
+            'id' => (string) ($payload['id'] ?? ''),
+            'email' => strtolower((string) ($payload['email'] ?? '')),
+            'first_name' => $payload['given_name'] ?? null,
+            'last_name' => $payload['family_name'] ?? null,
+            'name' => $payload['name'] ?? null,
+            'verified' => (bool) ($payload['verified_email'] ?? false),
+        ];
     }
 }

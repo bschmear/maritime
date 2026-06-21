@@ -35,6 +35,7 @@ class AuthenticatedSessionController extends Controller
             'status' => session('status'),
             'invitation' => $invitation,
             'turnstileSiteKey' => Turnstile::siteKey(),
+            'googleLoginEnabled' => GoogleLoginController::isConfigured(),
         ]);
     }
 
