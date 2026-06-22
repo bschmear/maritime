@@ -27,22 +27,7 @@ class GoogleController extends Controller
 
     public function show(Request $request): Response
     {
-        $oauthNotice = null;
-        if ($request->boolean('google_connected')) {
-            $oauthNotice = [
-                'type' => 'success',
-                'message' => 'Google account connected successfully.',
-            ];
-        } elseif ($request->filled('google_error')) {
-            $oauthNotice = [
-                'type' => 'error',
-                'message' => match ($request->query('google_error')) {
-                    'denied' => 'Google authorization was cancelled or denied.',
-                    'token' => 'Google did not return a token. Confirm GOOGLE_REDIRECT_URI matches your Google Cloud OAuth client.',
-                    default => 'Google connection failed. Please try again.',
-                },
-            ];
-        }
+        $oauthNotice = $this->oauthNotice($request);
 
         $integration = Integration::query()
             ->where('integration_type', IntegrationType::Google)
@@ -66,6 +51,7 @@ class GoogleController extends Controller
                 'description' => IntegrationType::Google->description(),
             ],
             'isConnected' => $this->oauth->hasCredentials(),
+            'canConnect' => $this->canConnect(),
             'googleEmail' => $integration?->metadata['google_email'] ?? null,
             'sheetSettings' => $sheetSettings->toArray(),
         ]);
@@ -73,26 +59,21 @@ class GoogleController extends Controller
 
     public function connect(Request $request): RedirectResponse
     {
-        $profile = current_tenant_profile();
-        if (! $profile) {
-            return redirect()->route('integrations')->withErrors('Could not resolve your user profile for this workspace.');
-        }
-
         $tenant = tenant();
         if (! $tenant) {
-            return redirect()->route('integrations')->withErrors('Could not resolve the current workspace.');
+            return $this->connectFailed('Could not resolve the current workspace.');
         }
 
         $redirectUri = (string) config('services.google.redirect_uri');
         if ($redirectUri === '' || ! filter_var($redirectUri, FILTER_VALIDATE_URL)) {
-            return redirect()->route('integrations')->withErrors(
-                'Google redirect URL is not configured. Set GOOGLE_REDIRECT_URI to your central callback URL.'
+            return $this->connectFailed(
+                'Google integration callback is not configured. Set GOOGLE_REDIRECT_URI in .env to your central callback URL (for example https://maritime.test/integrations/google/oauth/callback).'
             );
         }
 
         if (! config('services.google.client_id') || ! config('services.google.client_secret')) {
-            return redirect()->route('integrations')->withErrors(
-                'Google client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.'
+            return $this->connectFailed(
+                'Google client credentials are missing. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.'
             );
         }
 
@@ -102,7 +83,7 @@ class GoogleController extends Controller
         DB::connection($central)->table('google_oauth_handoffs')->insert([
             'id' => $handoffId,
             'tenant_id' => $tenant->getTenantKey(),
-            'tenant_user_profile_id' => $profile->getKey(),
+            'tenant_user_profile_id' => current_tenant_profile()?->getKey(),
             'expires_at' => now()->addMinutes(10),
             'created_at' => now(),
             'updated_at' => now(),
@@ -156,5 +137,53 @@ class GoogleController extends Controller
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+    }
+
+    /**
+     * @return array{type: string, message: string}|null
+     */
+    private function oauthNotice(Request $request): ?array
+    {
+        if ($request->boolean('google_connected')) {
+            return [
+                'type' => 'success',
+                'message' => 'Google account connected successfully.',
+            ];
+        }
+
+        if ($request->filled('google_error')) {
+            return [
+                'type' => 'error',
+                'message' => match ($request->query('google_error')) {
+                    'denied' => 'Google authorization was cancelled or denied.',
+                    'token' => 'Google did not return a token. Confirm GOOGLE_REDIRECT_URI matches your Google Cloud OAuth client.',
+                    default => 'Google connection failed. Please try again.',
+                },
+            ];
+        }
+
+        $flashError = $request->session()->get('error');
+        if (is_string($flashError) && $flashError !== '') {
+            return [
+                'type' => 'error',
+                'message' => $flashError,
+            ];
+        }
+
+        return null;
+    }
+
+    private function canConnect(): bool
+    {
+        return filled(config('services.google.client_id'))
+            && filled(config('services.google.client_secret'))
+            && filled(config('services.google.redirect_uri'));
+    }
+
+    private function connectFailed(string $message): RedirectResponse
+    {
+        return redirect()
+            ->route('google')
+            ->with('error', $message);
     }
 }

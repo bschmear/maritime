@@ -119,12 +119,11 @@ class GoogleOAuthService
         Http::asForm()->post(self::REVOKE_URL, ['token' => $token]);
     }
 
-    public function persistConnection(int $userId, array $tokenPayload, ?string $googleAccountId = null, ?string $email = null): Integration
+    public function persistConnection(?int $userId, array $tokenPayload, ?string $googleAccountId = null, ?string $email = null): Integration
     {
         $expiresIn = (int) ($tokenPayload['expires_in'] ?? 3600);
 
         $attributes = [
-            'user_id' => $userId,
             'integration_type' => IntegrationType::Google,
             'name' => IntegrationType::Google->label(),
             'access_token' => $tokenPayload['access_token'],
@@ -135,6 +134,10 @@ class GoogleOAuthService
                 'connected_at' => now()->toIso8601String(),
             ]),
         ];
+
+        if ($userId !== null) {
+            $attributes['user_id'] = $userId;
+        }
 
         if (! empty($tokenPayload['refresh_token'])) {
             $attributes['refresh_token'] = $tokenPayload['refresh_token'];

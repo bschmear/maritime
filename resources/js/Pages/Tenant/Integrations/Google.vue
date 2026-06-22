@@ -12,6 +12,7 @@ const props = defineProps({
     googleEmail: { type: String, default: null },
     sheetSettings: { type: Object, default: () => ({}) },
     oauthNotice: { type: Object, default: null },
+    canConnect: { type: Boolean, default: true },
 });
 
 const pushing = ref(false);
@@ -128,17 +129,23 @@ function disconnect() {
                     Connected{{ googleEmail ? ` as ${googleEmail}` : '' }}.
                 </p>
                 <p v-else class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    Connect a Google account to sync inventory to a shared spreadsheet.
+                    Connect any Google account for this workspace. The Google account does not need to match your Helmful login email.
                 </p>
 
                 <div class="mt-4 flex flex-wrap gap-2">
                     <Link
-                        v-if="!isConnected"
+                        v-if="!isConnected && canConnect"
                         :href="route('google.connect')"
                         class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
                     >
                         Connect Google
                     </Link>
+                    <p
+                        v-else-if="!isConnected && !canConnect"
+                        class="text-sm text-amber-700 dark:text-amber-300"
+                    >
+                        Google OAuth is not fully configured on the server (check GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI).
+                    </p>
                     <button
                         v-else
                         type="button"

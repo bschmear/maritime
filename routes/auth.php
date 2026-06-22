@@ -29,6 +29,9 @@ Route::middleware('guest')->group(function () {
     Route::get('auth/google/callback', [GoogleLoginController::class, 'callback'])
         ->name('google.login.callback');
 
+    Route::get('auth/google/complete/{handoff}', [GoogleLoginController::class, 'complete'])
+        ->name('google.login.complete');
+
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 

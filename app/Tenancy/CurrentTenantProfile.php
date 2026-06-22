@@ -47,7 +47,7 @@ class CurrentTenantProfile
         }
 
         $this->profile = User::query()
-            ->where('email', $central->email)
+            ->whereRaw('LOWER(email) = ?', [strtolower($central->email)])
             ->first();
 
         return $this->profile;

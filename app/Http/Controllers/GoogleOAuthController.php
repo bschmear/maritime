@@ -65,7 +65,7 @@ class GoogleOAuthController extends Controller
             $email = $oauth->fetchUserEmail($tokens['access_token']);
 
             $oauth->persistConnection(
-                (int) $row->tenant_user_profile_id,
+                filled($row->tenant_user_profile_id) ? (int) $row->tenant_user_profile_id : null,
                 $tokens,
                 email: $email,
             );

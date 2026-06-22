@@ -6,8 +6,10 @@ use App\Models\User;
 use App\Services\Google\GoogleLoginService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class GoogleLoginTest extends TestCase
@@ -21,20 +23,22 @@ class GoogleLoginTest extends TestCase
         config([
             'services.google.client_id' => 'test-client-id',
             'services.google.client_secret' => 'test-client-secret',
-            'services.google.login_redirect_uri' => 'https://app.example.test/auth/google/callback',
+            'services.google.login_redirect_uri' => 'https://oauth.example.test/auth/google/callback',
+            'app.url' => 'https://maritime.test',
+            'app.domain' => 'maritime.test',
         ]);
     }
 
-    public function test_google_redirect_stores_state_and_redirects_to_google(): void
+    public function test_google_redirect_stores_handoff_and_redirects_to_google(): void
     {
-        $response = $this->get(route('google.login.redirect'));
+        $response = $this->get('https://maritime.test/'.route('google.login.redirect', [], false));
 
         $response->assertRedirect();
         $this->assertStringContainsString('accounts.google.com/o/oauth2/v2/auth', $response->headers->get('Location'));
-        $this->assertNotNull(session('google_login_state'));
+        $this->assertSame(1, DB::table('google_login_handoffs')->count());
     }
 
-    public function test_google_callback_logs_in_existing_user_by_email_and_links_google_id(): void
+    public function test_google_callback_completes_login_on_return_origin_for_existing_user(): void
     {
         $user = User::factory()->create([
             'email' => 'staff@example.com',
@@ -56,18 +60,31 @@ class GoogleLoginTest extends TestCase
             ]),
         ]);
 
-        $state = 'test-state-token';
+        $handoffId = (string) Str::uuid();
 
-        $response = $this->withSession(['google_login_state' => $state])
-            ->get(route('google.login.callback', [
-                'code' => 'auth-code',
-                'state' => $state,
-            ]));
+        DB::table('google_login_handoffs')->insert([
+            'id' => $handoffId,
+            'return_origin' => 'https://maritime.test',
+            'invitation_token' => null,
+            'expires_at' => now()->addMinutes(10),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $callbackResponse = $this->get('https://oauth.example.test/'.route('google.login.callback', [
+            'code' => 'auth-code',
+            'state' => $handoffId,
+        ], false));
+
+        $callbackResponse->assertRedirect('https://maritime.test/auth/google/complete/'.$handoffId);
+
+        $completeResponse = $this->get('https://maritime.test/'.route('google.login.complete', ['handoff' => $handoffId], false));
 
         $this->assertAuthenticatedAs($user->fresh());
         $this->assertSame('google-user-123', $user->fresh()->google_id);
-        $response->assertStatus(409);
-        $response->assertHeader('X-Inertia-Location', route('dashboard', absolute: true));
+        $completeResponse->assertStatus(409);
+        $completeResponse->assertHeader('X-Inertia-Location', route('dashboard', absolute: true));
+        $this->assertDatabaseMissing('google_login_handoffs', ['id' => $handoffId]);
     }
 
     public function test_google_callback_logs_in_existing_user_by_google_id(): void
@@ -89,16 +106,24 @@ class GoogleLoginTest extends TestCase
             ]),
         ]);
 
-        $state = 'existing-google-user';
+        $handoffId = (string) Str::uuid();
 
-        $response = $this->withSession(['google_login_state' => $state])
-            ->get(route('google.login.callback', [
-                'code' => 'auth-code',
-                'state' => $state,
-            ]));
+        DB::table('google_login_handoffs')->insert([
+            'id' => $handoffId,
+            'return_origin' => 'https://maritime.test',
+            'expires_at' => now()->addMinutes(10),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->get('https://oauth.example.test/'.route('google.login.callback', [
+            'code' => 'auth-code',
+            'state' => $handoffId,
+        ], false));
+
+        $this->get('https://maritime.test/'.route('google.login.complete', ['handoff' => $handoffId], false));
 
         $this->assertAuthenticatedAs($user);
-        $response->assertStatus(409);
     }
 
     public function test_google_callback_creates_user_when_no_match_exists(): void
@@ -119,13 +144,22 @@ class GoogleLoginTest extends TestCase
             ]),
         ]);
 
-        $state = 'new-google-user';
+        $handoffId = (string) Str::uuid();
 
-        $response = $this->withSession(['google_login_state' => $state])
-            ->get(route('google.login.callback', [
-                'code' => 'auth-code',
-                'state' => $state,
-            ]));
+        DB::table('google_login_handoffs')->insert([
+            'id' => $handoffId,
+            'return_origin' => 'https://maritime.test',
+            'expires_at' => now()->addMinutes(10),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->get('https://oauth.example.test/'.route('google.login.callback', [
+            'code' => 'auth-code',
+            'state' => $handoffId,
+        ], false));
+
+        $this->get('https://maritime.test/'.route('google.login.complete', ['handoff' => $handoffId], false));
 
         $user = User::query()->where('email', 'newuser@example.com')->first();
 
@@ -133,7 +167,6 @@ class GoogleLoginTest extends TestCase
         $this->assertSame('google-user-new', $user->google_id);
         $this->assertAuthenticatedAs($user);
         Event::assertDispatched(Registered::class);
-        $response->assertStatus(409);
     }
 
     public function test_google_login_service_links_existing_email_without_duplicate_account(): void
