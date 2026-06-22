@@ -915,6 +915,9 @@ Route::middleware([
                 Route::post('/sheet/push', [GoogleController::class, 'pushSheet'])->name('google.sheet.push');
                 Route::post('/sheet/pull', [GoogleController::class, 'pullSheet'])->name('google.sheet.pull');
                 Route::post('/sheet/recreate', [GoogleController::class, 'recreateSheet'])->name('google.sheet.recreate');
+                Route::post('/sheet/models/push', [GoogleController::class, 'pushModelsSheet'])->name('google.sheet.models.push');
+                Route::post('/sheet/models/pull', [GoogleController::class, 'pullModelsSheet'])->name('google.sheet.models.pull');
+                Route::post('/sheet/models/recreate', [GoogleController::class, 'recreateModelsSheet'])->name('google.sheet.models.recreate');
             });
         });
 

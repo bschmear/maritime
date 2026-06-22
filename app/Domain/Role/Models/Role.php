@@ -49,4 +49,24 @@ class Role extends Model
 
         return $this->permissions()->where('key', $permission)->exists();
     }
+
+    /**
+     * @return list<string>
+     */
+    public function permissionKeys(): array
+    {
+        if ($this->relationLoaded('permissions')) {
+            return $this->permissions
+                ->pluck('key')
+                ->filter(fn ($key) => is_string($key) && $key !== '')
+                ->values()
+                ->all();
+        }
+
+        return $this->permissions()
+            ->pluck('permissions.key')
+            ->filter(fn ($key) => is_string($key) && $key !== '')
+            ->values()
+            ->all();
+    }
 }

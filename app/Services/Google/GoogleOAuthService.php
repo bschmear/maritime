@@ -143,8 +143,12 @@ class GoogleOAuthService
             $attributes['refresh_token'] = $tokenPayload['refresh_token'];
         }
 
-        if ($googleAccountId !== null) {
+        if ($googleAccountId !== null && $googleAccountId !== '') {
             $attributes['external_id'] = $googleAccountId;
+        } elseif (filled($email)) {
+            $attributes['external_id'] = $email;
+        } else {
+            $attributes['external_id'] = 'google-'.IntegrationType::Google->slug();
         }
 
         return Integration::upsertFromOAuth(
@@ -158,6 +162,7 @@ class GoogleOAuthService
         return Integration::query()
             ->where('integration_type', IntegrationType::Google)
             ->where('active', true)
+            ->orderByDesc('updated_at')
             ->first();
     }
 

@@ -4,23 +4,21 @@ declare(strict_types=1);
 
 namespace App\Domain\AssetUnit\Support;
 
-use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\GoogleIntegrationSettings;
 use App\Services\Google\GoogleDriveService;
 use App\Services\Google\GoogleOAuthService;
 use App\Services\Google\GoogleSheetsService;
-use Illuminate\Support\Collection;
 use RuntimeException;
 
-class AssetUnitGoogleSheetSyncService
+class AssetModelsGoogleSheetSyncService
 {
     public function __construct(
         private readonly GoogleOAuthService $oauth,
         private readonly GoogleDriveService $drive,
         private readonly GoogleSheetsService $sheets,
-        private readonly AssetUnitGoogleSheetBuilder $builder = new AssetUnitGoogleSheetBuilder,
-        private readonly AssetUnitGoogleSheetImportService $importer = new AssetUnitGoogleSheetImportService,
+        private readonly AssetModelsGoogleSheetBuilder $builder = new AssetModelsGoogleSheetBuilder,
+        private readonly AssetModelsGoogleSheetImportService $importer = new AssetModelsGoogleSheetImportService,
     ) {}
 
     /**
@@ -36,47 +34,44 @@ class AssetUnitGoogleSheetSyncService
     {
         $integration = $this->requireIntegration($integration);
         $settings = GoogleIntegrationSettings::from($integration);
-        $settings->restoreWorkspaceSpreadsheetLink($integration);
+        $settings->restoreModelsSpreadsheetLink($integration);
         $integration->refresh();
 
-        [$spreadsheetId, $recreated, $message] = $this->ensureInventorySpreadsheet($integration, $settings);
+        [$spreadsheetId, $recreated, $message] = $this->ensureModelsSpreadsheet($integration, $settings);
 
-        $inventorySheet = $settings->inventorySheetName();
+        $modelsSheet = $settings->modelsSheetName();
         $referenceSheet = GoogleIntegrationSettings::REFERENCE_SHEET_NAME;
 
-        $this->sheets->ensureSheets($integration, $spreadsheetId, [$inventorySheet, $referenceSheet]);
+        $this->sheets->ensureSheets($integration, $spreadsheetId, [$modelsSheet, $referenceSheet]);
 
-        $units = $this->loadUnits();
-        $inventoryRows = $this->builder->buildInventoryRows($units);
+        $modelRows = $this->builder->buildModelRows();
         $reference = $this->builder->referenceLists();
 
         $this->sheets->writeRange(
             $integration,
             $spreadsheetId,
-            $inventorySheet.'!A1',
-            $inventoryRows,
+            $modelsSheet.'!A1',
+            $modelRows,
         );
 
         $referenceRows = [
-            ['Status', 'Condition', 'Make', 'Variant', 'Location', 'Subsidiary'],
+            ['Make', 'Variant', 'Hull Type', 'Hull Material', 'Boat Type'],
         ];
         $maxRef = max(
-            count($reference['status']),
-            count($reference['condition']),
             count($reference['makes']),
             count($reference['variants']),
-            count($reference['locations']),
-            count($reference['subsidiaries']),
+            count($reference['hull_types']),
+            count($reference['hull_materials']),
+            count($reference['boat_types']),
             1,
         );
         for ($i = 0; $i < $maxRef; $i++) {
             $referenceRows[] = [
-                $reference['status'][$i] ?? '',
-                $reference['condition'][$i] ?? '',
                 $reference['makes'][$i] ?? '',
                 $reference['variants'][$i] ?? '',
-                $reference['locations'][$i] ?? '',
-                $reference['subsidiaries'][$i] ?? '',
+                $reference['hull_types'][$i] ?? '',
+                $reference['hull_materials'][$i] ?? '',
+                $reference['boat_types'][$i] ?? '',
             ];
         }
 
@@ -87,13 +82,13 @@ class AssetUnitGoogleSheetSyncService
             $referenceRows,
         );
 
-        $this->applyValidations($integration, $spreadsheetId, $inventorySheet, $referenceSheet, count($inventoryRows));
+        $this->applyValidations($integration, $spreadsheetId, $modelsSheet, $referenceSheet, count($modelRows));
         $this->sheets->hideSheet($integration, $spreadsheetId, $referenceSheet);
 
-        $settings->persistInventorySpreadsheet(
+        $settings->persistModelsSpreadsheet(
             $integration,
             $spreadsheetId,
-            $inventorySheet,
+            $modelsSheet,
             touchSyncTimestamps: true,
         );
 
@@ -101,7 +96,7 @@ class AssetUnitGoogleSheetSyncService
             'spreadsheet_id' => $spreadsheetId,
             'spreadsheet_url' => 'https://docs.google.com/spreadsheets/d/'.$spreadsheetId,
             'recreated' => $recreated,
-            'row_count' => max(0, count($inventoryRows) - 1),
+            'row_count' => max(0, count($modelRows) - 1),
             'message' => $message,
         ];
     }
@@ -113,10 +108,10 @@ class AssetUnitGoogleSheetSyncService
     {
         $integration = $this->requireIntegration($integration);
         $settings = GoogleIntegrationSettings::from($integration);
-        $settings->restoreWorkspaceSpreadsheetLink($integration);
+        $settings->restoreModelsSpreadsheetLink($integration);
         $integration->refresh();
 
-        [$spreadsheetId, $recreated] = $this->ensureInventorySpreadsheet($integration, $settings);
+        [$spreadsheetId, $recreated] = $this->ensureModelsSpreadsheet($integration, $settings);
 
         if ($recreated) {
             $this->push($integration);
@@ -128,11 +123,11 @@ class AssetUnitGoogleSheetSyncService
                 'errors' => [],
                 'rows' => [],
                 'recreated' => true,
-                'message' => 'The inventory sheet was missing and has been recreated from Helmful. Edit the new sheet, then import again.',
+                'message' => 'The models sheet was missing and has been recreated from Helmful. Edit the new sheet, then import again.',
             ];
         }
 
-        $sheetName = $settings->inventorySheetName();
+        $sheetName = $settings->modelsSheetName();
         $rows = $this->sheets->readRange($integration, $spreadsheetId, $sheetName.'!A:ZZ');
 
         $result = $this->importer->import($rows);
@@ -140,7 +135,7 @@ class AssetUnitGoogleSheetSyncService
         $result['spreadsheet_url'] = 'https://docs.google.com/spreadsheets/d/'.$spreadsheetId;
 
         $settings->mergeIntoIntegration($integration, [
-            'last_pulled_at' => now()->toIso8601String(),
+            'last_models_pulled_at' => now()->toIso8601String(),
         ]);
 
         return $result;
@@ -154,7 +149,7 @@ class AssetUnitGoogleSheetSyncService
         $integration = $this->requireIntegration($integration);
         $settings = GoogleIntegrationSettings::from($integration);
 
-        $settings->clearInventorySpreadsheet($integration);
+        $settings->clearModelsSpreadsheet($integration);
         $integration->refresh();
 
         $push = $this->push($integration);
@@ -170,7 +165,7 @@ class AssetUnitGoogleSheetSyncService
         $integration ??= $this->oauth->integration();
 
         if ($integration === null || ! $this->oauth->hasCredentials()) {
-            throw new RuntimeException('Connect Google under Integrations before syncing inventory.');
+            throw new RuntimeException('Connect Google under Integrations before syncing models.');
         }
 
         return $integration;
@@ -179,32 +174,32 @@ class AssetUnitGoogleSheetSyncService
     /**
      * @return array{0: string, 1: bool, 2: ?string}
      */
-    private function ensureInventorySpreadsheet(Integration $integration, GoogleIntegrationSettings $settings): array
+    private function ensureModelsSpreadsheet(Integration $integration, GoogleIntegrationSettings $settings): array
     {
         $folderId = $this->drive->ensureAppFolder($integration);
-        $spreadsheetId = $settings->inventorySpreadsheetId();
+        $spreadsheetId = $settings->modelsSpreadsheetId();
         $recreated = false;
         $message = null;
 
         if ($spreadsheetId !== null && ! $this->drive->fileExists($integration, $spreadsheetId)) {
-            $settings->clearInventorySpreadsheet($integration);
+            $settings->clearModelsSpreadsheet($integration);
             $integration->refresh();
             $spreadsheetId = null;
             $recreated = true;
-            $message = 'Previous inventory sheet was deleted. A new sheet has been created.';
+            $message = 'Previous models sheet was deleted. A new sheet has been created.';
         }
 
         if ($spreadsheetId === null) {
-            $title = 'Helmful Inventory';
+            $title = 'Helmful Models';
             $spreadsheetId = $this->drive->createSpreadsheet($integration, $title, $folderId);
-            $settings->persistInventorySpreadsheet(
+            $settings->persistModelsSpreadsheet(
                 $integration,
                 $spreadsheetId,
-                $settings->inventorySheetName(),
+                $settings->modelsSheetName(),
             );
             $integration->refresh();
             $recreated = true;
-            $message ??= 'Inventory sheet created.';
+            $message ??= 'Models sheet created.';
         }
 
         return [$spreadsheetId, $recreated, $message];
@@ -213,49 +208,24 @@ class AssetUnitGoogleSheetSyncService
     private function applyValidations(
         Integration $integration,
         string $spreadsheetId,
-        string $inventorySheet,
+        string $modelsSheet,
         string $referenceSheet,
         int $rowCount,
     ): void {
         $spreadsheet = $this->sheets->getSpreadsheet($integration, $spreadsheetId);
-        $sheetId = $this->sheets->sheetId($spreadsheet, $inventorySheet);
+        $sheetId = $this->sheets->sheetId($spreadsheet, $modelsSheet);
         if ($sheetId === null) {
             return;
         }
 
         $headers = $this->builder->headers();
-        $statusCol = array_search(AssetUnitGoogleSheetColumnRegistry::HEADER_STATUS, $headers, true);
-        $conditionCol = array_search(AssetUnitGoogleSheetColumnRegistry::HEADER_CONDITION, $headers, true);
-        $makeCol = array_search(AssetUnitGoogleSheetColumnRegistry::HEADER_MAKE, $headers, true);
-        $variantCol = array_search(AssetUnitGoogleSheetColumnRegistry::HEADER_VARIANT, $headers, true);
-        $locationCol = array_search(AssetUnitGoogleSheetColumnRegistry::HEADER_LOCATION, $headers, true);
-        $subsidiaryCol = array_search(AssetUnitGoogleSheetColumnRegistry::HEADER_SUBSIDIARY, $headers, true);
+        $makeCol = array_search(AssetModelsGoogleSheetColumnRegistry::HEADER_MAKE, $headers, true);
+        $variantCol = array_search(AssetModelsGoogleSheetColumnRegistry::HEADER_VARIANT, $headers, true);
+        $hullTypeCol = array_search(AssetModelsGoogleSheetColumnRegistry::HEADER_HULL_TYPE, $headers, true);
+        $hullMaterialCol = array_search(AssetModelsGoogleSheetColumnRegistry::HEADER_HULL_MATERIAL, $headers, true);
+        $boatTypeCol = array_search(AssetModelsGoogleSheetColumnRegistry::HEADER_BOAT_TYPE, $headers, true);
 
         $endRow = max($rowCount, 500);
-
-        if ($statusCol !== false) {
-            $this->sheets->applyListValidationFromReference(
-                $integration,
-                $spreadsheetId,
-                $sheetId,
-                1,
-                $endRow,
-                (int) $statusCol,
-                "'{$referenceSheet}'!A2:A",
-            );
-        }
-
-        if ($conditionCol !== false) {
-            $this->sheets->applyListValidationFromReference(
-                $integration,
-                $spreadsheetId,
-                $sheetId,
-                1,
-                $endRow,
-                (int) $conditionCol,
-                "'{$referenceSheet}'!B2:B",
-            );
-        }
 
         if ($makeCol !== false) {
             $this->sheets->applyListValidationFromReference(
@@ -265,7 +235,7 @@ class AssetUnitGoogleSheetSyncService
                 1,
                 $endRow,
                 (int) $makeCol,
-                "'{$referenceSheet}'!C2:C",
+                "'{$referenceSheet}'!A2:A",
             );
         }
 
@@ -277,48 +247,44 @@ class AssetUnitGoogleSheetSyncService
                 1,
                 $endRow,
                 (int) $variantCol,
+                "'{$referenceSheet}'!B2:B",
+            );
+        }
+
+        if ($hullTypeCol !== false) {
+            $this->sheets->applyListValidationFromReference(
+                $integration,
+                $spreadsheetId,
+                $sheetId,
+                1,
+                $endRow,
+                (int) $hullTypeCol,
+                "'{$referenceSheet}'!C2:C",
+            );
+        }
+
+        if ($hullMaterialCol !== false) {
+            $this->sheets->applyListValidationFromReference(
+                $integration,
+                $spreadsheetId,
+                $sheetId,
+                1,
+                $endRow,
+                (int) $hullMaterialCol,
                 "'{$referenceSheet}'!D2:D",
             );
         }
 
-        if ($locationCol !== false) {
+        if ($boatTypeCol !== false) {
             $this->sheets->applyListValidationFromReference(
                 $integration,
                 $spreadsheetId,
                 $sheetId,
                 1,
                 $endRow,
-                (int) $locationCol,
+                (int) $boatTypeCol,
                 "'{$referenceSheet}'!E2:E",
             );
         }
-
-        if ($subsidiaryCol !== false) {
-            $this->sheets->applyListValidationFromReference(
-                $integration,
-                $spreadsheetId,
-                $sheetId,
-                1,
-                $endRow,
-                (int) $subsidiaryCol,
-                "'{$referenceSheet}'!F2:F",
-            );
-        }
-    }
-
-    /**
-     * @return Collection<int, AssetUnit>
-     */
-    private function loadUnits()
-    {
-        return AssetUnit::query()
-            ->with([
-                'asset.make',
-                'assetVariant',
-                'location:id,display_name',
-                'subsidiary:id,display_name',
-            ])
-            ->orderBy('id')
-            ->get();
     }
 }

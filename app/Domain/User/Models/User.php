@@ -44,7 +44,7 @@ class User extends Model
         'preferred_location_id',
     ];
 
-    protected $with = ['role.permissions'];
+    protected $with = ['role'];
 
     protected $casts = [
         'is_technician' => 'boolean',

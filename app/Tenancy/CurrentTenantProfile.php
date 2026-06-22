@@ -5,6 +5,7 @@ namespace App\Tenancy;
 use App\Domain\Role\Models\Role;
 use App\Domain\User\Models\User;
 use App\Enums\RecordType;
+use App\Support\ProvisionTenantStaffFromCentralUser;
 use App\Support\Tenant\TenantPermissionsCache;
 use Illuminate\Contracts\Auth\Authenticatable;
 
@@ -50,6 +51,10 @@ class CurrentTenantProfile
             ->whereRaw('LOWER(email) = ?', [strtolower($central->email)])
             ->first();
 
+        if ($this->profile === null && $central instanceof \App\Models\User) {
+            $this->profile = app(ProvisionTenantStaffFromCentralUser::class)->ensure($central);
+        }
+
         return $this->profile;
     }
 
@@ -94,17 +99,13 @@ class CurrentTenantProfile
         }
 
         return TenantPermissionsCache::remember((int) $profile->id, function () use ($profile) {
-            $profile->loadMissing('role.permissions');
+            $profile->loadMissing('role');
 
             if ($profile->role === null) {
                 return [];
             }
 
-            return $profile->role->permissions
-                ->pluck('key')
-                ->filter(fn ($key) => is_string($key) && $key !== '')
-                ->values()
-                ->all();
+            return $profile->role->permissionKeys();
         });
     }
 

@@ -38,13 +38,41 @@ class GoogleSheetsService
         string $range,
         array $values,
     ): void {
-        $body = new ValueRange(['values' => $values]);
+        $body = new ValueRange(['values' => $this->normalizeSheetValues($values)]);
         $this->sheets($integration)->spreadsheets_values->update(
             $spreadsheetId,
             $range,
             $body,
             ['valueInputOption' => 'USER_ENTERED'],
         );
+    }
+
+    /**
+     * Google Sheets requires each row as a JSON array. Sparse PHP arrays (e.g. after
+     * null cells are omitted during serialization) become JSON objects and trigger 400 errors.
+     *
+     * @param  list<list<mixed>>  $values
+     * @return list<list<string>>
+     */
+    private function normalizeSheetValues(array $values): array
+    {
+        return array_map(function (array $row): array {
+            return array_map(function (mixed $cell): string {
+                if ($cell === null) {
+                    return '';
+                }
+
+                if (is_bool($cell)) {
+                    return $cell ? 'TRUE' : 'FALSE';
+                }
+
+                if (is_scalar($cell)) {
+                    return (string) $cell;
+                }
+
+                return '';
+            }, array_values($row));
+        }, $values);
     }
 
     /**
@@ -63,30 +91,112 @@ class GoogleSheetsService
     public function ensureSheets(Integration $integration, string $spreadsheetId, array $sheetTitles): void
     {
         $spreadsheet = $this->getSpreadsheet($integration, $spreadsheetId);
-        $existing = collect($spreadsheet->getSheets() ?? [])
-            ->map(fn ($sheet) => $sheet->getProperties()?->getTitle())
-            ->filter()
-            ->values()
-            ->all();
+        $byTitle = $this->sheetTitlesToIds($spreadsheet);
 
         $requests = [];
-        foreach ($sheetTitles as $title) {
-            if (in_array($title, $existing, true)) {
-                continue;
-            }
+        $primaryTitle = $sheetTitles[0] ?? null;
 
-            $requests[] = new Request([
-                'addSheet' => [
-                    'properties' => new SheetProperties(['title' => $title]),
-                ],
-            ]);
+        if ($primaryTitle !== null && ! array_key_exists($primaryTitle, $byTitle)) {
+            $defaultSheetId = $this->defaultSheetIdForRename($byTitle);
+            if ($defaultSheetId !== null) {
+                $requests[] = new Request([
+                    'updateSheetProperties' => [
+                        'properties' => new SheetProperties([
+                            'sheetId' => $defaultSheetId,
+                            'title' => $primaryTitle,
+                        ]),
+                        'fields' => 'title',
+                    ],
+                ]);
+                $byTitle = $this->applyRename($byTitle, $defaultSheetId, $primaryTitle);
+            }
         }
 
-        if ($requests === []) {
-            return;
+        foreach ($sheetTitles as $title) {
+            if (! array_key_exists($title, $byTitle)) {
+                $requests[] = new Request([
+                    'addSheet' => [
+                        'properties' => new SheetProperties(['title' => $title]),
+                    ],
+                ]);
+            }
+        }
+
+        if ($primaryTitle !== null && array_key_exists($primaryTitle, $byTitle) && count($byTitle) > 1) {
+            foreach ($this->defaultSheetTitles() as $defaultTitle) {
+                if ($defaultTitle === $primaryTitle || ! isset($byTitle[$defaultTitle])) {
+                    continue;
+                }
+
+                $requests[] = new Request([
+                    'deleteSheet' => ['sheetId' => $byTitle[$defaultTitle]],
+                ]);
+            }
         }
 
         $this->batchUpdate($integration, $spreadsheetId, $requests);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function sheetTitlesToIds(Spreadsheet $spreadsheet): array
+    {
+        $map = [];
+        foreach ($spreadsheet->getSheets() ?? [] as $sheet) {
+            $properties = $sheet->getProperties();
+            $title = $properties?->getTitle();
+            $sheetId = $properties?->getSheetId();
+            if ($title !== null && $sheetId !== null) {
+                $map[$title] = $sheetId;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function defaultSheetTitles(): array
+    {
+        return ['Sheet1', 'Sheet 1'];
+    }
+
+    /**
+     * @param  array<string, int>  $byTitle
+     */
+    private function defaultSheetIdForRename(array $byTitle): ?int
+    {
+        foreach ($this->defaultSheetTitles() as $title) {
+            if (isset($byTitle[$title])) {
+                return $byTitle[$title];
+            }
+        }
+
+        if (count($byTitle) === 1) {
+            return array_values($byTitle)[0];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, int>  $byTitle
+     * @return array<string, int>
+     */
+    private function applyRename(array $byTitle, int $sheetId, string $newTitle): array
+    {
+        foreach ($byTitle as $title => $id) {
+            if ($id === $sheetId) {
+                unset($byTitle[$title]);
+                break;
+            }
+        }
+
+        $byTitle[$newTitle] = $sheetId;
+
+        return $byTitle;
     }
 
     /**

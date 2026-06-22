@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Tenant\Integrations;
 
+use App\Domain\AssetUnit\Support\AssetModelsGoogleSheetSyncService;
 use App\Domain\AssetUnit\Support\AssetUnitGoogleSheetSyncService;
 use App\Domain\Integration\Models\Integration;
 use App\Domain\Integration\Support\GoogleIntegrationSettings;
@@ -132,6 +133,39 @@ class GoogleController extends Controller
     {
         try {
             $result = app(AssetUnitGoogleSheetSyncService::class)->recreate();
+
+            return response()->json($result);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function pushModelsSheet(Request $request): JsonResponse
+    {
+        try {
+            $result = app(AssetModelsGoogleSheetSyncService::class)->push();
+
+            return response()->json($result);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function pullModelsSheet(Request $request): JsonResponse
+    {
+        try {
+            $result = app(AssetModelsGoogleSheetSyncService::class)->pull();
+
+            return response()->json($result);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function recreateModelsSheet(Request $request): JsonResponse
+    {
+        try {
+            $result = app(AssetModelsGoogleSheetSyncService::class)->recreate();
 
             return response()->json($result);
         } catch (RuntimeException $e) {

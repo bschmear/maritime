@@ -4,17 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\AssetUnit\Support;
 
-use App\Domain\Asset\Actions\UpdateAsset;
-use App\Domain\Asset\Models\Asset;
-use App\Domain\Asset\Support\SyncAssetSpecValues;
-use App\Domain\AssetSpec\Models\AssetSpecDefinition;
-use App\Domain\AssetUnit\Actions\UpdateAssetUnit;
+use App\Domain\Asset\Actions\UpdateAssetUnit;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
-use App\Domain\BoatMake\Models\BoatMake;
-use App\Enums\Inventory\BoatType;
-use App\Enums\Inventory\HullMaterial;
-use App\Enums\Inventory\HullType;
+use App\Domain\Location\Models\Location;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Enums\Inventory\UnitCondition;
 use App\Enums\Inventory\UnitStatus;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +17,8 @@ class AssetUnitGoogleSheetImportService
 {
     public function __construct(
         private readonly AssetUnitGoogleSheetColumnRegistry $columns = new AssetUnitGoogleSheetColumnRegistry,
-        private readonly AssetUnitImportService $unitImporter = new AssetUnitImportService,
+        private readonly AssetUnitGoogleSheetUnitResolver $unitResolver = new AssetUnitGoogleSheetUnitResolver,
         private readonly ?UpdateAssetUnit $unitUpdater = null,
-        private readonly ?UpdateAsset $assetUpdater = null,
     ) {}
 
     /**
@@ -58,7 +51,6 @@ class AssetUnitGoogleSheetImportService
             }
         }
 
-        $specDefinitions = $this->columns->specDefinitions();
         $updated = 0;
         $skipped = 0;
         $noChanges = 0;
@@ -68,7 +60,6 @@ class AssetUnitGoogleSheetImportService
         DB::transaction(function () use (
             $sheetRows,
             $headerMap,
-            $specDefinitions,
             &$updated,
             &$skipped,
             &$noChanges,
@@ -78,64 +69,49 @@ class AssetUnitGoogleSheetImportService
             for ($i = 1; $i < count($sheetRows); $i++) {
                 $cells = $sheetRows[$i];
                 $row = $this->assocRow($headerMap, $cells);
-                $unitId = (int) preg_replace('/\D/', '', (string) ($row[AssetUnitGoogleSheetColumnRegistry::HEADER_UNIT_ID] ?? ''));
+                [$unit, $resolveError] = $this->unitResolver->resolve($row, $i + 1);
 
-                if ($unitId <= 0) {
+                if ($resolveError !== null) {
                     $skipped++;
+                    $errors[] = $resolveError;
 
                     continue;
                 }
-
-                $unit = AssetUnit::query()
-                    ->with(['asset.make', 'assetVariant', 'location'])
-                    ->find($unitId);
 
                 if ($unit === null) {
                     $skipped++;
-                    $errors[] = 'Row '.($i + 1).": Unit #{$unitId} not found.";
 
                     continue;
                 }
 
+                $unit->loadMissing(['asset', 'location', 'subsidiary']);
+
                 $unitChanges = $this->unitFieldChanges($unit, $row);
-                $parentChanges = $this->parentFieldChanges($unit, $row);
-                $specChanges = $this->specChanges($unit, $row, $specDefinitions);
 
-                $hasParentChanges = $parentChanges['asset'] !== []
-                    || $parentChanges['variant'] !== []
-                    || $parentChanges['unit'] !== [];
-
-                if ($unitChanges === [] && ! $hasParentChanges && $specChanges === []) {
+                if ($unitChanges === []) {
                     $noChanges++;
 
                     continue;
                 }
 
-                if ($unitChanges !== [] || $parentChanges['unit'] !== []) {
-                    $payload = array_merge([
-                        'condition' => $unit->condition,
-                        'status' => $unit->status,
-                    ], $unitChanges, $parentChanges['unit']);
+                $payload = array_merge([
+                    'condition' => $unit->condition,
+                    'status' => $unit->status,
+                ], $unitChanges);
 
-                    $result = $this->unitUpdater()($unit->id, $payload);
-                    if (! ($result['success'] ?? false)) {
-                        $errors[] = 'Row '.($i + 1).': '.($result['message'] ?? 'Unit update failed.');
+                $result = $this->unitUpdater()($unit->id, $payload);
+                if (! ($result['success'] ?? false)) {
+                    $errors[] = 'Row '.($i + 1).': '.($result['message'] ?? 'Unit update failed.');
 
-                        continue;
-                    }
-                }
-
-                if ($hasParentChanges || $specChanges !== []) {
-                    $this->applyParentAndSpecChanges($unit, $parentChanges, $specChanges, $specDefinitions);
+                    continue;
                 }
 
                 $updated++;
                 $previewRows[] = [
                     'row_index' => $i,
-                    'unit_id' => $unitId,
+                    'unit_id' => $unit->id,
+                    'match_key' => filled($unit->hin) ? 'hin:'.$unit->hin : 'serial:'.$unit->serial_number,
                     'unit_changes' => $unitChanges,
-                    'parent_changes' => $parentChanges,
-                    'spec_changes' => count($specChanges),
                 ];
             }
         });
@@ -182,6 +158,11 @@ class AssetUnitGoogleSheetImportService
             $changes['condition'] = $condition;
         }
 
+        $year = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_UNIT_YEAR] ?? null;
+        if (! $this->isBlank($year) && (string) $unit->year !== trim((string) $year)) {
+            $changes['year'] = trim((string) $year);
+        }
+
         foreach ([
             AssetUnitGoogleSheetColumnRegistry::HEADER_COST => 'cost',
             AssetUnitGoogleSheetColumnRegistry::HEADER_ASKING_PRICE => 'asking_price',
@@ -197,82 +178,23 @@ class AssetUnitGoogleSheetImportService
             }
         }
 
-        return $changes;
-    }
-
-    /**
-     * @param  array<string, string|null>  $row
-     * @return array{asset: array<string, mixed>, variant: array<string, mixed>, unit: array<string, mixed>}
-     */
-    private function parentFieldChanges(AssetUnit $unit, array $row): array
-    {
-        $assetChanges = [];
-        $variantChanges = [];
-        $unitChanges = [];
-
-        $asset = $unit->asset;
-        $variant = $unit->assetVariant;
-
-        if ($asset) {
-            $makeName = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_MAKE] ?? null;
-            if (! $this->isBlank($makeName)) {
-                $makeId = BoatMake::query()
-                    ->whereRaw('LOWER(display_name) = ?', [strtolower(trim((string) $makeName))])
-                    ->value('id');
-                if ($makeId && (int) $asset->make_id !== (int) $makeId) {
-                    $assetChanges['make_id'] = (int) $makeId;
-                }
-            }
-
-            $model = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_ASSET_MODEL] ?? null;
-            if (! $this->isBlank($model) && (string) $asset->model !== trim((string) $model)) {
-                $assetChanges['model'] = trim((string) $model);
-            }
-
-            $year = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_ASSET_YEAR] ?? null;
-            if (! $this->isBlank($year) && (string) $asset->year !== trim((string) $year)) {
-                $assetChanges['year'] = trim((string) $year);
-            }
-
-            if (! $variant) {
-                $hullType = $this->resolveEnumId($row[AssetUnitGoogleSheetColumnRegistry::HEADER_HULL_TYPE] ?? null, HullType::class);
-                if ($hullType !== null && (int) $asset->hull_type !== $hullType) {
-                    $assetChanges['hull_type'] = $hullType;
-                }
-
-                $hullMaterial = $this->resolveEnumId($row[AssetUnitGoogleSheetColumnRegistry::HEADER_HULL_MATERIAL] ?? null, HullMaterial::class);
-                if ($hullMaterial !== null && (int) $asset->hull_material !== $hullMaterial) {
-                    $assetChanges['hull_material'] = $hullMaterial;
-                }
-
-                $boatType = $this->resolveEnumId($row[AssetUnitGoogleSheetColumnRegistry::HEADER_BOAT_TYPE] ?? null, BoatType::class);
-                if ($boatType !== null && (int) $asset->boat_type !== $boatType) {
-                    $assetChanges['boat_type'] = $boatType;
-                }
-
-                $maxHp = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_MAX_HP] ?? null;
-                if (! $this->isBlank($maxHp) && (string) $asset->maximum_power !== trim((string) $maxHp)) {
-                    $assetChanges['maximum_power'] = trim((string) $maxHp);
-                }
+        $locationName = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_LOCATION] ?? null;
+        if (! $this->isBlank($locationName)) {
+            $locationId = Location::query()
+                ->whereRaw('LOWER(display_name) = ?', [strtolower(trim((string) $locationName))])
+                ->value('id');
+            if ($locationId && (int) $unit->location_id !== (int) $locationId) {
+                $changes['location_id'] = (int) $locationId;
             }
         }
 
-        $length = $this->parseLengthFeet($row[AssetUnitGoogleSheetColumnRegistry::HEADER_LENGTH] ?? null);
-        $width = $this->parseLengthFeet($row[AssetUnitGoogleSheetColumnRegistry::HEADER_WIDTH] ?? null);
-
-        if ($variant) {
-            if ($length !== null && (int) $variant->length !== $length) {
-                $variantChanges['length'] = $length;
-            }
-            if ($width !== null && (int) $variant->width !== $width) {
-                $variantChanges['width'] = $width;
-            }
-        } elseif ($asset) {
-            if ($length !== null && (int) $asset->length !== $length) {
-                $assetChanges['length'] = $length;
-            }
-            if ($width !== null && (int) $asset->width !== $width) {
-                $assetChanges['width'] = $width;
+        $subsidiaryName = $row[AssetUnitGoogleSheetColumnRegistry::HEADER_SUBSIDIARY] ?? null;
+        if (! $this->isBlank($subsidiaryName)) {
+            $subsidiaryId = Subsidiary::query()
+                ->whereRaw('LOWER(display_name) = ?', [strtolower(trim((string) $subsidiaryName))])
+                ->value('id');
+            if ($subsidiaryId && (int) $unit->subsidiary_id !== (int) $subsidiaryId) {
+                $changes['subsidiary_id'] = (int) $subsidiaryId;
             }
         }
 
@@ -280,110 +202,11 @@ class AssetUnitGoogleSheetImportService
         if (! $this->isBlank($variantLabel) && $unit->asset_id) {
             $variantId = $this->resolveVariantId((int) $unit->asset_id, (string) $variantLabel);
             if ($variantId !== null && (int) $unit->asset_variant_id !== $variantId) {
-                $unitChanges['asset_variant_id'] = $variantId;
+                $changes['asset_variant_id'] = $variantId;
             }
-        }
-
-        return [
-            'asset' => $assetChanges,
-            'variant' => $variantChanges,
-            'unit' => $unitChanges,
-        ];
-    }
-
-    /**
-     * @param  array<string, string|null>  $row
-     * @param  list<AssetSpecDefinition>  $definitions
-     * @return list<array<string, mixed>>
-     */
-    private function specChanges(AssetUnit $unit, array $row, array $definitions): array
-    {
-        $changes = [];
-
-        foreach ($definitions as $definition) {
-            $header = AssetUnitGoogleSheetColumnRegistry::SPEC_PREFIX.$definition->label;
-            if (! array_key_exists($header, $row) || $this->isBlank($row[$header])) {
-                continue;
-            }
-
-            $changes[] = [
-                'spec_id' => $definition->id,
-                'value' => $row[$header],
-                'type' => $definition->type,
-            ];
         }
 
         return $changes;
-    }
-
-    /**
-     * @param  array{asset: array<string, mixed>, variant: array<string, mixed>, unit: array<string, mixed>}  $parentChanges
-     * @param  list<array<string, mixed>>  $specChanges
-     * @param  list<AssetSpecDefinition>  $definitions
-     */
-    private function applyParentAndSpecChanges(
-        AssetUnit $unit,
-        array $parentChanges,
-        array $specChanges,
-        array $definitions,
-    ): void {
-        $unit->refresh(['asset.make', 'assetVariant']);
-
-        if ($parentChanges['asset'] !== [] && $unit->asset) {
-            $this->assetUpdater()($unit->asset_id, $parentChanges['asset']);
-        }
-
-        if ($parentChanges['variant'] !== [] && $unit->assetVariant) {
-            $unit->assetVariant->update($parentChanges['variant']);
-        }
-
-        $specable = $this->specable($unit->fresh(['asset', 'assetVariant']));
-        if ($specable === null) {
-            return;
-        }
-
-        if ($specChanges !== []) {
-            $definitionById = collect($definitions)->keyBy('id');
-            $payload = [];
-            foreach ($specChanges as $change) {
-                $def = $definitionById->get($change['spec_id']);
-                if (! $def) {
-                    continue;
-                }
-                $payload[] = $this->specPayload($def, (string) $change['value']);
-            }
-
-            $assetType = (int) ($unit->asset?->type ?? 1);
-            SyncAssetSpecValues::forSpecable($specable, $assetType, $payload);
-        }
-    }
-
-    /**
-     * @return array{spec_id: int, value_number?: mixed, value_text?: mixed, value_boolean?: bool}
-     */
-    private function specPayload(AssetSpecDefinition $definition, string $raw): array
-    {
-        $entry = ['spec_id' => $definition->id];
-
-        if ($definition->type === 'boolean') {
-            $entry['value_boolean'] = in_array(strtolower(trim($raw)), ['1', 'true', 'yes', 'y'], true);
-        } elseif ($definition->type === 'number') {
-            $clean = str_replace([',', '$'], '', trim($raw));
-            $entry['value_number'] = is_numeric($clean) ? (float) $clean : null;
-        } else {
-            $entry['value_text'] = $raw;
-        }
-
-        return $entry;
-    }
-
-    private function specable(AssetUnit $unit): Asset|AssetVariant|null
-    {
-        if ($unit->asset_variant_id && $unit->assetVariant) {
-            return $unit->assetVariant;
-        }
-
-        return $unit->asset;
     }
 
     private function resolveVariantId(int $assetId, string $label): ?int
@@ -414,14 +237,6 @@ class AssetUnitGoogleSheetImportService
     /**
      * @param  class-string  $enumClass
      */
-    private function resolveEnumId(?string $value, string $enumClass): ?int
-    {
-        return $this->reflectionResolve($value, $enumClass);
-    }
-
-    /**
-     * @param  class-string  $enumClass
-     */
     private function reflectionResolve(?string $value, string $enumClass): ?int
     {
         if ($this->isBlank($value) || ! method_exists($enumClass, 'options')) {
@@ -442,20 +257,6 @@ class AssetUnitGoogleSheetImportService
         return null;
     }
 
-    private function parseLengthFeet(?string $value): ?int
-    {
-        if ($this->isBlank($value)) {
-            return null;
-        }
-
-        $clean = preg_replace('/[^0-9.]/', '', (string) $value);
-        if ($clean === '' || ! is_numeric($clean)) {
-            return null;
-        }
-
-        return (int) round((float) $clean * 304.8);
-    }
-
     private function isBlank(?string $value): bool
     {
         return $value === null || trim($value) === '';
@@ -464,10 +265,5 @@ class AssetUnitGoogleSheetImportService
     private function unitUpdater(): UpdateAssetUnit
     {
         return $this->unitUpdater ?? app(UpdateAssetUnit::class);
-    }
-
-    private function assetUpdater(): UpdateAsset
-    {
-        return $this->assetUpdater ?? app(UpdateAsset::class);
     }
 }

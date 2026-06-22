@@ -61,23 +61,45 @@ class GoogleOAuthController extends Controller
         try {
             tenancy()->initialize($tenant);
 
-            $tokens = $oauth->exchangeCode($code, $redirectUri);
-            $email = $oauth->fetchUserEmail($tokens['access_token']);
+            try {
+                $tokens = $oauth->exchangeCode($code, $redirectUri);
+                $profile = $oauth->fetchUserProfile($tokens['access_token']);
 
-            $oauth->persistConnection(
-                filled($row->tenant_user_profile_id) ? (int) $row->tenant_user_profile_id : null,
-                $tokens,
-                email: $email,
-            );
+                $oauth->persistConnection(
+                    filled($row->tenant_user_profile_id) ? (int) $row->tenant_user_profile_id : null,
+                    $tokens,
+                    googleAccountId: $profile['id'] !== '' ? $profile['id'] : $profile['email'],
+                    email: $profile['email'] !== '' ? $profile['email'] : null,
+                );
+
+                return redirect()->away($this->tenantGoogleUrl($tenant, [
+                    'google_connected' => '1',
+                ]));
+            } finally {
+                tenancy()->end();
+            }
         } catch (\Throwable $e) {
             Log::error('Google OAuth callback failed', ['error' => $e->getMessage()]);
 
-            return $this->redirectToTenantWithError($tenant, 'token');
+            return redirect()->away($this->tenantGoogleUrl($tenant, [
+                'google_error' => 'token',
+            ]));
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $query
+     */
+    private function tenantGoogleUrl(Tenant $tenant, array $query): string
+    {
+        $domain = $tenant->domains()->orderBy('id')->value('domain');
+        if (! $domain) {
+            return rtrim((string) config('app.url'), '/').'/integrations/google?'.http_build_query($query);
         }
 
-        $domain = $tenant->domains()->orderBy('id')->value('domain');
+        $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https';
 
-        return redirect()->away('https://'.$domain.route('google', [], false).'?google_connected=1');
+        return $scheme.'://'.$domain.'/integrations/google?'.http_build_query($query);
     }
 
     private function redirectToTenantWithError(?Tenant $tenant, string $code, ?string $message = null)
@@ -87,8 +109,8 @@ class GoogleOAuthController extends Controller
                 ->header('Content-Type', 'text/plain; charset=UTF-8');
         }
 
-        $domain = $tenant->domains()->orderBy('id')->value('domain');
-
-        return redirect()->away('https://'.$domain.route('google', [], false).'?google_error='.$code);
+        return redirect()->away($this->tenantGoogleUrl($tenant, [
+            'google_error' => $code,
+        ]));
     }
 }

@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Table from '@/Components/Tenant/Table.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import GoogleSheetPushConfirmModal from '@/Components/Tenant/GoogleSheetPushConfirmModal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
@@ -79,6 +80,7 @@ const bulkActions = computed(() => {
 });
 
 const sheetActionLoading = ref(false);
+const showPushConfirm = ref(false);
 
 const showActionsMenu = ref(false);
 
@@ -113,9 +115,19 @@ function handleBulkAction(item) {
         return;
     }
 
-    if (item.action === 'googlePush' || item.action === 'googlePull') {
+    if (item.action === 'googlePush') {
+        showPushConfirm.value = true;
+        return;
+    }
+
+    if (item.action === 'googlePull') {
         runGoogleSheetAction(item.action);
     }
+}
+
+function confirmGooglePush() {
+    showPushConfirm.value = false;
+    runGoogleSheetAction('googlePush');
 }
 
 async function runGoogleSheetAction(action) {
@@ -227,6 +239,12 @@ onUnmounted(() => {
             :record-type="recordType"
             record-title="Asset Units"
             plural-title="Units"
+        />
+
+        <GoogleSheetPushConfirmModal
+            :show="showPushConfirm"
+            @close="showPushConfirm = false"
+            @confirm="confirmGooglePush"
         />
     </TenantLayout>
 </template>

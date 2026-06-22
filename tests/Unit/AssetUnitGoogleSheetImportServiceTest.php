@@ -36,16 +36,4 @@ class AssetUnitGoogleSheetImportServiceTest extends TestCase
         $this->assertSame(UnitStatus::Sold->id(), $resolveStatus->invoke($service, 'Sold'));
         $this->assertSame(UnitCondition::BrandNew->id(), $resolveCondition->invoke($service, 'New'));
     }
-
-    #[Test]
-    public function it_parses_length_in_feet_to_millimeters(): void
-    {
-        $service = new AssetUnitGoogleSheetImportService;
-        $reflection = new \ReflectionClass($service);
-        $method = $reflection->getMethod('parseLengthFeet');
-        $method->setAccessible(true);
-
-        $mm = $method->invoke($service, '22.5 ft');
-        $this->assertSame(6858, $mm);
-    }
 }

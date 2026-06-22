@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domain\AssetUnit\Support;
 
-use App\Domain\AssetSpec\Models\AssetSpecDefinition;
-use App\Domain\AssetSpec\Models\AssetSpecValue;
 use App\Domain\AssetUnit\Models\AssetUnit;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Domain\Location\Models\Location;
+use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Enums\Inventory\UnitCondition;
 use App\Enums\Inventory\UnitStatus;
 use Illuminate\Support\Collection;
@@ -33,15 +33,10 @@ class AssetUnitGoogleSheetBuilder
      */
     public function buildInventoryRows(Collection $units): array
     {
-        $specDefinitions = $this->columns->specDefinitions();
-        $specIds = array_map(fn (AssetSpecDefinition $d) => $d->id, $specDefinitions);
-
-        $specValuesBySpecable = $this->loadSpecValues($units, $specIds);
-
         $rows = [$this->headers()];
 
         foreach ($units as $unit) {
-            $rows[] = $this->rowForUnit($unit, $specDefinitions, $specValuesBySpecable);
+            $rows[] = $this->rowForUnit($unit);
         }
 
         return $rows;
@@ -52,7 +47,9 @@ class AssetUnitGoogleSheetBuilder
      *   status: list<string>,
      *   condition: list<string>,
      *   makes: list<string>,
-     *   variants: list<string>
+     *   variants: list<string>,
+     *   locations: list<string>,
+     *   subsidiaries: list<string>
      * }
      */
     public function referenceLists(): array
@@ -65,14 +62,28 @@ class AssetUnitGoogleSheetBuilder
             ->all();
 
         $variants = AssetVariant::query()
-            ->with(['asset:id,display_name'])
+            ->with(['asset:id,display_name,model'])
             ->orderBy('display_name')
             ->get()
             ->map(function (AssetVariant $variant) {
-                $assetName = $variant->asset?->display_name ?? 'Asset #'.$variant->asset_id;
+                $assetModel = $variant->asset?->model ?: $variant->asset?->display_name ?: 'Asset #'.$variant->asset_id;
 
-                return trim($assetName.' — '.($variant->display_name ?: $variant->name));
+                return trim($assetModel.' — '.($variant->display_name ?: $variant->name));
             })
+            ->filter()
+            ->values()
+            ->all();
+
+        $locations = Location::query()
+            ->orderBy('display_name')
+            ->pluck('display_name')
+            ->filter()
+            ->values()
+            ->all();
+
+        $subsidiaries = Subsidiary::query()
+            ->orderBy('display_name')
+            ->pluck('display_name')
             ->filter()
             ->values()
             ->all();
@@ -82,55 +93,33 @@ class AssetUnitGoogleSheetBuilder
             'condition' => $this->columns->conditionLabels(),
             'makes' => $makes,
             'variants' => $variants,
+            'locations' => $locations,
+            'subsidiaries' => $subsidiaries,
         ];
     }
 
     /**
-     * @param  list<AssetSpecDefinition>  $specDefinitions
-     * @param  array<string, array<int, AssetSpecValue>>  $specValuesBySpecable
      * @return list<mixed>
      */
-    private function rowForUnit(
-        AssetUnit $unit,
-        array $specDefinitions,
-        array $specValuesBySpecable,
-    ): array {
+    private function rowForUnit(AssetUnit $unit): array
+    {
         $asset = $unit->asset;
         $variant = $unit->assetVariant;
-        $specableKey = $this->specableKey($unit);
-        $specValues = $specValuesBySpecable[$specableKey] ?? [];
 
-        $source = $variant ?? $asset;
-
-        $row = [
-            $unit->id,
-            $unit->serial_number ?? '',
-            $unit->hin ?? '',
-            $unit->sku ?? '',
-            $asset?->display_name ?? '',
+        return [
             $asset?->make?->display_name ?? '',
+            $asset?->model ?? '',
             $variant ? ($variant->display_name ?: $variant->name) : '',
-            $unit->year ?? '',
             $this->statusLabel($unit->status),
             $this->conditionLabel($unit->condition),
+            $unit->hin ?? '',
+            $unit->serial_number ?? '',
+            $unit->year ?? '',
             $unit->cost,
             $unit->asking_price,
             $unit->location?->display_name ?? '',
-            $asset?->model ?? '',
-            $asset?->year ?? '',
-            $this->columns->formatLengthMm($source?->length),
-            $this->columns->formatLengthMm($source?->width),
-            $this->columns->hullTypeLabel($source?->hull_type),
-            $this->columns->hullMaterialLabel($source?->hull_material),
-            $this->columns->boatTypeLabel($source?->boat_type),
-            $source?->maximum_power ?? '',
+            $unit->subsidiary?->display_name ?? '',
         ];
-
-        foreach ($specDefinitions as $definition) {
-            $row[] = $this->formatSpecValue($specValues[$definition->id] ?? null, $definition);
-        }
-
-        return $row;
     }
 
     private function statusLabel(?int $statusId): string
@@ -153,80 +142,5 @@ class AssetUnitGoogleSheetBuilder
         }
 
         return '';
-    }
-
-    private function formatSpecValue(?AssetSpecValue $value, AssetSpecDefinition $definition): string
-    {
-        if ($value === null) {
-            return '';
-        }
-
-        return match ($definition->type) {
-            'boolean' => $value->value_boolean ? 'Yes' : 'No',
-            'number' => $value->value_number !== null ? (string) $value->value_number : '',
-            default => (string) ($value->value_text ?? ''),
-        };
-    }
-
-    /**
-     * @param  Collection<int, AssetUnit>  $units
-     * @param  list<int>  $specIds
-     * @return array<string, array<int, AssetSpecValue>>
-     */
-    private function loadSpecValues(Collection $units, array $specIds): array
-    {
-        if ($specIds === []) {
-            return [];
-        }
-
-        $specables = [];
-        foreach ($units as $unit) {
-            if ($unit->asset_variant_id && $unit->assetVariant) {
-                $specables[] = [$unit->assetVariant->getMorphClass(), $unit->asset_variant_id];
-            } elseif ($unit->asset) {
-                $specables[] = [$unit->asset->getMorphClass(), $unit->asset_id];
-            }
-        }
-
-        if ($specables === []) {
-            return [];
-        }
-
-        $values = AssetSpecValue::query()
-            ->whereIn('asset_spec_definition_id', $specIds)
-            ->where(function ($q) use ($specables) {
-                foreach ($specables as [$type, $id]) {
-                    $q->orWhere(function ($inner) use ($type, $id) {
-                        $inner->where('specable_type', $type)->where('specable_id', $id);
-                    });
-                }
-            })
-            ->get();
-
-        $grouped = [];
-        foreach ($values as $value) {
-            $key = $value->specable_type.':'.$value->specable_id;
-            $grouped[$key][$value->asset_spec_definition_id] = $value;
-        }
-
-        $byUnit = [];
-        foreach ($units as $unit) {
-            $byUnit[$this->specableKey($unit)] = $grouped[$this->specableKey($unit)] ?? [];
-        }
-
-        return $byUnit;
-    }
-
-    private function specableKey(AssetUnit $unit): string
-    {
-        if ($unit->asset_variant_id && $unit->assetVariant) {
-            return $unit->assetVariant->getMorphClass().':'.$unit->asset_variant_id;
-        }
-
-        if ($unit->asset) {
-            return $unit->asset->getMorphClass().':'.$unit->asset_id;
-        }
-
-        return 'none:0';
     }
 }

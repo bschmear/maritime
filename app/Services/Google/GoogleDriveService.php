@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services\Google;
 
 use App\Domain\Integration\Models\Integration;
+use App\Domain\Integration\Support\GoogleIntegrationSettings;
+use App\Models\AccountSettings;
 use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 use Google\Service\Exception as GoogleServiceException;
@@ -43,6 +45,14 @@ class GoogleDriveService
         $settings['drive_folder_id'] = $created->getId();
         $integration->settings = $settings;
         $integration->save();
+
+        $account = AccountSettings::getCurrent();
+        $accountSettings = is_array($account->settings) ? $account->settings : [];
+        $google = is_array($accountSettings['google'] ?? null) ? $accountSettings['google'] : [];
+        $google['drive_folder_id'] = $created->getId();
+        $accountSettings['google'] = $google;
+        $account->settings = $accountSettings;
+        $account->save();
 
         return $created->getId();
     }
