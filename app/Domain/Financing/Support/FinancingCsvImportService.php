@@ -136,6 +136,8 @@ class FinancingCsvImportService
         string $assetUnitMatchField,
         int $vendorId,
         array $columnMap = [],
+        ?int $daysAlertThreshold = null,
+        ?float $interestAlertThreshold = null,
     ): array {
         $columnMap = $columnMap !== [] ? $columnMap : FinancingCsvParser::defaultNorthpointColumnMap();
 
@@ -153,6 +155,8 @@ class FinancingCsvImportService
             $assetUnitMatchField,
             $vendorId,
             $columnMap,
+            $daysAlertThreshold,
+            $interestAlertThreshold,
             &$created,
             &$updated,
             &$skipped,
@@ -166,6 +170,14 @@ class FinancingCsvImportService
                 $normalized = FinancingCsvParser::normalizeMatchValue($matchValue);
                 $payload = $this->mapRowToFinancingPayload($row, $columnMap, $matchValue);
                 $payload['vendor_id'] = $vendorId;
+
+                if ($daysAlertThreshold !== null) {
+                    $payload['days_alert_threshold'] = $daysAlertThreshold;
+                }
+
+                if ($interestAlertThreshold !== null) {
+                    $payload['interest_alert_threshold'] = $interestAlertThreshold;
+                }
 
                 $units = $this->findAssetUnits($assetUnitMatchField, $normalized);
                 $assetUnit = count($units) === 1 ? $units[0] : null;

@@ -26,6 +26,8 @@ const columnMap = ref({});
 const matchColumn = ref('');
 const assetUnitMatchField = ref('serial_number');
 const vendorId = ref(null);
+const daysAlertThreshold = ref(props.financingImportDefaults?.days_alert_threshold ?? '');
+const interestAlertThreshold = ref(props.financingImportDefaults?.interest_alert_threshold ?? '');
 const preview = ref(null);
 const importResult = ref(null);
 const rawPreviewRows = ref([]);
@@ -161,6 +163,47 @@ const lenderField = {
     record_filter_field: 'vendor_type',
 };
 
+function optionalInteger(value) {
+    if (value === '' || value === null || value === undefined) {
+        return null;
+    }
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : null;
+}
+
+function optionalAmount(value) {
+    if (value === '' || value === null || value === undefined) {
+        return null;
+    }
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : null;
+}
+
+const bulkThresholdSummary = computed(() => {
+    const days = optionalInteger(daysAlertThreshold.value);
+    const interest = optionalAmount(interestAlertThreshold.value);
+    const parts = [];
+
+    if (days !== null) {
+        parts.push(`${days} days in inventory`);
+    }
+
+    if (interest !== null) {
+        parts.push(`$${interest.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} accrued interest`);
+    }
+
+    return parts;
+});
+
+function resetAlertThresholds() {
+    daysAlertThreshold.value = props.financingImportDefaults?.days_alert_threshold ?? '';
+    interestAlertThreshold.value = props.financingImportDefaults?.interest_alert_threshold ?? '';
+}
+
 async function onFileSelected(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -245,6 +288,8 @@ async function runImport() {
             asset_unit_match_field: assetUnitMatchField.value,
             vendor_id: vendorId.value,
             column_map: columnMap.value,
+            days_alert_threshold: optionalInteger(daysAlertThreshold.value),
+            interest_alert_threshold: optionalAmount(interestAlertThreshold.value),
         });
         importResult.value = data;
         step.value = 5;
@@ -268,6 +313,7 @@ function resetImport() {
     totalRawRows.value = 0;
     suggestedHeaderRowIndex.value = 0;
     selectedHeaderRowIndex.value = 0;
+    resetAlertThresholds();
 }
 </script>
 
@@ -462,6 +508,45 @@ function resetImport() {
                 </div>
 
                 <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Alert thresholds</h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Applied to every financing created or updated in this import. Leave blank to keep existing per-record values on updates and use account defaults for new records.
+                    </p>
+                    <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label for="days-alert-threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Days alert threshold
+                            </label>
+                            <input
+                                id="days-alert-threshold"
+                                v-model="daysAlertThreshold"
+                                type="number"
+                                min="0"
+                                step="1"
+                                placeholder="Account default"
+                                class="mt-1 block w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-700"
+                            />
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Notify when days in inventory exceeds this value.</p>
+                        </div>
+                        <div>
+                            <label for="interest-alert-threshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Interest alert threshold
+                            </label>
+                            <input
+                                id="interest-alert-threshold"
+                                v-model="interestAlertThreshold"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Account default"
+                                class="mt-1 block w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-700"
+                            />
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Notify when accrued interest exceeds this amount.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Column mapping</h3>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Each CSV column maps to one financing field (1:1).</p>
                     <div class="mt-4 space-y-2">
@@ -489,6 +574,14 @@ function resetImport() {
             </section>
 
             <section v-else-if="step === 4 && preview" class="space-y-6">
+                <div
+                    v-if="bulkThresholdSummary.length"
+                    class="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100"
+                >
+                    <p class="font-medium">Bulk alert thresholds</p>
+                    <p class="mt-1">Will be set on all imported records: {{ bulkThresholdSummary.join(' and ') }}.</p>
+                </div>
+
                 <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <div class="flex flex-wrap gap-4 text-sm">
                         <span class="text-green-700 dark:text-green-300">Linked: {{ preview.summary.matched }}</span>

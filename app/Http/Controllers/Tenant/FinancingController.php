@@ -407,6 +407,8 @@ class FinancingController extends BaseController
             'asset_unit_match_field' => 'required|string|in:hin,serial_number',
             'vendor_id' => 'required|integer|exists:vendors,id',
             'column_map' => 'nullable|array',
+            'days_alert_threshold' => 'nullable|integer|min:0',
+            'interest_alert_threshold' => 'nullable|numeric|min:0',
         ]);
 
         $parsed = $this->parsedImportSession($validated['cache_key']);
@@ -420,6 +422,8 @@ class FinancingController extends BaseController
             $validated['asset_unit_match_field'],
             (int) $validated['vendor_id'],
             $validated['column_map'] ?? [],
+            isset($validated['days_alert_threshold']) ? (int) $validated['days_alert_threshold'] : null,
+            isset($validated['interest_alert_threshold']) ? (float) $validated['interest_alert_threshold'] : null,
         );
 
         Cache::forget($validated['cache_key']);
@@ -471,6 +475,10 @@ class FinancingController extends BaseController
         return [
             'financingImportDefaults' => [
                 'column_map' => $this->resolvedImportColumnMap($settings),
+                'days_alert_threshold' => $settings->financing_max_days_in_inventory,
+                'interest_alert_threshold' => $settings->financing_interest_alert_amount !== null
+                    ? (float) $settings->financing_interest_alert_amount
+                    : null,
                 'match_fields' => [
                     ['value' => 'hin', 'label' => 'Hull number (HIN)'],
                     ['value' => 'serial_number', 'label' => 'Serial number'],
