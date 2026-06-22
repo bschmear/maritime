@@ -3,6 +3,7 @@
 namespace App\Domain\AssetUnit\Models;
 
 use App\Domain\Asset\Models\Asset;
+use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\ConsignmentAgreement\Models\ConsignmentAgreement;
 use App\Domain\Customer\Models\Customer;
@@ -81,7 +82,7 @@ class AssetUnit extends Model
         'attributes' => 'array',
     ];
 
-    protected $appends = ['display_name'];
+    protected $appends = ['display_name', 'make_id', 'make'];
 
     /**
      * Unit belongs to an inventory item
@@ -89,6 +90,21 @@ class AssetUnit extends Model
     public function asset()
     {
         return $this->belongsTo(Asset::class, 'asset_id');
+    }
+
+    /**
+     * Brand lives on the parent asset; accessor exposes it for table display and filters.
+     */
+    public function getMakeAttribute(): ?BoatMake
+    {
+        return $this->asset?->make;
+    }
+
+    public function getMakeIdAttribute(): ?int
+    {
+        $makeId = $this->asset?->make_id;
+
+        return $makeId !== null ? (int) $makeId : null;
     }
 
     public function assetVariant()

@@ -661,6 +661,12 @@ Route::middleware([
         Route::prefix('assetunits')->name('assetunits.')->group(function () {
             Route::get('/export', [AssetUnitController::class, 'export'])->name('export');
             Route::get('/import', [AssetUnitController::class, 'import'])->name('import');
+            Route::get('/import/invoice', [AssetUnitController::class, 'importInvoiceIndex'])->name('import.invoice');
+            Route::post('/import/invoice/parse', [AssetUnitController::class, 'importInvoiceParse'])->name('import.invoice.parse');
+            Route::post('/import/invoice/extract', [AssetUnitController::class, 'importInvoiceExtract'])->name('import.invoice.extract');
+            Route::post('/import/invoice/profile', [AssetUnitController::class, 'importInvoiceProfile'])->name('import.invoice.profile');
+            Route::post('/import/invoice/confirm', [AssetUnitController::class, 'importInvoiceConfirm'])->name('import.invoice.confirm');
+            Route::post('/bulk-update', [AssetUnitController::class, 'bulkUpdate'])->name('bulk-update');
             Route::post('/import/parse', [AssetUnitController::class, 'importParse'])->name('import.parse');
             Route::post('/import/confirm-header', [AssetUnitController::class, 'importConfirmHeader'])->name('import.confirm-header');
             Route::post('/import/preview', [AssetUnitController::class, 'importPreview'])->name('import.preview');

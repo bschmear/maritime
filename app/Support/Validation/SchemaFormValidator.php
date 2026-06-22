@@ -105,6 +105,7 @@ final class SchemaFormValidator
             'date', 'datetime' => ['required', 'date'],
             'number', 'currency' => ['required', 'numeric'],
             'record' => ['required'],
+            'multi_enum' => ['required', 'array', 'min:1'],
             'select' => isset($def['enum']) ? self::enumSelectRules($def) : ['required'],
             default => ['required', 'string'],
         };
@@ -157,7 +158,7 @@ final class SchemaFormValidator
     {
         $type = $def['type'] ?? 'text';
 
-        if (in_array($type, ['record', 'select'], true)) {
+        if (in_array($type, ['record', 'select', 'multi_enum'], true)) {
             return "Please select {$label}.";
         }
 

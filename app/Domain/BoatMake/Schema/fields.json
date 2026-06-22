@@ -44,6 +44,15 @@
     "type": "boolean",
     "help": "Uncheck to mark the make as inactive"
   },
+  "vendor_id": {
+    "label": "Default vendor",
+    "type": "record",
+    "typeDomain": "Vendor",
+    "relationship": "vendor",
+    "addNew": true,
+    "displayField": "display_name",
+    "help": "Used when importing inventory from this brand's documents and creating bills."
+  },
   "created_at": {
     "label": "Created At",
     "type": "datetime",

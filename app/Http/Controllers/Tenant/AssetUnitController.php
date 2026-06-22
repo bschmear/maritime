@@ -13,17 +13,32 @@ use App\Domain\AssetUnit\Support\AssetUnitGoogleSheetSyncService;
 use App\Domain\AssetUnit\Support\AssetUnitImportService;
 use App\Domain\AssetUnit\Support\AssetUnitSpreadsheetExporter;
 use App\Domain\AssetUnit\Support\AssetUnitSpreadsheetParser;
+use App\Domain\AssetUnit\Support\InvoiceImport\BoatMakeInvoiceProfileService;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceBillFactory;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceBrandCatalogBuilder;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceCatalogMappingService;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceInstructionsGeneratorService;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceLineExtractionService;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoicePdfTextExtractor;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceUnitImportService;
+use App\Domain\BoatMake\Actions\UpdateBoatMake;
+use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\Financing\Models\Financing;
 use App\Domain\Integration\Support\GoogleIntegrationSettings;
+use App\Domain\Integration\Support\QuickBooksSettings;
+use App\Enums\Inventory\UnitStatus;
 use App\Domain\MsoRecord\Models\MsoRecord;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
 use App\Services\AssetOptionResolver;
 use App\Services\Google\GoogleOAuthService;
+use App\Services\Payments\QuickBooksAccountingService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Inertia\Response as InertiaResponse;
 use RuntimeException;
@@ -97,6 +112,36 @@ class AssetUnitController extends RecordController
     }
 
     /**
+     * Brand sorts through asset → boat_make (make_id is not on asset_units).
+     */
+    protected function applyRecordIndexSort($query, Request $request, ?array $schema, array $dbColumns, string $tableName, array $actualColumns, array $fieldsSchema): bool
+    {
+        $allowed = $this->sortableColumnsFromTableSchema($schema);
+        $sp = $this->sortParamsFromRequest($request);
+
+        if ($sp['key'] === 'make_id' && isset($allowed['make_id'])) {
+            $def = $allowed['make_id'];
+            $override = $def['sortColumn'] ?? null;
+
+            if ($override === 'boat_make.display_name') {
+                $dir = $sp['dir'];
+                $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                    return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+                }, $actualColumns);
+
+                $query->select($prefixedColumns)
+                    ->join('assets', 'asset_units.asset_id', '=', 'assets.id')
+                    ->leftJoin('boat_make', 'assets.make_id', '=', 'boat_make.id')
+                    ->orderByRaw('LOWER(boat_make.display_name) '.$dir);
+
+                return true;
+            }
+        }
+
+        return parent::applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns, $fieldsSchema);
+    }
+
+    /**
      * @return list<int>
      */
     private function resolveMakeIdsFromFilter(array $filter): array
@@ -124,6 +169,8 @@ class AssetUnitController extends RecordController
      */
     protected function appendShowRelationships(array &$relationships): void
     {
+        unset($relationships['make']);
+
         $relationships['asset'] = function ($query) {
             $query->select(['id', 'display_name', 'has_variants', 'make_id', 'year', 'model'])
                 ->with([
@@ -591,5 +638,307 @@ class AssetUnitController extends RecordController
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+    }
+
+    public function importInvoiceIndex(
+        QuickBooksAccountingService $quickBooks,
+    ): InertiaResponse {
+        $settings = QuickBooksSettings::forCurrentTenant();
+
+        return inertia('Tenant/AssetUnit/InvoiceImport', [
+            'quickbooks' => [
+                'connected' => $quickBooks->isConnected(),
+                'sync_bills_enabled' => $settings->isSyncBillsEnabled(),
+            ],
+            'unitStatusOptions' => UnitStatus::options(),
+        ]);
+    }
+
+    public function importInvoiceParse(
+        Request $request,
+        InvoicePdfTextExtractor $extractor,
+        BoatMakeInvoiceProfileService $profileService,
+        InvoiceInstructionsGeneratorService $instructionsGenerator,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:pdf|max:20480',
+            'boat_make_id' => 'required|integer|exists:boat_make,id',
+        ]);
+
+        $brand = BoatMake::query()
+            ->with(['invoiceImportProfile', 'vendor:id,display_name,quickbooks_id'])
+            ->findOrFail((int) $validated['boat_make_id']);
+
+        $pdfText = $extractor->extractFromUpload($request->file('file'));
+        $cacheKey = 'asset_unit_invoice_import:'.uniqid('', true);
+
+        Cache::put($cacheKey, [
+            'boat_make_id' => $brand->id,
+            'pdf_text' => $pdfText,
+            'extraction' => null,
+            'mapped_rows' => null,
+        ], now()->addHour());
+
+        $savedInstructions = $profileService->instructionsFor($brand);
+        $aiInstructionsGenerated = false;
+        $aiInstructions = $savedInstructions;
+
+        if ($aiInstructions === null || $aiInstructions === '') {
+            $aiInstructions = $instructionsGenerator->generate($pdfText, $brand);
+            $aiInstructionsGenerated = true;
+        }
+
+        return response()->json([
+            'cache_key' => $cacheKey,
+            'ai_instructions' => $aiInstructions,
+            'ai_instructions_generated' => $aiInstructionsGenerated,
+            'brand' => [
+                'id' => $brand->id,
+                'display_name' => $brand->display_name,
+                'vendor_id' => $brand->vendor_id,
+                'vendor' => $brand->vendor ? [
+                    'id' => $brand->vendor->id,
+                    'display_name' => $brand->vendor->display_name,
+                    'quickbooks_id' => $brand->vendor->quickbooks_id,
+                ] : null,
+            ],
+        ]);
+    }
+
+    public function importInvoiceExtract(
+        Request $request,
+        InvoiceLineExtractionService $extractionService,
+        InvoiceCatalogMappingService $mappingService,
+        BoatMakeInvoiceProfileService $profileService,
+        InvoiceInstructionsGeneratorService $instructionsGenerator,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'cache_key' => 'required|string',
+            'ai_instructions' => 'nullable|string|max:20000',
+            'save_ai_instructions' => 'nullable|boolean',
+        ]);
+
+        $session = $this->invoiceImportSession($validated['cache_key']);
+        if ($session === null) {
+            return response()->json(['message' => 'Import session expired. Upload the document again.'], 422);
+        }
+
+        $brand = BoatMake::query()
+            ->with(['invoiceImportProfile', 'vendor:id,display_name,quickbooks_id'])
+            ->findOrFail((int) $session['boat_make_id']);
+
+        if (! empty($validated['save_ai_instructions'])) {
+            $profileService->saveInstructions($brand, $validated['ai_instructions'] ?? null);
+        }
+
+        $instructions = trim((string) ($validated['ai_instructions'] ?? ''));
+        if ($instructions === '') {
+            $instructions = trim((string) ($profileService->instructionsFor($brand) ?? ''));
+        }
+        if ($instructions === '') {
+            $instructions = $instructionsGenerator->generate((string) $session['pdf_text'], $brand);
+        }
+
+        $extraction = $extractionService->extract(
+            (string) $session['pdf_text'],
+            $brand,
+            $instructions,
+            app(InvoiceBrandCatalogBuilder::class)->build($brand),
+        );
+
+        $mappedRows = $mappingService->apply($brand, $extraction['line_items']);
+
+        Cache::put($validated['cache_key'], array_merge($session, [
+            'extraction' => $extraction,
+            'mapped_rows' => $mappedRows,
+        ]), now()->addHour());
+
+        return response()->json([
+            'extraction' => $extraction,
+            'rows' => $mappedRows,
+            'brand' => [
+                'id' => $brand->id,
+                'display_name' => $brand->display_name,
+                'vendor_id' => $brand->vendor_id,
+                'vendor' => $brand->vendor ? [
+                    'id' => $brand->vendor->id,
+                    'display_name' => $brand->vendor->display_name,
+                    'quickbooks_id' => $brand->vendor->quickbooks_id,
+                ] : null,
+            ],
+        ]);
+    }
+
+    public function importInvoiceProfile(
+        Request $request,
+        BoatMakeInvoiceProfileService $profileService,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'boat_make_id' => 'required|integer|exists:boat_make,id',
+            'ai_instructions' => 'nullable|string|max:20000',
+        ]);
+
+        $brand = BoatMake::query()->findOrFail((int) $validated['boat_make_id']);
+        $profileService->saveInstructions($brand, $validated['ai_instructions'] ?? null);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function importInvoiceConfirm(
+        Request $request,
+        InvoiceUnitImportService $importService,
+        InvoiceBillFactory $billFactory,
+        UpdateBoatMake $updateBoatMake,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'cache_key' => 'required|string',
+            'rows' => 'required|array',
+            'rows.*.row_index' => 'required|integer|min:0',
+            'rows.*.asset_id' => 'nullable|integer|exists:assets,id',
+            'rows.*.asset_variant_id' => 'nullable|integer|exists:asset_variants,id',
+            'rows.*.hin' => 'nullable|string|max:255',
+            'rows.*.serial_number' => 'nullable|string|max:255',
+            'rows.*.unit_price' => 'nullable|numeric|min:0',
+            'rows.*.condition' => 'nullable|integer|in:1,2,3',
+            'rows.*.status' => 'nullable|integer|in:1,2,3,4,5,6,7',
+            'rows.*.subsidiary_id' => 'nullable|integer|exists:subsidiaries,id',
+            'rows.*.location_id' => 'nullable|integer|exists:locations,id',
+            'vendor_id' => 'nullable|integer|exists:vendors,id',
+            'create_bill' => 'nullable|boolean',
+            'sync_quickbooks' => 'nullable|boolean',
+        ]);
+
+        $session = $this->invoiceImportSession($validated['cache_key']);
+        if ($session === null || ! is_array($session['extraction'] ?? null)) {
+            return response()->json(['message' => 'Import session expired. Upload the document again.'], 422);
+        }
+
+        $brand = BoatMake::query()
+            ->with('vendor:id,display_name,quickbooks_id')
+            ->findOrFail((int) $session['boat_make_id']);
+
+        if (! empty($validated['vendor_id']) && (int) $validated['vendor_id'] !== (int) $brand->vendor_id) {
+            $updateBoatMake($brand->id, ['vendor_id' => (int) $validated['vendor_id']]);
+            $brand->refresh();
+        }
+
+        $mappedByIndex = collect($session['mapped_rows'] ?? [])->keyBy('row_index');
+        $rows = [];
+        foreach ($validated['rows'] as $submitted) {
+            $rowIndex = (int) ($submitted['row_index'] ?? -1);
+            $base = $mappedByIndex->get($rowIndex);
+            if (! is_array($base)) {
+                continue;
+            }
+            $rows[] = array_merge($base, $submitted);
+        }
+
+        $importResult = $importService->import($brand, $rows);
+
+        $billResult = null;
+        if (filter_var($validated['create_bill'] ?? false, FILTER_VALIDATE_BOOLEAN) && $brand->vendor_id) {
+            $syncQb = filter_var($validated['sync_quickbooks'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            $billResult = $billFactory->create($brand, $session['extraction'], $syncQb);
+        }
+
+        Cache::forget($validated['cache_key']);
+
+        return response()->json([
+            'import' => $importResult,
+            'bill' => $billResult ? [
+                'success' => $billResult['success'] ?? false,
+                'bill_id' => $billResult['bill']->id ?? null,
+                'message' => $billResult['message'] ?? null,
+                'quickbooks_sync' => $billResult['quickbooks_sync'] ?? null,
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Update status, condition, inactive, subsidiary, or location on multiple units.
+     */
+    public function bulkUpdate(Request $request): RedirectResponse
+    {
+        $allowedFields = ['status', 'condition', 'inactive', 'subsidiary_id', 'location_id'];
+        $rawFields = $request->input('fields', []);
+        $normalizedFields = [];
+
+        if (is_array($rawFields)) {
+            foreach ($allowedFields as $key) {
+                if (! array_key_exists($key, $rawFields)) {
+                    continue;
+                }
+
+                $value = $rawFields[$key];
+
+                if ($value === null || $value === '') {
+                    if (in_array($key, ['subsidiary_id', 'location_id'], true)) {
+                        $normalizedFields[$key] = null;
+                    }
+
+                    continue;
+                }
+
+                $normalizedFields[$key] = $value;
+            }
+        }
+
+        $request->merge(['fields' => $normalizedFields]);
+
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|distinct|exists:asset_units,id',
+            'fields' => 'required|array|min:1',
+            'fields.status' => 'sometimes|integer|in:1,2,3,4,5,6,7',
+            'fields.condition' => 'sometimes|integer|in:1,2,3',
+            'fields.inactive' => 'sometimes|boolean',
+            'fields.subsidiary_id' => 'sometimes|nullable|integer|exists:subsidiaries,id',
+            'fields.location_id' => 'sometimes|nullable|integer|exists:locations,id',
+        ]);
+
+        $updates = array_intersect_key($validated['fields'], array_flip($allowedFields));
+
+        if ($updates === []) {
+            return back()->with('error', 'Choose at least one field to update.');
+        }
+
+        $updated = 0;
+        $errors = [];
+
+        foreach ($validated['ids'] as $id) {
+            $result = ($this->updateAction)((int) $id, $updates);
+            if ($result['success'] ?? false) {
+                $updated++;
+            } else {
+                $errors[] = $id.': '.($result['message'] ?? 'failed');
+            }
+        }
+
+        if ($updated === 0) {
+            return back()->with('error', 'No units were updated.'.(count($errors) ? ' '.implode(' ', $errors) : ''));
+        }
+
+        $message = $updated === 1
+            ? '1 unit updated.'
+            : "{$updated} units updated.";
+
+        if (count($errors)) {
+            Log::warning('Asset unit bulk update partial failures', ['errors' => $errors]);
+            $message .= ' Some rows could not be updated.';
+        }
+
+        return redirect()
+            ->back()
+            ->with('success', $message);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function invoiceImportSession(string $cacheKey): ?array
+    {
+        $session = Cache::get($cacheKey);
+
+        return is_array($session) ? $session : null;
     }
 }

@@ -8,6 +8,13 @@
     "create": true
   },
 
+  "make_id": {
+    "label": "Brand",
+    "type": "record",
+    "typeDomain": "BoatMake",
+    "relationship": "make"
+  },
+
   "asset_variant_id": {
     "label": "Variant",
     "type": "record",

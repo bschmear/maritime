@@ -7,7 +7,7 @@ import Form from '@/Components/Tenant/Form.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import AssetUnitForm from '@/Components/Tenant/AssetUnitForm.vue';
 import FiltersModal from '@/Components/Tenant/FiltersModal.vue';
-import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
+import { buildResourceRouteParams, buildRecordShowUrl } from '@/Utils/resourceRoutes.js';
 import { formatLengthMmImperial } from '@/Utils/measurementMm.js';
 import { DEFAULT_TABLE_PER_PAGE } from '@/Utils/tablePagination.js';
 import { buildJoinedColumnSegments, formatJoinedColumnDisplay, isJoinedColumnFormat } from '@/Utils/formatJoinedColumn.js';
@@ -227,6 +227,9 @@ const getRecordValue = (record, column) => {
                 const rel = record[c];
                 if (rel && typeof rel === 'object' && rel.display_name) return rel.display_name;
             }
+            if (key === 'make_id' && record.asset?.make?.display_name) {
+                return record.asset.make.display_name;
+            }
             return raw;
         }
     }
@@ -247,14 +250,19 @@ const getRelationshipLink = (record, column) => {
     if (inf.endsWith('_id')) inf = inf.slice(0,-3);
     if (inf.startsWith('current_')) inf = inf.slice(8);
     if (inf.endsWith('s')) inf = inf.slice(0,-1);
-    candidates.push(inf, column.key.replace('_id',''), fd.typeDomain.toLowerCase(), column.key);
+    candidates.push(inf, column.key.replace('_id',''), column.key.replace('current_',''), fd.typeDomain.toLowerCase(), column.key);
     let rel = null;
     for (const k of candidates) {
         if (record[k] && typeof record[k] === 'object' && record[k].id) { rel = record[k]; break; }
     }
+    if (!rel?.id && column.key === 'make_id' && record.asset?.make?.id) {
+        rel = record.asset.make;
+    }
     if (!rel?.id) return null;
-    const prefix = fd.typeDomain.replace(/([A-Z])/g, (m,l,o) => o === 0 ? l.toLowerCase() : '-'+l.toLowerCase()) + 's';
-    try { return route(`${prefix}.show`, rel.id); } catch { return null; }
+
+    return buildRecordShowUrl(fd.typeDomain, rel.id, {
+        assetId: column.key === 'asset_variant_id' ? record.asset_id : undefined,
+    });
 };
 
 const hasEnumColor  = (column, record) => !!getEnumOption(column.key ?? column, record[column.key ?? column])?.color;

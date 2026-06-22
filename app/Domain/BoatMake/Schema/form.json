@@ -13,6 +13,9 @@
         {
           "key": "asset_types",
           "required": true
+        },
+        {
+          "key": "vendor_id"
         }
       ]
     }

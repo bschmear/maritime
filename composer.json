@@ -28,6 +28,7 @@
         "predis/predis": "^2.2",
         "setasign/fpdf": "^1.9",
         "setasign/fpdi": "^2.6",
+        "smalot/pdfparser": "^2.0",
         "spatie/laravel-sitemap": "^8.1",
         "stancl/tenancy": "^3.9",
         "tightenco/ziggy": "^2.0",

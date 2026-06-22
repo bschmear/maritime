@@ -165,6 +165,8 @@ class GeneralController extends BaseController
             $columns[] = 'warranty_eligible';
             $columns[] = 'warranty_type';
             $columns[] = 'billing_type';
+        } elseif ($typeKey === 'boatmake') {
+            $columns[] = 'vendor_id';
         }
 
         $query = $recordModel->select(array_unique($columns));
@@ -197,6 +199,8 @@ class GeneralController extends BaseController
             $query->with('make:id,display_name');
         } elseif ($typeKey === 'assetvariant') {
             $query->with('asset:id,display_name');
+        } elseif ($typeKey === 'boatmake') {
+            $query->with('vendor:id,display_name,quickbooks_id');
         }
 
         if ($typeKey === 'maintenancetype') {

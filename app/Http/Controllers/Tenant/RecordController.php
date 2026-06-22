@@ -79,6 +79,14 @@ class RecordController extends BaseController
     }
 
     /**
+     * Virtual fields that are not Eloquent relationships (e.g. AssetUnit brand via asset.make).
+     */
+    protected function shouldSkipRecordFieldEagerLoad(string $fieldKey): bool
+    {
+        return $this->domainName === 'AssetUnit' && $fieldKey === 'make_id';
+    }
+
+    /**
      * @return list<string>
      */
     protected function getTableColumnListing(): array
@@ -483,7 +491,8 @@ class RecordController extends BaseController
         // Load relationships needed for display names
         if ($this->domainName === 'AssetUnit') {
             $relationships['asset'] = function ($query) {
-                $query->select(['id', 'display_name']);
+                $query->select(['id', 'display_name', 'make_id'])
+                    ->with(['make' => fn ($q) => $q->select(['id', 'display_name'])]);
             };
         } elseif ($this->domainName === 'InventoryUnit') {
             $relationships['inventoryItem'] = function ($query) {
@@ -493,6 +502,10 @@ class RecordController extends BaseController
 
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                if ($this->shouldSkipRecordFieldEagerLoad($fieldKey)) {
+                    continue;
+                }
+
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
                 // Determine which fields to select for this relationship
@@ -841,6 +854,10 @@ class RecordController extends BaseController
                     // Add record type relationships with id, display_name, and custom displayField
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                            if ($this->shouldSkipRecordFieldEagerLoad($fieldKey)) {
+                                continue;
+                            }
+
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
                             // Determine which fields to select for this relationship
@@ -965,6 +982,10 @@ class RecordController extends BaseController
         // Add record type relationships with id, display_name, and custom displayField
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                if ($this->shouldSkipRecordFieldEagerLoad($fieldKey)) {
+                    continue;
+                }
+
                 // Convert field key like 'assigned_id' to relationship name like 'assigned'
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
@@ -1131,6 +1152,10 @@ class RecordController extends BaseController
         // Add record type relationships with id, display_name, and custom displayField
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                if ($this->shouldSkipRecordFieldEagerLoad($fieldKey)) {
+                    continue;
+                }
+
                 // Convert field key like 'assigned_id' to relationship name like 'assigned'
                 $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
@@ -1354,6 +1379,10 @@ class RecordController extends BaseController
                     // Add record type relationships with id, display_name, and custom displayField
                     foreach ($fieldsSchema as $fieldKey => $fieldDef) {
                         if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
+                            if ($this->shouldSkipRecordFieldEagerLoad($fieldKey)) {
+                                continue;
+                            }
+
                             $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
 
                             // Determine which fields to select for this relationship

@@ -8,6 +8,12 @@
       "isKey": true
     },
     {
+      "key": "make_id",
+      "label": "Brand",
+      "sortable": true,
+      "sortColumn": "boat_make.display_name"
+    },
+    {
       "key": "asset_id",
       "label": "Asset",
       "sortable": true,
@@ -84,6 +90,14 @@
       "sortable": true
     }
   ],
+  "settings": {
+    "bulk_actions": [
+      {
+        "label": "Update Selected",
+        "action": "bulkUpdate"
+      }
+    ]
+  },
   "filters": [
     {
       "field": "status",

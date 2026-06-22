@@ -34,13 +34,18 @@ trait EnforcesTenantRecordPermissions
             abort(403);
         }
 
-        $permissionAction = match (true) {
-            $request->isMethod('GET'), $request->isMethod('HEAD') => 'view',
-            $request->isMethod('POST') => 'create',
-            $request->isMethod('PUT'), $request->isMethod('PATCH') => 'edit',
-            $request->isMethod('DELETE') => 'delete',
-            default => null,
-        };
+        $routeName = $request->route()?->getName();
+        if (is_string($routeName) && (str_ends_with($routeName, '.bulk-update') || str_ends_with($routeName, '.bulk-destroy'))) {
+            $permissionAction = 'edit';
+        } else {
+            $permissionAction = match (true) {
+                $request->isMethod('GET'), $request->isMethod('HEAD') => 'view',
+                $request->isMethod('POST') => 'create',
+                $request->isMethod('PUT'), $request->isMethod('PATCH') => 'edit',
+                $request->isMethod('DELETE') => 'delete',
+                default => null,
+            };
+        }
 
         if ($permissionAction === null) {
             return;

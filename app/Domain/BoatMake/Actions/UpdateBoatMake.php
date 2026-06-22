@@ -20,6 +20,7 @@ class UpdateBoatMake
             'logo' => ['sometimes', 'nullable', 'string'],
             'active' => ['sometimes', 'boolean'],
             'brand_key' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'vendor_id' => ['sometimes', 'nullable', 'integer', 'exists:vendors,id'],
         ])->validate();
 
         try {
