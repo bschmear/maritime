@@ -10,6 +10,7 @@ use App\Domain\Customer\Models\CustomerAssetSpecSheetShare;
 use App\Domain\InventoryImage\Models\InventoryImage;
 use App\Models\Concerns\HasDocuments;
 use App\Models\Concerns\HasSystemLogs;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -121,6 +122,37 @@ class Asset extends Model
     public function specValues(): MorphMany
     {
         return $this->morphMany(AssetSpecValue::class, 'specable')->with('definition');
+    }
+
+    /**
+     * Picker search: make, model (display_name / model), year, or variant name.
+     */
+    public function scopeWhereMatchesPickerSearch(Builder $query, string $rawSearch): Builder
+    {
+        $term = trim($rawSearch);
+        if ($term === '') {
+            return $query;
+        }
+
+        $searchTerm = '%'.strtolower($term).'%';
+        $table = $query->getModel()->getTable();
+
+        return $query->where(function ($q) use ($searchTerm, $term, $table) {
+            $q->whereRaw('LOWER(COALESCE('.$table.'.display_name, \'\')) LIKE ?', [$searchTerm])
+                ->orWhereRaw('LOWER(COALESCE('.$table.'.model, \'\')) LIKE ?', [$searchTerm])
+                ->orWhereRaw('LOWER(CAST('.$table.'.year AS TEXT)) LIKE ?', [$searchTerm])
+                ->orWhereHas('make', fn ($mq) => $mq->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm]))
+                ->orWhereHas('variants', function ($vq) use ($searchTerm) {
+                    $vq->whereRaw('LOWER(COALESCE(display_name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(name, \'\')) LIKE ?', [$searchTerm])
+                        ->orWhereRaw('LOWER(COALESCE(key, \'\')) LIKE ?', [$searchTerm]);
+                });
+
+            if (ctype_digit($term)) {
+                $q->orWhere($table.'.id', '=', (int) $term)
+                    ->orWhere($table.'.year', '=', (int) $term);
+            }
+        });
     }
 
     /**

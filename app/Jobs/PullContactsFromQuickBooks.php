@@ -229,7 +229,6 @@ class PullContactsFromQuickBooks implements ShouldQueue
                     'company' => $company !== '' ? $company : null,
                     'assigned_user_id' => $this->tenantUserProfileId,
                     'quickbooks_customer_id' => $qboId,
-                    'source' => 'QuickBooks',
                 ]);
             } catch (ValidationException $e) {
                 $this->importStats['failed_create']++;
@@ -276,7 +275,6 @@ class PullContactsFromQuickBooks implements ShouldQueue
             'company' => $company !== '' ? $company : null,
             'assigned_user_id' => $this->tenantUserProfileId,
             'quickbooks_customer_id' => $qboId,
-            'source' => 'QuickBooks',
             'subsidiary_id' => $subsidiaryId,
         ];
 

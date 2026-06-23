@@ -2,8 +2,12 @@
 
 namespace App\Enums\Entity;
 
+use App\Enums\Entity\Concerns\ResolvesStringEnumFromIdOrValue;
+
 enum Source: string
 {
+    use ResolvesStringEnumFromIdOrValue;
+
     case Referral       = 'referral';
     case Website        = 'website';
     case WalkIn         = 'walk-in';

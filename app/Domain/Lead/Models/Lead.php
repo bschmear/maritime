@@ -441,7 +441,7 @@ class Lead extends Model
             'notes',
             'inactive',
             'status',
-            'source',
+            'source_id',
             'stripe_customer_id',
             'quickbooks_customer_id',
         ];

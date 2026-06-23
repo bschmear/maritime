@@ -10,6 +10,7 @@ use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
+use App\Enums\Entity\Source;
 use App\Enums\System\SystemLogAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Arr;
@@ -55,7 +56,10 @@ class UpdateContact
                 fn (string $attribute, mixed $value, \Closure $fail) => ContactTimePreference::assertValidForValidation($value, $fail, $attribute),
             ],
 
-            'source' => ['nullable', 'string', 'max:255'],
+            'source_id' => [
+                'nullable',
+                fn (string $attribute, mixed $value, \Closure $fail) => Source::assertValidForValidation($value, $fail, $attribute),
+            ],
 
             'status' => [
                 'nullable',
@@ -115,6 +119,15 @@ class UpdateContact
                 unset($validated['stage_id']);
             } else {
                 $validated['stage_id'] = ContactStage::toStoredId($sv);
+            }
+        }
+
+        if (array_key_exists('source_id', $validated)) {
+            $sv = $validated['source_id'];
+            if ($sv === null || $sv === '') {
+                $validated['source_id'] = null;
+            } else {
+                $validated['source_id'] = Source::toStoredId($sv);
             }
         }
 

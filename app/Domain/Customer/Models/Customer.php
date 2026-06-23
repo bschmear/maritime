@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Validation\ValidationException;
 
 class Customer extends Model
 {
@@ -115,6 +116,32 @@ class Customer extends Model
             ->orderBy('id')
             ->value('id')
             ?? Subsidiary::query()->orderBy('id')->value('id');
+    }
+
+    /**
+     * Find or create a customer_profile for a contact (estimates, opportunities, etc.).
+     *
+     * @throws ValidationException when no subsidiary can be resolved
+     */
+    public static function ensureProfileForContact(Contact $contact, ?int $subsidiaryId = null): self
+    {
+        $existing = static::query()->where('contact_id', $contact->id)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $resolvedSubsidiaryId = $subsidiaryId ?? static::defaultSubsidiaryId();
+        if ($resolvedSubsidiaryId === null) {
+            throw ValidationException::withMessages([
+                'subsidiary_id' => ['Select a subsidiary before creating a record for a contact without a customer profile.'],
+            ]);
+        }
+
+        return static::create([
+            'contact_id' => $contact->id,
+            'account_status' => 'active',
+            'subsidiary_id' => $resolvedSubsidiaryId,
+        ]);
     }
 
     public function contact(): BelongsTo
@@ -503,7 +530,7 @@ class Customer extends Model
             'inactive',
             // Set by CreateCustomer / UpdateCustomer from inactive; lives on contacts, not customer_profiles
             'status',
-            'source',
+            'source_id',
             'quickbooks_customer_id',
         ];
     }

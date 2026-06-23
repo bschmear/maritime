@@ -382,9 +382,9 @@ class CreateDealFromEstimate
             return $byContact;
         }
 
-        return Customer::create([
-            'contact_id' => $contact->id,
-            'account_status' => 'active',
-        ]);
+        return Customer::ensureProfileForContact(
+            $contact,
+            $estimate->subsidiary_id ? (int) $estimate->subsidiary_id : null,
+        );
     }
 }

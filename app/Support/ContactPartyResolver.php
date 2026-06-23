@@ -13,17 +13,9 @@ use App\Domain\Lead\Models\Lead;
  */
 final class ContactPartyResolver
 {
-    public static function ensureCustomerProfile(Contact $contact): Customer
+    public static function ensureCustomerProfile(Contact $contact, ?int $subsidiaryId = null): Customer
     {
-        $existing = Customer::query()->where('contact_id', $contact->id)->first();
-        if ($existing) {
-            return $existing;
-        }
-
-        return Customer::create([
-            'contact_id' => $contact->id,
-            'account_status' => 'active',
-        ]);
+        return Customer::ensureProfileForContact($contact, $subsidiaryId);
     }
 
     public static function ensureLeadProfile(int $contactId): void

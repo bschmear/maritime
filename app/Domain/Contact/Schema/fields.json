@@ -60,9 +60,10 @@
     "type": "select",
     "enum": "App\\Enums\\Entity\\ContactTimePreference"
   },
-  "source": {
+  "source_id": {
     "label": "Source",
-    "type": "text"
+    "type": "select",
+    "enum": "App\\Enums\\Entity\\Source"
   },
   "status": {
     "label": "Status",

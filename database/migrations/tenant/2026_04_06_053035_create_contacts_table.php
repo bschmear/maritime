@@ -32,7 +32,7 @@ return new class extends Migration
             $table->string('preferred_contact_method')->nullable(); // email | phone | text
             $table->string('preferred_contact_time')->nullable();   // morning | afternoon | evening
 
-            $table->string('source')->nullable(); // website, referral, etc.
+            $table->unsignedTinyInteger('source_id')->nullable();
             $table->string('status')->default(1);
             $table->tinyInteger('stage_id')->default(1);
             $table->boolean('inactive')->default(false);

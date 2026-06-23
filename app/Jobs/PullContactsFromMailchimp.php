@@ -149,7 +149,6 @@ class PullContactsFromMailchimp implements ShouldQueue
                         'phone' => $phone !== '' ? $phone : null,
                         'mobile' => $phone !== '' ? $phone : null,
                         'assigned_user_id' => $this->tenantUserId,
-                        'source' => 'Mailchimp',
                     ];
                     $result = $createContact($payload);
                     if (! ($result['success'] ?? false)) {

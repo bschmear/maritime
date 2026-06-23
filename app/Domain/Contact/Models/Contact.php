@@ -68,7 +68,7 @@ class Contact extends Authenticatable
         'assigned_user_id',
         'preferred_contact_method',
         'preferred_contact_time',
-        'source',
+        'source_id',
         'status',
         'stage_id',
         'inactive',
@@ -84,6 +84,7 @@ class Contact extends Authenticatable
     protected $casts = [
         'inactive' => 'boolean',
         'email_verified_at' => 'datetime',
+        'source_id' => 'integer',
     ];
 
     /**

@@ -32,7 +32,7 @@ return new class extends Migration
                 'assigned_user_id' => $lead->assigned_user_id,
                 'preferred_contact_method' => $lead->preferred_contact_method,
                 'preferred_contact_time' => $lead->preferred_contact_time,
-                'source' => null,
+                'source_id' => $lead->source_id,
                 'status' => $lead->inactive ? 'inactive' : 'active',
                 'inactive' => (bool) $lead->inactive,
                 'website' => $lead->website,

@@ -62,6 +62,10 @@ class CreateLead
 
             [$contactData, $addressData, $profileData] = RecordModel::splitPayload($fieldsToSave);
 
+            if (array_key_exists('source_id', $contactData)) {
+                $profileData['source_id'] = $contactData['source_id'];
+            }
+
             if (array_key_exists('assigned_user_id', $fieldsToSave)) {
                 $profileData['assigned_user_id'] = $fieldsToSave['assigned_user_id'];
             }

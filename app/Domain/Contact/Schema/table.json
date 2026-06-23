@@ -57,7 +57,7 @@
       "sortable": true
     },
     {
-      "key": "source",
+      "key": "source_id",
       "label": "Source",
       "sortable": true
     },

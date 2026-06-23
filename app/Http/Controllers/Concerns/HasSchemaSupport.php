@@ -372,7 +372,7 @@ trait HasSchemaSupport
                 'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile',
                 'company', 'position', 'title', 'secondary_email', 'website', 'linkedin', 'facebook',
                 'notes', 'inactive', 'preferred_contact_method', 'preferred_contact_time',
-                'assigned_user_id', 'type', 'source', 'status',
+                'assigned_user_id', 'type', 'source_id', 'status',
             ];
             if (in_array($field, $contactBacked, true)) {
                 return 'contacts.'.$field;
@@ -390,7 +390,7 @@ trait HasSchemaSupport
                 'display_name', 'first_name', 'last_name', 'email', 'phone', 'mobile',
                 'company', 'position', 'title', 'secondary_email', 'website', 'linkedin', 'facebook',
                 'notes', 'inactive', 'preferred_contact_method', 'preferred_contact_time',
-                'assigned_user_id', 'type', 'source', 'status',
+                'assigned_user_id', 'type', 'source_id', 'status',
             ];
             if (in_array($field, $contactBacked, true)) {
                 return 'contacts.'.$field;

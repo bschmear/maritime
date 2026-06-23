@@ -11,6 +11,7 @@ use App\Enums\Entity\ContactStage;
 use App\Enums\Entity\ContactStatus;
 use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
+use App\Enums\Entity\Source;
 use App\Enums\System\SystemLogAction;
 use App\Jobs\PushContactToQuickBooks;
 use Illuminate\Database\QueryException;
@@ -82,7 +83,10 @@ class CreateContact
             | Classification
             |--------------------------------------------------------------------------
             */
-            'source' => ['nullable', 'string', 'max:255'],
+            'source_id' => [
+                'nullable',
+                fn (string $attribute, mixed $value, \Closure $fail) => Source::assertValidForValidation($value, $fail, $attribute),
+            ],
 
             'status' => [
                 'nullable',
@@ -155,6 +159,15 @@ class CreateContact
                 $validated['stage_id'] = null;
             } else {
                 $validated['stage_id'] = ContactStage::toStoredId($sv);
+            }
+        }
+
+        if (array_key_exists('source_id', $validated)) {
+            $sv = $validated['source_id'];
+            if ($sv === null || $sv === '') {
+                $validated['source_id'] = null;
+            } else {
+                $validated['source_id'] = Source::toStoredId($sv);
             }
         }
 

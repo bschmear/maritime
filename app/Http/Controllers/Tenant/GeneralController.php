@@ -256,13 +256,7 @@ class GeneralController extends BaseController
         $searchQuery = $request->get('search');
         if ($searchQuery && ! empty(trim($searchQuery))) {
             if (strtolower($type) === 'asset') {
-                // Search assets by display_name, year, or make name (via join)
-                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
-                $query->where(function ($q) use ($searchTerm) {
-                    $q->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm])
-                        ->orWhereRaw('LOWER(CAST(year AS TEXT)) LIKE ?', [$searchTerm])
-                        ->orWhereHas('make', fn ($q2) => $q2->whereRaw('LOWER(display_name) LIKE ?', [$searchTerm]));
-                });
+                $query->whereMatchesPickerSearch(trim((string) $searchQuery));
             } elseif (strtolower($type) === 'addon') {
                 // Search add-ons by name
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';

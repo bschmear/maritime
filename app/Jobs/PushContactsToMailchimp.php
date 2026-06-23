@@ -199,7 +199,7 @@ class PushContactsToMailchimp implements ShouldQueue
             $query->whereIn('contacts.status', array_map('strval', $filters['statuses']));
         }
         if (! empty($filters['sources'])) {
-            $query->whereIn('contacts.source', array_map('strval', $filters['sources']));
+            $query->whereIn('contacts.source_id', array_map('intval', $filters['sources']));
         }
         if (! empty($filters['types'])) {
             $query->whereIn('contacts.type', array_map('strval', $filters['types']));

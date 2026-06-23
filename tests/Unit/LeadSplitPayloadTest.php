@@ -27,6 +27,7 @@ class LeadSplitPayloadTest extends TestCase
         $this->assertSame('Ada', $contact['first_name']);
         $this->assertSame('Lovelace', $contact['last_name']);
         $this->assertSame('ada@example.com', $contact['email']);
+        $this->assertSame(2, $contact['source_id']);
         $this->assertArrayNotHasKey('status_id', $contact);
 
         $this->assertSame('1 Main St', $address['address_line_1']);
@@ -34,7 +35,7 @@ class LeadSplitPayloadTest extends TestCase
         $this->assertArrayNotHasKey('status_id', $address);
 
         $this->assertSame(1, $profile['status_id']);
-        $this->assertSame(2, $profile['source_id']);
+        $this->assertArrayNotHasKey('source_id', $profile);
         $this->assertSame('spring', $profile['campaign']);
         $this->assertArrayNotHasKey('first_name', $profile);
         $this->assertArrayNotHasKey('id', $profile);

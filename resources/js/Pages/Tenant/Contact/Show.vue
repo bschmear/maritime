@@ -138,6 +138,19 @@ const recordStageDisplay = computed(() => {
     return typeof raw === 'string' ? raw.replace(/_/g, ' ') : String(raw);
 });
 
+const contactSourceEnumKey = 'App\\Enums\\Entity\\Source';
+
+const recordSourceDisplay = computed(() => {
+    const raw = props.record.source_id;
+    if (raw == null || raw === '') return '—';
+    const opts = props.enumOptions[contactSourceEnumKey] || [];
+    const hit = opts.find(
+        (o) => o.id === raw || o.value === raw || Number(o.id) === Number(raw) || String(o.value) === String(raw)
+    );
+    if (hit?.name) return hit.name;
+    return String(raw);
+});
+
 const driverLicenseFront = computed(() => {
     const img = props.record.customer?.dl_front;
     if (!img) {
@@ -493,7 +506,7 @@ const confirmDelete = () => {
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">travel_explore</span>
                                     <span class="text-gray-500 dark:text-gray-400 flex-1">Source</span>
-                                    <span class="text-md font-medium" :class="record.source ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ record.source || '—' }}</span>
+                                    <span class="text-md font-medium" :class="recordSourceDisplay !== '—' ? 'text-gray-900 dark:text-white' : 'text-gray-300 dark:text-gray-600'">{{ recordSourceDisplay }}</span>
                                 </li>
                                 <li class="flex items-center gap-3 px-5 py-3">
                                     <span class="material-icons text-[16px] text-gray-400">person_pin</span>

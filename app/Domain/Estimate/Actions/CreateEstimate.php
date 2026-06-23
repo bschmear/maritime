@@ -9,7 +9,7 @@ use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
 use App\Domain\Estimate\Support\RecalculateEstimateVersionTotals;
-use App\Domain\Lead\Models\Lead;
+use App\Support\ContactPartyResolver;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -40,7 +40,10 @@ class CreateEstimate
         // If only a contact_id is supplied, auto-find or create the customer profile.
         if (! empty($data['contact_id']) && empty($data['customer_id'])) {
             $contact = Contact::findOrFail($data['contact_id']);
-            $data['customer_id'] = $this->ensureCustomerProfile($contact)->id;
+            $subsidiaryId = isset($data['subsidiary_id']) && $data['subsidiary_id'] !== '' && $data['subsidiary_id'] !== null
+                ? (int) $data['subsidiary_id']
+                : null;
+            $data['customer_id'] = ContactPartyResolver::ensureCustomerProfile($contact, $subsidiaryId)->id;
         }
 
         // Validate customer_id is now resolved.
@@ -60,11 +63,11 @@ class CreateEstimate
 
             // Ensure a lead profile exists for the contact (silent lifecycle step).
             if (! empty($data['contact_id'])) {
-                $this->ensureLeadProfile((int) $data['contact_id']);
+                ContactPartyResolver::ensureLeadProfile((int) $data['contact_id']);
             } elseif (! empty($data['customer_id'])) {
                 $customer = Customer::find($data['customer_id']);
                 if ($customer && $customer->contact_id) {
-                    $this->ensureLeadProfile((int) $customer->contact_id);
+                    ContactPartyResolver::ensureLeadProfile((int) $customer->contact_id);
                 }
             }
 
@@ -174,33 +177,5 @@ class CreateEstimate
                 'record' => null,
             ];
         }
-    }
-
-    /**
-     * Find or create a customer_profile row for the given contact.
-     */
-    protected function ensureCustomerProfile(Contact $contact): Customer
-    {
-        $existing = Customer::where('contact_id', $contact->id)->first();
-        if ($existing) {
-            return $existing;
-        }
-
-        return Customer::create([
-            'contact_id' => $contact->id,
-            'account_status' => 'active',
-        ]);
-    }
-
-    /**
-     * Ensure at least one lead_profile row exists for the contact (silent; idempotent).
-     * Uses firstOrCreate to avoid a race between exists() and create().
-     */
-    protected function ensureLeadProfile(int $contactId): void
-    {
-        Lead::firstOrCreate(
-            ['contact_id' => $contactId],
-            []
-        );
     }
 }

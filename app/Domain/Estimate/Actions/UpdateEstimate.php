@@ -9,6 +9,7 @@ use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate as RecordModel;
 use App\Domain\Estimate\Support\LineItemDescription;
 use App\Domain\Estimate\Support\RecalculateEstimateVersionTotals;
+use App\Support\ContactPartyResolver;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -37,14 +38,10 @@ class UpdateEstimate
         // Auto-resolve customer_id from contact when only contact_id is provided.
         if (! empty($data['contact_id']) && empty($data['customer_id'])) {
             $contact = Contact::findOrFail($data['contact_id']);
-            $existing = Customer::where('contact_id', $contact->id)->first();
-            if (! $existing) {
-                $existing = Customer::create([
-                    'contact_id' => $contact->id,
-                    'account_status' => 'active',
-                ]);
-            }
-            $data['customer_id'] = $existing->id;
+            $subsidiaryId = isset($data['subsidiary_id']) && $data['subsidiary_id'] !== '' && $data['subsidiary_id'] !== null
+                ? (int) $data['subsidiary_id']
+                : null;
+            $data['customer_id'] = ContactPartyResolver::ensureCustomerProfile($contact, $subsidiaryId)->id;
         }
 
         Validator::make($data, [

@@ -251,7 +251,7 @@ const submit = () => {
 
     form.clearErrors();
     form.inactive = !!(form.inactive === true || form.inactive === 1 || form.inactive === '1');
-    for (const k of ['assigned_user_id', 'vendor_id', 'stage_id', 'status', 'preferred_contact_method', 'preferred_contact_time', 'type']) {
+    for (const k of ['assigned_user_id', 'vendor_id', 'stage_id', 'status', 'source_id', 'preferred_contact_method', 'preferred_contact_time', 'type']) {
         if (form[k] === '' || form[k] === undefined) {
             form[k] = null;
         }
