@@ -166,4 +166,42 @@ class InvoiceLineExtractionNormalizeTest extends TestCase
         $this->assertSame(0, $result['line_items'][0]['row_index']);
         $this->assertSame(1, $result['line_items'][1]['row_index']);
     }
+
+    #[Test]
+    public function it_omits_rows_without_hin_or_serial(): void
+    {
+        $service = new InvoiceLineExtractionService;
+        $reflection = new \ReflectionClass($service);
+        $filter = $reflection->getMethod('filterRowsWithoutIdentifier');
+        $filter->setAccessible(true);
+
+        $result = $filter->invoke($service, [
+            ['row_index' => 0, 'hin' => 'ABC123', 'serial_number' => null],
+            ['row_index' => 1, 'hin' => null, 'serial_number' => null],
+            ['row_index' => 2, 'hin' => null, 'serial_number' => 'SN-1'],
+        ]);
+
+        $this->assertCount(2, $result);
+        $this->assertSame('ABC123', $result[0]['hin']);
+        $this->assertSame('SN-1', $result[1]['serial_number']);
+        $this->assertSame(0, $result[0]['row_index']);
+        $this->assertSame(1, $result[1]['row_index']);
+    }
+
+    #[Test]
+    public function it_moves_serial_numbers_out_of_hin_when_pdf_labels_them_serial(): void
+    {
+        $service = new InvoiceLineExtractionService;
+        $reflection = new \ReflectionClass($service);
+        $normalize = $reflection->getMethod('normalizeMisplacedSerials');
+        $normalize->setAccessible(true);
+
+        $pdfText = "25-1-HB270AX-PG\nserial#00046J425";
+        $result = $normalize->invoke($service, [
+            ['hin' => '00046J425', 'serial_number' => null],
+        ], $pdfText);
+
+        $this->assertNull($result[0]['hin']);
+        $this->assertSame('00046J425', $result[0]['serial_number']);
+    }
 }

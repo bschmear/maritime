@@ -17,6 +17,7 @@ use App\Domain\AssetUnit\Support\InvoiceImport\BoatMakeInvoiceProfileService;
 use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceBillFactory;
 use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceBrandCatalogBuilder;
 use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceCatalogMappingService;
+use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceExistingUnitDetector;
 use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceInstructionsGeneratorService;
 use App\Domain\AssetUnit\Support\InvoiceImport\InvoiceLineExtractionService;
 use App\Domain\AssetUnit\Support\InvoiceImport\InvoicePdfTextExtractor;
@@ -747,6 +748,7 @@ class AssetUnitController extends RecordController
         );
 
         $mappedRows = $mappingService->apply($brand, $extraction['line_items']);
+        $mappedRows = app(InvoiceExistingUnitDetector::class)->apply($mappedRows);
 
         Cache::put($validated['cache_key'], array_merge($session, [
             'extraction' => $extraction,
@@ -782,6 +784,28 @@ class AssetUnitController extends RecordController
         $profileService->saveInstructions($brand, $validated['ai_instructions'] ?? null);
 
         return response()->json(['success' => true]);
+    }
+
+    public function importInvoiceCheckExisting(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'rows' => 'required|array',
+            'rows.*.row_index' => 'required|integer|min:0',
+            'rows.*.hin' => 'nullable|string|max:255',
+            'rows.*.serial_number' => 'nullable|string|max:255',
+        ]);
+
+        $rows = app(InvoiceExistingUnitDetector::class)->apply($validated['rows'], autoExclude: false);
+
+        return response()->json([
+            'rows' => array_map(static fn (array $row) => [
+                'row_index' => $row['row_index'],
+                'already_exists' => (bool) ($row['already_exists'] ?? false),
+                'existing_asset_unit_id' => $row['existing_asset_unit_id'] ?? null,
+                'existing_asset_unit_label' => $row['existing_asset_unit_label'] ?? null,
+                'existing_match_field' => $row['existing_match_field'] ?? null,
+            ], $rows),
+        ]);
     }
 
     public function importInvoiceConfirm(
@@ -832,6 +856,8 @@ class AssetUnitController extends RecordController
             }
             $rows[] = array_merge($base, $submitted);
         }
+
+        $rows = app(InvoiceExistingUnitDetector::class)->apply($rows);
 
         $importResult = $importService->import($brand, $rows);
 

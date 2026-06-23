@@ -665,6 +665,7 @@ Route::middleware([
             Route::post('/import/invoice/parse', [AssetUnitController::class, 'importInvoiceParse'])->name('import.invoice.parse');
             Route::post('/import/invoice/extract', [AssetUnitController::class, 'importInvoiceExtract'])->name('import.invoice.extract');
             Route::post('/import/invoice/profile', [AssetUnitController::class, 'importInvoiceProfile'])->name('import.invoice.profile');
+            Route::post('/import/invoice/check-existing', [AssetUnitController::class, 'importInvoiceCheckExisting'])->name('import.invoice.check-existing');
             Route::post('/import/invoice/confirm', [AssetUnitController::class, 'importInvoiceConfirm'])->name('import.invoice.confirm');
             Route::post('/bulk-update', [AssetUnitController::class, 'bulkUpdate'])->name('bulk-update');
             Route::post('/import/parse', [AssetUnitController::class, 'importParse'])->name('import.parse');

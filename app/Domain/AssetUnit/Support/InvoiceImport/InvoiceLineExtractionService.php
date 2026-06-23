@@ -79,7 +79,22 @@ class InvoiceLineExtractionService
             throw new RuntimeException('Invalid AI invoice extraction response shape.');
         }
 
-        return $this->normalize($decoded);
+        $normalized = $this->normalize($decoded);
+
+        $normalized['line_items'] = (new InvoiceLineItemReconciler)->reconcile(
+            $normalized['line_items'],
+            $normalized['invoice_lines'],
+            $pdfText,
+        );
+
+        $normalized['line_items'] = $this->normalizeMisplacedSerials($normalized['line_items'], $pdfText);
+        $normalized['line_items'] = $this->dedupeLineItems($normalized['line_items']);
+
+        $beforeFilter = count($normalized['line_items']);
+        $normalized['line_items'] = $this->filterRowsWithoutIdentifier($normalized['line_items']);
+        $normalized['excluded_without_identifier'] = $beforeFilter - count($normalized['line_items']);
+
+        return $normalized;
     }
 
     protected function systemPrompt(string $brandInstructions): string
@@ -89,16 +104,16 @@ You extract inventory unit rows from marine manufacturer invoice PDF text.
 
 Rules:
 - Return JSON only matching the schema.
-- line_items: one entry per physical unit (expand quantity).
+- line_items: one entry per physical unit. When an invoice line shows quantity N, output exactly N rows in line_items for that line (expand quantity).
+- Multiple line_items may share the same item_code, description, model, and unit_price — that is expected when quantity > 1.
 - invoice_lines: aggregated invoice rows (qty, description, unit price, extension) for billing — do not expand quantity here.
-- hin: hull ID when present in parentheses on invoice lines.
-- serial_number: only when clearly labeled separately from HIN.
+- hin: hull ID from parenthetical lists on the invoice line; assign a distinct HIN to each expanded unit when the PDF lists multiple.
+- serial_number: only when clearly labeled separately from HIN (e.g. "serial#..."). Do not put serial numbers in the hin field.
+- Every line_items row MUST include hin or serial_number from the document. Never output unit rows without one of these identifiers.
 - unit_price: per-unit dealer cost.
 - invoice_date: YYYY-MM-DD when parseable.
 - Ignore tax, freight, payment, subtotal/total summary rows.
-- Do not duplicate units: each physical unit must appear once in line_items.
-- If the same HIN or serial number appears more than once in the document, include only the first occurrence and omit later duplicates.
-- When quantity expansion would reuse the same HIN for multiple rows, output one row for that HIN only.
+- Deduplication applies only when the exact same HIN or the exact same serial_number would appear on more than one row (keep the first only). Do not collapse rows merely because they share model, item code, or price.
 
 Catalog matching:
 - The user message includes catalog: this brand's assets (models) and variants with asset_id and asset_variant_id.
@@ -271,5 +286,65 @@ PROMPT;
         unset($item);
 
         return $deduped;
+    }
+
+    /**
+     * Move values the AI placed in hin when the PDF labels them as serial numbers.
+     *
+     * @param  list<array<string, mixed>>  $lineItems
+     * @return list<array<string, mixed>>
+     */
+    protected function normalizeMisplacedSerials(array $lineItems, string $pdfText): array
+    {
+        if (! preg_match_all('/\bserial\s*#?\s*([A-Z0-9][A-Z0-9-]{3,})\b/i', $pdfText, $matches)) {
+            return $lineItems;
+        }
+
+        $serialSet = [];
+        foreach ($matches[1] as $serial) {
+            $normalized = strtoupper(trim($serial));
+            if ($normalized !== '') {
+                $serialSet[$normalized] = true;
+            }
+        }
+
+        if ($serialSet === []) {
+            return $lineItems;
+        }
+
+        foreach ($lineItems as &$item) {
+            $hin = strtoupper(trim((string) ($item['hin'] ?? '')));
+            $serial = trim((string) ($item['serial_number'] ?? ''));
+            if ($hin !== '' && $serial === '' && isset($serialSet[$hin])) {
+                $item['serial_number'] = $item['hin'];
+                $item['hin'] = null;
+            }
+        }
+        unset($item);
+
+        return $lineItems;
+    }
+
+    /**
+     * Unit rows without a hull ID or serial cannot be imported and are omitted from review.
+     *
+     * @param  list<array<string, mixed>>  $lineItems
+     * @return list<array<string, mixed>>
+     */
+    protected function filterRowsWithoutIdentifier(array $lineItems): array
+    {
+        $filtered = array_values(array_filter($lineItems, function (array $row): bool {
+            $hin = trim((string) ($row['hin'] ?? ''));
+            $serial = trim((string) ($row['serial_number'] ?? ''));
+
+            return $hin !== '' || $serial !== '';
+        }));
+
+        foreach ($filtered as $index => &$row) {
+            $row['row_index'] = $index;
+        }
+        unset($row);
+
+        return $filtered;
     }
 }

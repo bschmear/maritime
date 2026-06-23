@@ -40,6 +40,13 @@ class InvoiceUnitImportService
                 continue;
             }
 
+            if ($row['already_exists'] ?? false) {
+                $skipped++;
+                $errors[] = 'Row '.($index + 1).': unit already exists in inventory.';
+
+                continue;
+            }
+
             $validationError = $this->validateRow($row, $index);
             if ($validationError !== null) {
                 $errors[] = $validationError;
@@ -59,10 +66,18 @@ class InvoiceUnitImportService
                 }
 
                 $hin = isset($row['hin']) ? trim((string) $row['hin']) : '';
-                if ($hin !== '' && AssetUnit::query()->where('hin', $hin)->exists()) {
+                if ($hin !== '' && AssetUnit::query()->whereRaw('UPPER(TRIM(hin)) = ?', [strtoupper($hin)])->exists()) {
                     return [
                         'status' => 'skipped',
                         'message' => 'Row '.($index + 1).": HIN {$hin} already exists.",
+                    ];
+                }
+
+                $serial = isset($row['serial_number']) ? trim((string) $row['serial_number']) : '';
+                if ($serial !== '' && AssetUnit::query()->whereRaw('UPPER(TRIM(serial_number)) = ?', [strtoupper($serial)])->exists()) {
+                    return [
+                        'status' => 'skipped',
+                        'message' => 'Row '.($index + 1).": Serial {$serial} already exists.",
                     ];
                 }
 
@@ -70,9 +85,7 @@ class InvoiceUnitImportService
                     'asset_id' => $assetId,
                     'asset_variant_id' => $asset->has_variants ? (int) $row['asset_variant_id'] : null,
                     'hin' => $hin !== '' ? $hin : null,
-                    'serial_number' => isset($row['serial_number']) && trim((string) $row['serial_number']) !== ''
-                        ? trim((string) $row['serial_number'])
-                        : null,
+                    'serial_number' => $serial !== '' ? $serial : null,
                     'cost' => (float) ($row['unit_price'] ?? 0),
                     'condition' => (int) ($row['condition'] ?? 1),
                     'status' => (int) ($row['status'] ?? UnitStatus::Inbound->id()),
@@ -135,6 +148,12 @@ class InvoiceUnitImportService
 
         if ($asset->has_variants && empty($row['asset_variant_id'])) {
             return 'Row '.($index + 1).': select a variant for this asset.';
+        }
+
+        $hin = trim((string) ($row['hin'] ?? ''));
+        $serial = trim((string) ($row['serial_number'] ?? ''));
+        if ($hin === '' && $serial === '') {
+            return 'Row '.($index + 1).': HIN or serial number is required.';
         }
 
         return null;

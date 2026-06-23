@@ -35,6 +35,7 @@ const saveAiInstructions = ref(true);
 const aiInstructionsGenerated = ref(false);
 
 const extraction = ref(null);
+const excludedWithoutIdentifier = ref(0);
 const rows = ref([]);
 
 const vendorId = ref(null);
@@ -374,7 +375,20 @@ const canShowQuickbooksSync = computed(() =>
 
 const vendorHasQuickbooks = computed(() => !!brand.value?.vendor?.quickbooks_id);
 
-const includedRows = computed(() => rows.value.filter((r) => r.include !== false));
+function rowHasIdentifier(row) {
+    const hin = typeof row.hin === 'string' ? row.hin.trim() : '';
+    const serial = typeof row.serial_number === 'string' ? row.serial_number.trim() : '';
+
+    return hin !== '' || serial !== '';
+}
+
+const reviewRows = computed(() => rows.value.filter((row) => rowHasIdentifier(row)));
+
+const includedRows = computed(() => reviewRows.value.filter((r) => r.include !== false && ! r.already_exists));
+
+const existingRowsCount = computed(() => reviewRows.value.filter((r) => r.already_exists).length);
+
+const importableRowsCount = computed(() => includedRows.value.length);
 
 const canConfirmUnits = computed(() => {
     if (! includedRows.value.length) {
@@ -395,7 +409,7 @@ const canConfirmUnits = computed(() => {
 
 const matchStatusLabel = (status) => {
     if (status === 'matched') {
-        return 'Matched';
+        return 'Catalog match';
     }
     if (status === 'needs_attention') {
         return 'Needs review';
@@ -485,10 +499,13 @@ async function runExtraction() {
         });
 
         extraction.value = data.extraction;
+        excludedWithoutIdentifier.value = Number(data.extraction?.excluded_without_identifier ?? 0);
         rows.value = (data.rows ?? []).map((row) => ({
             ...row,
             asset_has_variants: !! row.asset_has_variants,
+            already_exists: !! row.already_exists,
             status: row.status ?? bulkStatus.value,
+            include: row.already_exists ? false : row.include !== false,
         }));
         brand.value = data.brand ?? brand.value;
         syncVendorFromBrand(brand.value);
@@ -518,6 +535,56 @@ function onVariantSelected(row, record) {
     }
 }
 
+async function refreshRowExistingFlags(row) {
+    if (! rowHasIdentifier(row)) {
+        row.already_exists = false;
+        row.existing_asset_unit_id = null;
+        row.existing_asset_unit_label = null;
+        row.existing_match_field = null;
+
+        return;
+    }
+
+    const hin = row.hin?.trim?.() ?? row.hin;
+    const serial = row.serial_number?.trim?.() ?? row.serial_number;
+
+    try {
+        const { data } = await axios.post(route('assetunits.import.invoice.check-existing'), {
+            rows: [{ row_index: row.row_index, hin: hin || null, serial_number: serial || null }],
+        });
+        const flag = data.rows?.[0];
+        if (! flag) {
+            return;
+        }
+
+        row.already_exists = !! flag.already_exists;
+        row.existing_asset_unit_id = flag.existing_asset_unit_id ?? null;
+        row.existing_asset_unit_label = flag.existing_asset_unit_label ?? null;
+        row.existing_match_field = flag.existing_match_field ?? null;
+        if (flag.already_exists) {
+            row.include = false;
+        }
+    } catch {
+        // Keep current flags if the check fails.
+    }
+}
+
+function existingMatchLabel(row) {
+    if (! row.already_exists) {
+        return '';
+    }
+
+    if (row.existing_match_field === 'serial_number' && row.serial_number) {
+        return `Serial ${row.serial_number}`;
+    }
+
+    if (row.hin) {
+        return `HIN ${row.hin}`;
+    }
+
+    return 'Identifier on file';
+}
+
 function openConfirmModal() {
     if (! canConfirmUnits.value) {
         return;
@@ -541,7 +608,7 @@ async function confirmImport() {
             vendor_id: vendorId.value,
             create_bill: createBill.value,
             sync_quickbooks: syncQuickbooks.value && canShowQuickbooksSync.value,
-            rows: rows.value.map((row) => ({
+            rows: reviewRows.value.map((row) => ({
                 row_index: row.row_index,
                 include: row.include !== false,
                 asset_id: row.asset_id,
@@ -569,6 +636,7 @@ async function confirmImport() {
 function goBackToInstructions() {
     error.value = '';
     extraction.value = null;
+    excludedWithoutIdentifier.value = 0;
     rows.value = [];
     showBillModal.value = false;
     step.value = 2;
@@ -583,6 +651,7 @@ function resetImport() {
     saveAiInstructions.value = true;
     aiInstructionsGenerated.value = false;
     extraction.value = null;
+    excludedWithoutIdentifier.value = 0;
     rows.value = [];
     vendorId.value = null;
     vendorDisplayName.value = null;
@@ -894,6 +963,25 @@ function formatMoney(value) {
                     </div>
                 </div>
 
+                <div
+                    v-if="excludedWithoutIdentifier > 0"
+                    class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300"
+                >
+                    {{ excludedWithoutIdentifier }} {{ excludedWithoutIdentifier === 1 ? 'row was' : 'rows were' }} hidden because they had no HIN or serial number from the document.
+                </div>
+
+                <div
+                    v-if="existingRowsCount > 0"
+                    class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
+                >
+                    <p class="font-medium">
+                        {{ existingRowsCount }} {{ existingRowsCount === 1 ? 'unit already exists' : 'units already exist' }} in inventory and will not be uploaded.
+                    </p>
+                    <p class="mt-1 text-amber-800 dark:text-amber-200/90">
+                        Highlighted rows match an existing HIN or serial number. The <span class="font-medium">Catalog</span> column shows whether the line was mapped to your product catalog — that is separate from whether the unit is already in stock.
+                    </p>
+                </div>
+
                 <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <table class="min-w-full text-sm">
                         <thead class="bg-gray-50 dark:bg-gray-900/40">
@@ -908,17 +996,26 @@ function formatMoney(value) {
                                 <th v-if="placementMode === 'individual'" class="px-3 py-2 text-left">Subsidiary</th>
                                 <th v-if="placementMode === 'individual'" class="px-3 py-2 text-left">Location</th>
                                 <th v-if="statusMode === 'individual'" class="px-3 py-2 text-left">Unit status</th>
-                                <th class="px-3 py-2 text-left">Match</th>
+                                <th class="px-3 py-2 text-left">Catalog</th>
+                                <th class="px-3 py-2 text-left">Inventory</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
-                                v-for="row in rows"
+                                v-for="row in reviewRows"
                                 :key="row.row_index"
                                 class="border-t border-gray-100 dark:border-gray-700"
+                                :class="row.already_exists
+                                    ? 'bg-amber-50/90 dark:bg-amber-900/15'
+                                    : ''"
                             >
                                 <td class="px-3 py-2 align-top">
-                                    <input v-model="row.include" type="checkbox" />
+                                    <input
+                                        v-model="row.include"
+                                        type="checkbox"
+                                        :disabled="row.already_exists"
+                                        :title="row.already_exists ? 'This unit already exists in inventory' : undefined"
+                                    />
                                 </td>
                                 <td class="px-3 py-2 align-top">
                                     <div class="font-medium">{{ row.item_code || '—' }}</div>
@@ -926,10 +1023,20 @@ function formatMoney(value) {
                                     <div v-if="row.extracted_model" class="text-xs text-gray-400">AI: {{ row.extracted_model }} {{ row.extracted_variant }}</div>
                                 </td>
                                 <td class="px-3 py-2 align-top">
-                                    <input v-model="row.hin" type="text" class="w-36 rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700" />
+                                    <input
+                                        v-model="row.hin"
+                                        type="text"
+                                        class="w-36 rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700"
+                                        @blur="refreshRowExistingFlags(row)"
+                                    />
                                 </td>
                                 <td class="px-3 py-2 align-top">
-                                    <input v-model="row.serial_number" type="text" class="w-28 rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700" />
+                                    <input
+                                        v-model="row.serial_number"
+                                        type="text"
+                                        class="w-28 rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700"
+                                        @blur="refreshRowExistingFlags(row)"
+                                    />
                                 </td>
                                 <td class="px-3 py-2 align-top text-right">
                                     <input v-model.number="row.unit_price" type="number" step="0.01" min="0" class="w-24 rounded border-gray-300 text-right text-xs dark:border-gray-600 dark:bg-gray-700" />
@@ -1000,6 +1107,25 @@ function formatMoney(value) {
                                         {{ matchStatusLabel(row.match_status) }}
                                     </span>
                                 </td>
+                                <td class="px-3 py-2 align-top">
+                                    <template v-if="row.already_exists">
+                                        <span class="rounded bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-950 dark:bg-amber-800/60 dark:text-amber-50">
+                                            Already exists
+                                        </span>
+                                        <div class="mt-1 text-xs text-amber-900 dark:text-amber-100">
+                                            {{ existingMatchLabel(row) }}
+                                        </div>
+                                        <Link
+                                            v-if="row.existing_asset_unit_id"
+                                            :href="route('assetunits.show', row.existing_asset_unit_id)"
+                                            class="mt-1 inline-block text-xs font-medium text-primary-700 underline dark:text-primary-300"
+                                            target="_blank"
+                                        >
+                                            {{ row.existing_asset_unit_label || 'View unit' }}
+                                        </Link>
+                                    </template>
+                                    <span v-else class="text-xs text-gray-500 dark:text-gray-400">New</span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -1020,7 +1146,7 @@ function formatMoney(value) {
                         :disabled="!canConfirmUnits"
                         @click="openConfirmModal"
                     >
-                        Confirm and create units
+                        Confirm and create {{ importableRowsCount }} {{ importableRowsCount === 1 ? 'unit' : 'units' }}
                     </button>
                 </div>
             </section>

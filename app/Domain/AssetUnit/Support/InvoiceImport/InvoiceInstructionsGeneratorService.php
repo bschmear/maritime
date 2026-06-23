@@ -79,7 +79,8 @@ From the sample invoice text provided, describe:
 - How to expand quantity into one row per physical unit
 - Where HIN, serial number, model codes, descriptions, and unit cost appear
 - Rows or sections to ignore (tax, freight, totals, footers)
-- Deduplication: each HIN and serial number must map to at most one unit row — if the document repeats the same identifier, instruct the extractor to keep the first occurrence only
+- Quantity expansion: when a line shows quantity N, the extractor must output N unit rows (not one row with quantity N)
+- Deduplication: only when the exact same HIN or serial number appears more than once in the document — keep the first occurrence; do not collapse multiple units that share model or item code
 - Brand-specific quirks (identifier formats, item code patterns)
 
 Write in plain English for a downstream extraction AI. Be specific to this invoice layout but avoid one-off values (use patterns, not single invoice numbers).
