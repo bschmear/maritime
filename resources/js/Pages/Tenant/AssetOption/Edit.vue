@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetOptionForm from '@/Components/Tenant/AssetOptionForm.vue';
+import AssetOptionAssignmentsPanel from '@/Components/Tenant/AssetOptionAssignmentsPanel.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -182,7 +183,7 @@ const cancel = () => router.visit(route('asset-options.show', { assetOption: pro
             </div>
         </template>
 
-        <div class="mx-auto w-full max-w-4xl px-4 py-6">
+        <div class="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
             <form class="space-y-6" @submit.prevent="submit">
                 <AssetOptionForm :form="form" :field-error="fieldError" :input-type-options="inputTypeOptions" />
 
@@ -204,6 +205,8 @@ const cancel = () => router.visit(route('asset-options.show', { assetOption: pro
                     </button>
                 </div>
             </form>
+
+            <AssetOptionAssignmentsPanel :option-id="record.id" :record="record" />
         </div>
     </TenantLayout>
 </template>

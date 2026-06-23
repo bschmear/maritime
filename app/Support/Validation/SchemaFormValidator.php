@@ -125,9 +125,22 @@ final class SchemaFormValidator
         if (method_exists($enumClass, 'options')) {
             $options = $enumClass::options();
             if (is_array($options) && $options !== [] && isset($options[0]['id'])) {
-                $ids = array_map(static fn (array $option) => (int) $option['id'], $options);
+                $ids = array_map(static fn (array $option) => $option['id'], $options);
+                $allNumeric = array_reduce(
+                    $ids,
+                    static fn (bool $carry, mixed $id) => $carry && (is_int($id) || (is_string($id) && $id !== '' && ctype_digit($id))),
+                    true,
+                );
 
-                return ['required', 'integer', Rule::in($ids)];
+                if ($allNumeric) {
+                    $numericIds = array_map(static fn (mixed $id) => (int) $id, $ids);
+
+                    return ['required', 'integer', Rule::in($numericIds)];
+                }
+
+                $stringIds = array_map(static fn (mixed $id) => (string) $id, $ids);
+
+                return ['required', 'string', Rule::in($stringIds)];
             }
         }
 

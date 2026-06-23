@@ -99,4 +99,65 @@ class SchemaFormValidatorTest extends TestCase
 
         $this->assertNull($result);
     }
+
+    public function test_string_backed_enum_select_accepts_string_option_id(): void
+    {
+        $fieldsSchema = [
+            'input_type' => [
+                'label' => 'Input type',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\AssetOption\\AssetOptionInputType',
+                'required' => true,
+            ],
+        ];
+
+        $formSchema = [
+            'form' => [
+                'primary' => [
+                    'fields' => [
+                        ['key' => 'input_type', 'required' => true],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = SchemaFormValidator::validate(
+            ['input_type' => 'toggle'],
+            $formSchema,
+            $fieldsSchema,
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function test_string_backed_enum_select_rejects_invalid_value(): void
+    {
+        $fieldsSchema = [
+            'input_type' => [
+                'label' => 'Input type',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\AssetOption\\AssetOptionInputType',
+                'required' => true,
+            ],
+        ];
+
+        $formSchema = [
+            'form' => [
+                'primary' => [
+                    'fields' => [
+                        ['key' => 'input_type', 'required' => true],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = SchemaFormValidator::validate(
+            ['input_type' => 'not_a_type'],
+            $formSchema,
+            $fieldsSchema,
+        );
+
+        $this->assertNotNull($result);
+        $this->assertArrayHasKey('input_type', $result['errors']);
+    }
 }
