@@ -229,7 +229,11 @@ class WorkOrderController extends RecordController
             }
         }
 
-        $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
+        $dbColumns = \Schema::connection($this->recordModel->getConnectionName())->getColumnListing('work_orders');
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, 'work_orders', $actualColumns, $fieldsSchema)) {
+            $query->orderBy('scheduled_start_at', 'asc')->orderBy('due_at', 'asc');
+        }
+
         $perPage = table_per_page($request);
         $records = $query->paginate($perPage)->appends($request->query());
 

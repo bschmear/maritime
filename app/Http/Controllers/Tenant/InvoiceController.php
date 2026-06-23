@@ -74,17 +74,9 @@ class InvoiceController extends RecordController
         $this->applyPnlDrillDownFilters($request, $query);
 
         $table = (new RecordModel)->getTable();
-        $sortKey = $request->get('sort');
-        $sortDir = strtolower((string) $request->get('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $sortableKeys = collect($schema['columns'] ?? [])
-            ->filter(fn ($c) => ($c['sortable'] ?? true) !== false)
-            ->pluck('key')
-            ->all();
         $dbColumns = \Schema::connection((new RecordModel)->getConnectionName())->getColumnListing($table);
 
-        if ($sortKey && in_array($sortKey, $sortableKeys, true) && in_array($sortKey, $dbColumns, true)) {
-            $query->orderBy($table.'.'.$sortKey, $sortDir);
-        } else {
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $table, $dbColumns, $fieldsSchema)) {
             $query->orderBy($table.'.created_at', 'desc');
         }
 

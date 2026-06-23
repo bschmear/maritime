@@ -14,6 +14,7 @@ use App\Support\Survey\SurveyResponsesForRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class CustomerController extends RecordController
 {
@@ -175,7 +176,10 @@ class CustomerController extends RecordController
             $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
-        $query->orderByRaw('LOWER(contacts.display_name) ASC');
+        $dbColumns = Schema::connection($this->recordModel->getConnectionName())->getColumnListing($table);
+        if (! $this->applyJoinedContactIndexSort($query, $request, $schema, $table, $dbColumns, $fieldsSchema)) {
+            $query->orderByRaw('LOWER(contacts.display_name) ASC');
+        }
 
         $perPage = table_per_page($request);
         $records = $query->paginate($perPage);

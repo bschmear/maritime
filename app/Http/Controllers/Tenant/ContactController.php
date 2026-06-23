@@ -227,7 +227,10 @@ class ContactController extends Controller
             ->withExists('customer')
             ->withExists('vendors');
 
-        $query->orderByRaw('LOWER(contacts.display_name) ASC');
+        $tableName = $this->recordModel->getTable();
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns, $fieldsSchema)) {
+            $query->orderByRaw('LOWER(contacts.display_name) ASC');
+        }
 
         $perPage = table_per_page($request);
         $records = $query->paginate($perPage);

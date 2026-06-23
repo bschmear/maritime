@@ -257,7 +257,11 @@ class ContractController extends BaseController
             }
         }
 
-        $query->orderBy('created_at', 'desc');
+        $tableName = $this->recordModel->getTable();
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $actualColumns, $fieldsSchema)) {
+            $query->orderBy($tableName.'.created_at', 'desc');
+        }
+
         $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
 

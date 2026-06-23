@@ -16,6 +16,11 @@ use Illuminate\Support\Str;
 
 trait HasSchemaSupport
 {
+    /**
+     * @var array<string, list<string>>
+     */
+    private static array $schemaTableColumnListingCache = [];
+
     protected function getTableSchema()
     {
         $domainName = $this->domainName ?? $this->recordTitle ?? $this->recordType;
@@ -782,6 +787,505 @@ trait HasSchemaSupport
         $dir = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
 
         return ['key' => $key, 'dir' => $dir];
+    }
+
+    protected function modelConnectionName(Model $model): string
+    {
+        $name = $model->getConnectionName();
+        if (is_string($name) && $name !== '') {
+            return $name;
+        }
+
+        return $model->getConnection()->getName();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function getTableColumnListingFor(string $connection, string $table): array
+    {
+        $key = $connection.'.'.$table;
+
+        if (! isset(self::$schemaTableColumnListingCache[$key])) {
+            self::$schemaTableColumnListingCache[$key] = Schema::connection($connection)->getColumnListing($table);
+        }
+
+        return self::$schemaTableColumnListingCache[$key];
+    }
+
+    /**
+     * Map a table column key from table.json to a real database column on the primary table.
+     */
+    protected function resolveRecordIndexSortColumn(string $requestKey, array $dbColumns): ?string
+    {
+        if (in_array($requestKey, $dbColumns, true)) {
+            return $requestKey;
+        }
+
+        if ($requestKey === 'display_name' && in_array('sequence', $dbColumns, true)) {
+            return 'sequence';
+        }
+
+        $domainName = $this->domainName ?? null;
+        if ($requestKey === 'display_name' && $domainName === 'ChartOfAccount' && in_array('name', $dbColumns, true)) {
+            return 'name';
+        }
+
+        return null;
+    }
+
+    protected function shouldSortColumnCaseInsensitive(string $column): bool
+    {
+        return in_array($column, [
+            'display_name',
+            'email',
+            'company',
+            'source',
+            'first_name',
+            'last_name',
+            'name',
+            'title',
+            'position',
+            'city',
+            'secondary_email',
+            'website',
+        ], true);
+    }
+
+    /**
+     * When a column is backed by a PHP enum with options(), sort by option label (alphabetically)
+     * instead of the raw stored id/value.
+     */
+    protected function applyEnumLabelSortIfApplicable(
+        $query,
+        string $qualifiedColumn,
+        array $fieldsSchema,
+        string $sortRequestKey,
+        string $resolvedColumn,
+        string $dir
+    ): bool {
+        if (str_contains($resolvedColumn, '.')) {
+            return false;
+        }
+
+        if ($sortRequestKey !== $resolvedColumn) {
+            return false;
+        }
+
+        $fieldDef = $fieldsSchema[$sortRequestKey] ?? null;
+        if (! is_array($fieldDef)) {
+            return false;
+        }
+
+        $enumClass = $fieldDef['enum'] ?? null;
+        if (! is_string($enumClass) || $enumClass === '' || ! class_exists($enumClass)) {
+            return false;
+        }
+
+        if (! method_exists($enumClass, 'options')) {
+            return false;
+        }
+
+        $options = $enumClass::options();
+        if (! is_array($options) || $options === []) {
+            return false;
+        }
+
+        $caseParts = [];
+        $bindings = [];
+        foreach ($options as $opt) {
+            if (! is_array($opt)) {
+                continue;
+            }
+            $id = $opt['id'] ?? $opt['value'] ?? null;
+            $name = $opt['name'] ?? $opt['label'] ?? null;
+            if ($id === null || $name === null || (! is_string($name) && ! is_numeric($name))) {
+                continue;
+            }
+            $caseParts[] = 'when '.$qualifiedColumn.' = ? then lower(?)';
+            $bindings[] = $id;
+            $bindings[] = (string) $name;
+        }
+
+        if ($caseParts === []) {
+            return false;
+        }
+
+        $expr = 'case '.implode(' ', $caseParts).' else \'\' end';
+        $query->orderByRaw($expr.' '.$dir, $bindings);
+
+        return true;
+    }
+
+    /**
+     * When table.json sets sortColumn to "related_table.column" for a record FK field,
+     * join the related table and sort by that column (alphabetically for text columns).
+     */
+    protected function applyRelatedTableSortFromRecordField(
+        $query,
+        string $resolved,
+        string $sortRequestKey,
+        array $fieldsSchema,
+        string $tableName,
+        array $dbColumns,
+        array $actualColumns,
+        string $dir
+    ): bool {
+        if (! preg_match('/^([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)$/', $resolved, $m)) {
+            return false;
+        }
+
+        $joinTable = $m[1];
+        $joinColumn = $m[2];
+
+        if ($joinTable === $tableName) {
+            return false;
+        }
+
+        $fieldDef = $fieldsSchema[$sortRequestKey] ?? null;
+        if (! is_array($fieldDef) || ($fieldDef['type'] ?? null) !== 'record' || empty($fieldDef['typeDomain'])) {
+            return false;
+        }
+
+        $domain = $fieldDef['typeDomain'];
+        if (! is_string($domain) || ! preg_match('/^[A-Za-z0-9]+$/', $domain)) {
+            return false;
+        }
+
+        $modelClass = "App\\Domain\\{$domain}\\Models\\{$domain}";
+        if (! class_exists($modelClass)) {
+            return false;
+        }
+
+        /** @var Model $relatedModel */
+        $relatedModel = new $modelClass;
+        if ($relatedModel->getTable() !== $joinTable) {
+            return false;
+        }
+
+        if (! in_array($sortRequestKey, $dbColumns, true)) {
+            return false;
+        }
+
+        $connection = $this->modelConnectionName($relatedModel);
+        if (! in_array($joinColumn, $this->getTableColumnListingFor($connection, $joinTable), true)) {
+            return false;
+        }
+
+        $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+            return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+        }, $actualColumns);
+
+        $query->select($prefixedColumns)
+            ->leftJoin($joinTable, $tableName.'.'.$sortRequestKey, '=', $joinTable.'.id')
+            ->orderByRaw('LOWER('.$joinTable.'.'.$joinColumn.') '.$dir);
+
+        return true;
+    }
+
+    protected function applyRecordForeignKeySort(
+        $query,
+        string $sortRequestKey,
+        array $fieldsSchema,
+        string $tableName,
+        array $dbColumns,
+        array $actualColumns,
+        string $dir,
+        string $joinColumn = 'display_name',
+    ): bool {
+        if (! in_array($sortRequestKey, $dbColumns, true)) {
+            return false;
+        }
+
+        $fieldDef = $fieldsSchema[$sortRequestKey] ?? null;
+        if (! is_array($fieldDef) || ($fieldDef['type'] ?? null) !== 'record' || empty($fieldDef['typeDomain'])) {
+            return false;
+        }
+
+        $domain = $fieldDef['typeDomain'];
+        if (! is_string($domain) || ! preg_match('/^[A-Za-z0-9]+$/', $domain)) {
+            return false;
+        }
+
+        $modelClass = "App\\Domain\\{$domain}\\Models\\{$domain}";
+        if (! class_exists($modelClass)) {
+            return false;
+        }
+
+        /** @var Model $relatedModel */
+        $relatedModel = new $modelClass;
+
+        return $this->applyRelatedTableSortFromRecordField(
+            $query,
+            $relatedModel->getTable().'.'.$joinColumn,
+            $sortRequestKey,
+            $fieldsSchema,
+            $tableName,
+            $dbColumns,
+            $actualColumns,
+            $dir,
+        );
+    }
+
+    /**
+     * Apply ?sort=&direction= when allowed by table.json (sortable defaults true).
+     */
+    protected function applyRecordIndexSort($query, Request $request, ?array $schema, array $dbColumns, string $tableName, array $actualColumns, array $fieldsSchema): bool
+    {
+        $allowed = $this->sortableColumnsFromTableSchema($schema);
+        $sp = $this->sortParamsFromRequest($request);
+        if ($sp['key'] === null || ! isset($allowed[$sp['key']])) {
+            return false;
+        }
+
+        $def = $allowed[$sp['key']];
+        $override = $def['sortColumn'] ?? null;
+        if (is_string($override) && $override !== '' && preg_match('/^[a-zA-Z0-9_.]+$/', $override)) {
+            $resolved = $override;
+        } else {
+            $resolved = $this->resolveRecordIndexSortColumn($sp['key'], $dbColumns);
+        }
+
+        if ($resolved === null) {
+            return false;
+        }
+
+        $dir = $sp['dir'];
+        $domainName = $this->domainName ?? null;
+
+        if ($domainName === 'AssetUnit') {
+            $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+            }, $actualColumns);
+            $query->select($prefixedColumns)
+                ->join('assets', 'asset_units.asset_id', '=', 'assets.id');
+
+            if (str_contains($resolved, '.')) {
+                if (preg_match('/^assets\.[a-zA-Z0-9_]+$/', $resolved)) {
+                    $query->orderBy($resolved, $dir);
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (! in_array($resolved, $dbColumns, true)) {
+                return false;
+            }
+
+            if ($this->applyEnumLabelSortIfApplicable(
+                $query,
+                $tableName.'.'.$resolved,
+                $fieldsSchema,
+                $sp['key'],
+                $resolved,
+                $dir
+            )) {
+                return true;
+            }
+
+            $query->orderBy($tableName.'.'.$resolved, $dir);
+
+            return true;
+        }
+
+        if ($domainName === 'InventoryUnit') {
+            if (str_contains($resolved, '.')) {
+                if (preg_match('/^inventory_items\.[a-zA-Z0-9_]+$/', $resolved)) {
+                    $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                        return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+                    }, $actualColumns);
+                    $query->select($prefixedColumns)
+                        ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id')
+                        ->orderBy($resolved, $dir);
+
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (! in_array($resolved, $dbColumns, true)) {
+                return false;
+            }
+
+            $prefixedColumns = array_map(function ($col) use ($dbColumns, $tableName) {
+                return in_array($col, $dbColumns, true) ? $tableName.'.'.$col : $col;
+            }, $actualColumns);
+            $query->select($prefixedColumns)
+                ->join('inventory_items', 'inventory_units.inventory_item_id', '=', 'inventory_items.id');
+
+            if ($this->applyEnumLabelSortIfApplicable(
+                $query,
+                $tableName.'.'.$resolved,
+                $fieldsSchema,
+                $sp['key'],
+                $resolved,
+                $dir
+            )) {
+                return true;
+            }
+
+            $query->orderBy($tableName.'.'.$resolved, $dir);
+
+            return true;
+        }
+
+        if ($this->applyRelatedTableSortFromRecordField(
+            $query,
+            $resolved,
+            $sp['key'],
+            $fieldsSchema,
+            $tableName,
+            $dbColumns,
+            $actualColumns,
+            $dir
+        )) {
+            return true;
+        }
+
+        if (str_contains($resolved, '.')) {
+            if (preg_match('/^([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)$/', $resolved, $m)
+                && $this->shouldSortColumnCaseInsensitive($m[2])) {
+                $query->orderByRaw('LOWER('.$resolved.') '.$dir);
+            } else {
+                $query->orderBy($resolved, $dir);
+            }
+
+            return true;
+        }
+
+        if (! in_array($resolved, $dbColumns, true)) {
+            return false;
+        }
+
+        if ($this->applyRecordForeignKeySort(
+            $query,
+            $sp['key'],
+            $fieldsSchema,
+            $tableName,
+            $dbColumns,
+            $actualColumns,
+            $dir,
+        )) {
+            return true;
+        }
+
+        if ($this->applyEnumLabelSortIfApplicable(
+            $query,
+            $tableName.'.'.$resolved,
+            $fieldsSchema,
+            $sp['key'],
+            $resolved,
+            $dir
+        )) {
+            return true;
+        }
+
+        if ($this->shouldSortColumnCaseInsensitive($resolved)) {
+            $query->orderByRaw('LOWER('.$tableName.'.'.$resolved.') '.$dir);
+        } else {
+            $query->orderBy($tableName.'.'.$resolved, $dir);
+        }
+
+        return true;
+    }
+
+    /**
+     * Sort index queries that join `contacts` (customers, leads). Caller must already join contacts.
+     *
+     * @param  list<string>  $contactBackedSortKeys
+     */
+    protected function applyJoinedContactIndexSort(
+        $query,
+        Request $request,
+        ?array $schema,
+        string $primaryTable,
+        array $primaryDbColumns,
+        array $fieldsSchema,
+        array $contactBackedSortKeys = [],
+    ): bool {
+        $allowed = $this->sortableColumnsFromTableSchema($schema);
+        $sp = $this->sortParamsFromRequest($request);
+        if ($sp['key'] === null || ! isset($allowed[$sp['key']])) {
+            return false;
+        }
+
+        $key = $sp['key'];
+        $dir = $sp['dir'];
+
+        if ($contactBackedSortKeys === []) {
+            $contactBackedSortKeys = [
+                'display_name',
+                'email',
+                'phone',
+                'mobile',
+                'first_name',
+                'last_name',
+                'company',
+                'position',
+                'title',
+                'secondary_email',
+                'website',
+                'assigned_user_id',
+            ];
+        }
+
+        if ($key === 'assigned_user_id' && in_array($key, $contactBackedSortKeys, true)) {
+            $query->leftJoin('users', 'contacts.assigned_user_id', '=', 'users.id')
+                ->orderByRaw('LOWER(users.display_name) '.$dir);
+
+            return true;
+        }
+
+        if (in_array($key, $contactBackedSortKeys, true)) {
+            $qualified = 'contacts.'.$key;
+            if ($this->shouldSortColumnCaseInsensitive($key)) {
+                $query->orderByRaw('LOWER('.$qualified.') '.$dir);
+            } else {
+                $query->orderBy($qualified, $dir);
+            }
+
+            return true;
+        }
+
+        if (in_array($key, $primaryDbColumns, true)) {
+            $qualified = $primaryTable.'.'.$key;
+
+            if ($this->applyEnumLabelSortIfApplicable(
+                $query,
+                $qualified,
+                $fieldsSchema,
+                $key,
+                $key,
+                $dir
+            )) {
+                return true;
+            }
+
+            if ($this->applyRecordForeignKeySort(
+                $query,
+                $key,
+                $fieldsSchema,
+                $primaryTable,
+                $primaryDbColumns,
+                $primaryDbColumns,
+                $dir,
+            )) {
+                return true;
+            }
+
+            if ($this->shouldSortColumnCaseInsensitive($key)) {
+                $query->orderByRaw('LOWER('.$qualified.') '.$dir);
+            } else {
+                $query->orderBy($qualified, $dir);
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

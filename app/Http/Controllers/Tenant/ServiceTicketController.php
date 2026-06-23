@@ -131,17 +131,9 @@ class ServiceTicketController extends BaseController
         }
 
         $table = (new ServiceTicket)->getTable();
-        $sortKey = $request->get('sort');
-        $sortDir = strtolower((string) $request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
-        $sortableKeys = collect($schema['columns'] ?? [])
-            ->filter(fn ($c) => ($c['sortable'] ?? true) !== false)
-            ->pluck('key')
-            ->all();
         $dbColumns = \Schema::connection((new ServiceTicket)->getConnectionName())->getColumnListing($table);
 
-        if ($sortKey && in_array($sortKey, $sortableKeys, true) && in_array($sortKey, $dbColumns, true)) {
-            $query->orderBy($table.'.'.$sortKey, $sortDir);
-        } else {
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $table, $dbColumns, $fieldsSchema)) {
             $query->orderBy($table.'.created_at', 'desc');
         }
 

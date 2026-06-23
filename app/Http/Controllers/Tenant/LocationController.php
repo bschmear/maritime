@@ -95,7 +95,11 @@ class LocationController extends BaseController
             $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
-        $query->orderByRaw('LOWER(display_name) ASC');
+        $tableName = (new Location)->getTable();
+        $dbColumns = \Schema::connection((new Location)->getConnectionName())->getColumnListing($tableName);
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $columns, $fieldsSchema)) {
+            $query->orderByRaw('LOWER(display_name) ASC');
+        }
 
         $records = $query->paginate(table_per_page($request));
 

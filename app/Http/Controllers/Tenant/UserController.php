@@ -167,13 +167,20 @@ class UserController extends RecordController
 
         // Order by display_name if the column exists, otherwise by created_at
         $tableName = $this->recordModel->getTable();
-        $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
-            ->hasColumn($tableName, 'display_name');
+        $dbColumns = \Schema::connection($this->recordModel->getConnectionName())->getColumnListing($tableName);
+        $unwrappedFieldsSchema = isset($fieldsSchema['fields']) && is_array($fieldsSchema['fields'])
+            ? $fieldsSchema['fields']
+            : (array) $fieldsSchema;
 
-        if ($hasDisplayName) {
-            $query->orderByRaw('LOWER(display_name) ASC');
-        } else {
-            $query->orderBy('created_at', 'desc');
+        if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $tableName, $columns, $unwrappedFieldsSchema)) {
+            $hasDisplayName = \Schema::connection($this->recordModel->getConnectionName())
+                ->hasColumn($tableName, 'display_name');
+
+            if ($hasDisplayName) {
+                $query->orderByRaw('LOWER(display_name) ASC');
+            } else {
+                $query->orderBy('created_at', 'desc');
+            }
         }
 
         $perPage = table_per_page($request);

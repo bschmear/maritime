@@ -201,29 +201,9 @@ class LeadController extends BaseController
             $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
-        $allowedSort = $this->sortableColumnsFromTableSchema($schema);
-        $sp = $this->sortParamsFromRequest($request);
         $leadDbColumns = Schema::connection($this->recordModel->getConnectionName())->getColumnListing($table);
-        $contactBackedSortKeys = ['display_name', 'email', 'phone', 'mobile', 'first_name', 'last_name', 'company', 'position', 'title', 'secondary_email', 'website'];
 
-        $sortApplied = false;
-        if ($sp['key'] !== null && isset($allowedSort[$sp['key']])) {
-            if (in_array($sp['key'], $contactBackedSortKeys, true)) {
-                $qualified = 'contacts.'.$sp['key'];
-                $useLower = in_array($sp['key'], ['display_name', 'email', 'first_name', 'last_name', 'company', 'position', 'title', 'secondary_email', 'website'], true);
-                if ($useLower) {
-                    $query->orderByRaw('LOWER('.$qualified.') '.($sp['dir'] === 'desc' ? 'DESC' : 'ASC'));
-                } else {
-                    $query->orderBy($qualified, $sp['dir']);
-                }
-                $sortApplied = true;
-            } elseif (in_array($sp['key'], $leadDbColumns, true)) {
-                $query->orderBy($table.'.'.$sp['key'], $sp['dir']);
-                $sortApplied = true;
-            }
-        }
-
-        if (! $sortApplied) {
+        if (! $this->applyJoinedContactIndexSort($query, $request, $schema, $table, $leadDbColumns, $fieldsSchema)) {
             $query->orderByRaw('LOWER(contacts.display_name) ASC');
         }
 
