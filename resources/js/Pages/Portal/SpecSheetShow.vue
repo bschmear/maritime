@@ -3,6 +3,7 @@
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
 import AssignedUserContactCard from '@/Components/Portal/AssignedUserContactCard.vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
+import AssetOptionRadioChoices from '@/Components/Tenant/AssetOptionRadioChoices.vue';
 import { computed, ref, watch } from 'vue';
 
 const page = usePage();
@@ -65,6 +66,32 @@ const toggleMulti = (optionId, valueId, checked) => {
 const setSingle = (optionId, valueId) => {
     const rest = selections.value.filter((s) => Number(s.option_id) !== Number(optionId));
     selections.value = [...rest, { option_id: optionId, option_value_id: valueId }];
+};
+
+const clearSingle = (optionId) => {
+    selections.value = selections.value.filter((s) => Number(s.option_id) !== Number(optionId));
+};
+
+const hasAnySelection = (optionId) =>
+    selections.value.some((s) => Number(s.option_id) === Number(optionId));
+
+const isToggleOn = (opt) => {
+    const valueId = opt.values?.[0]?.id;
+
+    return valueId != null && isSelected(opt.option_id, valueId);
+};
+
+const toggleToggleOption = (opt, checked) => {
+    const valueId = opt.values?.[0]?.id;
+    if (valueId == null) {
+        return;
+    }
+
+    if (checked) {
+        setSingle(opt.option_id, valueId);
+    } else {
+        clearSingle(opt.option_id);
+    }
 };
 
 const saveSelections = () => {
@@ -248,28 +275,28 @@ const headerLogo = computed(() => dh.value.logo_url || props.logoUrl || null);
                                     <span class="text-gray-500 tabular-nums">{{ formatMoney(v.price) }}</span>
                                 </label>
                             </div>
-                            <div v-else class="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-                                <label
-                                    v-for="v in opt.values"
-                                    :key="v.id"
-                                    class="inline-flex items-center gap-2 text-sm text-gray-800"
-                                >
+                            <div v-else-if="opt.input_type === 'toggle'" class="mt-3">
+                                <label class="inline-flex items-center gap-2 text-sm text-gray-800">
                                     <input
-                                        type="radio"
-                                        class="print:hidden"
-                                        :name="`portal-ao-${opt.option_id}`"
-                                        :checked="isSelected(opt.option_id, v.id)"
-                                        @change="setSingle(opt.option_id, v.id)"
+                                        type="checkbox"
+                                        class="print:hidden rounded border-gray-300"
+                                        :checked="isToggleOn(opt)"
+                                        @change="toggleToggleOption(opt, $event.target.checked)"
                                     />
-                                    <span
-                                        v-if="v.color_hex"
-                                        class="inline-block h-4 w-4 rounded border border-gray-300"
-                                        :style="{ backgroundColor: v.color_hex }"
-                                    />
-                                    <span>{{ v.label }}</span>
-                                    <span class="text-gray-500 tabular-nums">{{ formatMoney(v.price) }}</span>
+                                    <span>Yes</span>
+                                    <span class="text-gray-500 tabular-nums">{{ formatMoney(opt.values?.[0]?.price) }}</span>
                                 </label>
                             </div>
+                            <AssetOptionRadioChoices
+                                v-else
+                                :opt="opt"
+                                :input-name="`portal-ao-${opt.option_id}`"
+                                :format-price="formatMoney"
+                                :is-selected="(valueId) => isSelected(opt.option_id, valueId)"
+                                :has-any-selection="() => hasAnySelection(opt.option_id)"
+                                @select="(valueId) => setSingle(opt.option_id, valueId)"
+                                @clear="clearSingle(opt.option_id)"
+                            />
                         </div>
                     </div>
                 </div>

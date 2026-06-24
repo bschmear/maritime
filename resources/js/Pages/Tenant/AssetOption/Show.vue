@@ -66,6 +66,16 @@ const optionInputType = computed(() => props.record?.input_type ?? '');
 
 const isToggleInput = computed(() => optionInputType.value === 'toggle');
 
+const toggleValue = computed(() => {
+    if (!isToggleInput.value) {
+        return null;
+    }
+
+    const vs = values.value;
+
+    return vs.find((v) => v.value === 'on') ?? vs[0] ?? null;
+});
+
 /** Preset choices / colors only — not used for toggle. */
 const showsOptionValuesSection = computed(() =>
     ['select', 'multi_select', 'color'].includes(optionInputType.value),
@@ -377,6 +387,36 @@ const confirmDelete = async () => {
                                     {{ formatDate(record.updated_at) }}
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                v-if="isToggleInput"
+                class="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Pricing</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Applied when the customer includes this option.
+                    </p>
+                </div>
+                <div class="grid gap-6 p-6 sm:grid-cols-2">
+                    <div>
+                        <div class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Cost
+                        </div>
+                        <div class="text-md text-gray-900 dark:text-white">
+                            {{ toggleValue?.cost ?? '—' }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="mb-1 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Price
+                        </div>
+                        <div class="text-md text-gray-900 dark:text-white">
+                            {{ toggleValue?.price ?? '—' }}
                         </div>
                     </div>
                 </div>

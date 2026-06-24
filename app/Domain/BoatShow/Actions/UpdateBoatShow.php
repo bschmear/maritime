@@ -2,6 +2,7 @@
 
 namespace App\Domain\BoatShow\Actions;
 
+use App\Domain\BoatShow\Support\WordPressBoatShowSync;
 use App\Domain\BoatShow\Models\BoatShow as RecordModel;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Log;
@@ -24,6 +25,8 @@ class UpdateBoatShow
         try {
             $record = RecordModel::query()->findOrFail($id);
             $record->update($validated);
+
+            WordPressBoatShowSync::pushShow($record->fresh());
 
             return [
                 'success' => true,

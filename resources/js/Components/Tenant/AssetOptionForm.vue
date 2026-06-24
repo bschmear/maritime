@@ -67,14 +67,42 @@ function removeRow(index) {
     props.form.values = next;
 }
 
+function ensureToggleValueRow() {
+    if (props.form.input_type !== 'toggle') {
+        return;
+    }
+
+    if (!props.form.values?.length) {
+        props.form.values = [{
+            id: null,
+            label: 'On',
+            value: 'on',
+            color_hex: null,
+            cost: '',
+            price: '',
+            sort_order: 0,
+        }];
+
+        return;
+    }
+
+    const row = props.form.values[0];
+    props.form.values = [{
+        ...row,
+        label: 'On',
+        value: 'on',
+    }];
+}
+
 watch(
     () => props.form.input_type,
     (t) => {
         if (t === 'toggle') {
-            props.form.values = [];
             props.form.allow_multiple = false;
+            ensureToggleValueRow();
         }
     },
+    { immediate: true },
 );
 </script>
 
@@ -357,9 +385,35 @@ watch(
             v-else-if="form.input_type === 'toggle'"
             class="rounded-lg border border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-900/40"
         >
-            <p class="text-sm text-gray-600 dark:text-gray-300">
-                Toggle options use on/off only — no preset choices are stored.
+            <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
+                Customers see a yes/no choice. Set the internal cost and customer add-on price when the option is included.
             </p>
+            <div v-if="form.values?.[0]" class="grid gap-3 sm:grid-cols-2">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Cost <span class="font-normal text-gray-400">(internal)</span>
+                    </label>
+                    <input
+                        v-model="form.values[0].cost"
+                        type="text"
+                        inputmode="decimal"
+                        class="input-style w-full"
+                        placeholder="0.00"
+                    />
+                </div>
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Price <span class="font-normal text-gray-400">(add-on for customer)</span>
+                    </label>
+                    <input
+                        v-model="form.values[0].price"
+                        type="text"
+                        inputmode="decimal"
+                        class="input-style w-full"
+                        placeholder="0.00"
+                    />
+                </div>
+            </div>
         </div>
     </div>
 </template>

@@ -1,6 +1,7 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
 import {
     addonLinePreTax,
     addonLineTax,
@@ -24,6 +25,8 @@ import {
     partitionLineItemsByCatalogType,
     selectedOptionLabel,
 } from '@/Utils/lineItemsFromEstimate';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
 const props = defineProps({
     /** Resolved deal or estimate line rows (same shape as Estimate primary lines). */
@@ -353,7 +356,7 @@ const inventoryDealRollup = computed(() => {
                         </div>
                     </div>
                     <div
-                        v-if="item.addons && item.addons.length > 0"
+                        v-if="lineItemAddonsUiEnabled && item.addons && item.addons.length > 0"
                         class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                     >
                         <div
@@ -515,6 +518,7 @@ const inventoryDealRollup = computed(() => {
                                     }}
                                 </td>
                             </tr>
+                            <template v-if="lineItemAddonsUiEnabled">
                             <tr
                                 v-for="(addon, addonIdx) in (item.addons || [])"
                                 :key="`asset-addon-${lineItemRowKey(item) ?? index}-${addonIdx}`"
@@ -551,6 +555,7 @@ const inventoryDealRollup = computed(() => {
                                     }}
                                 </td>
                             </tr>
+                            </template>
                         </template>
                     </tbody>
                     <tfoot :class="cx('bg-gray-50 border-t-2 border-gray-200', 'dark:bg-gray-700/50 dark:border-gray-600')">
@@ -644,7 +649,7 @@ const inventoryDealRollup = computed(() => {
                         </template>
                     </div>
                     <div
-                        v-if="item.addons && item.addons.length > 0"
+                        v-if="lineItemAddonsUiEnabled && item.addons && item.addons.length > 0"
                         class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                     >
                         <div
@@ -723,6 +728,7 @@ const inventoryDealRollup = computed(() => {
                                     {{ formatMoney(inventoryMainRowTotal(item)) }}
                                 </td>
                             </tr>
+                            <template v-if="lineItemAddonsUiEnabled">
                             <tr
                                 v-for="(addon, addonIdx) in (item.addons || [])"
                                 :key="`inv-addon-${lineItemRowKey(item) ?? index}-${addonIdx}`"
@@ -759,6 +765,7 @@ const inventoryDealRollup = computed(() => {
                                     }}
                                 </td>
                             </tr>
+                            </template>
                         </template>
                     </tbody>
                     <tfoot :class="cx('bg-gray-50 border-t-2 border-gray-200', 'dark:bg-gray-700/50 dark:border-gray-600')">

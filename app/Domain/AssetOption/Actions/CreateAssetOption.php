@@ -20,6 +20,7 @@ class CreateAssetOption
         $validated = Validator::make($data, [
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255', Rule::unique('asset_options', 'slug')],
+            'category_id' => ['nullable', 'integer', 'exists:asset_option_categories,id'],
             'input_type' => ['required', 'string', Rule::in(['select', 'color', 'multi_select', 'toggle'])],
             'is_required' => ['sometimes', 'boolean'],
             'allow_multiple' => ['sometimes', 'boolean'],
@@ -64,6 +65,10 @@ class CreateAssetOption
                         'is_default' => $index === 0,
                         'active' => true,
                     ]);
+                }
+
+                if (($created->input_type ?? '') === 'toggle' && $values === []) {
+                    $created->ensureToggleOnValue();
                 }
 
                 return $created;

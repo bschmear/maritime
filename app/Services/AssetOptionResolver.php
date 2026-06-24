@@ -54,18 +54,31 @@ class AssetOptionResolver
         $out = collect();
 
         foreach ($optionIds as $optionId) {
-            $assignment = $this->pickAssignment((int) $optionId, $variant, $assetAssignments, $makeAssignments);
-            if ($assignment === null) {
-                continue;
-            }
-
             $option = $options->get((int) $optionId);
             if ($option === null) {
                 continue;
             }
 
+            $assignment = $this->pickAssignment((int) $optionId, $variant, $assetAssignments, $makeAssignments);
+            if ($assignment === null) {
+                continue;
+            }
+
             $costOverride = $assignment['cost_override'] ?? null;
             $priceOverride = $assignment['price_override'] ?? null;
+
+            $values = $option->input_type === 'toggle'
+                ? $this->mapToggleValues($option, $costOverride, $priceOverride)
+                : $option->values->map(function ($value) use ($costOverride, $priceOverride) {
+                    return [
+                        'id' => $value->id,
+                        'label' => $value->label,
+                        'value' => $value->value,
+                        'color_hex' => $value->color_hex,
+                        'cost' => $costOverride !== null ? $costOverride : $value->cost,
+                        'price' => $priceOverride !== null ? $priceOverride : $value->price,
+                    ];
+                })->values()->all();
 
             $out->push([
                 'option_id' => $option->id,
@@ -75,20 +88,28 @@ class AssetOptionResolver
                 'allow_multiple' => $option->allow_multiple,
                 'min_select' => $option->min_select,
                 'max_select' => $option->max_select,
-                'values' => $option->values->map(function ($value) use ($costOverride, $priceOverride) {
-                    return [
-                        'id' => $value->id,
-                        'label' => $value->label,
-                        'value' => $value->value,
-                        'color_hex' => $value->color_hex,
-                        'cost' => $costOverride !== null ? $costOverride : $value->cost,
-                        'price' => $priceOverride !== null ? $priceOverride : $value->price,
-                    ];
-                })->values()->all(),
+                'values' => $values,
             ]);
         }
 
         return $out->values();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mapToggleValues(AssetOption $option, ?string $costOverride, ?string $priceOverride): array
+    {
+        $onValue = $option->ensureToggleOnValue();
+
+        return [[
+            'id' => $onValue->id,
+            'label' => $onValue->label,
+            'value' => $onValue->value ?? 'on',
+            'color_hex' => null,
+            'cost' => $costOverride !== null ? $costOverride : $onValue->cost,
+            'price' => $priceOverride !== null ? $priceOverride : $onValue->price,
+        ]];
     }
 
     /**

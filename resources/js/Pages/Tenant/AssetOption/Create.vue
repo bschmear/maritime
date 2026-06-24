@@ -68,7 +68,20 @@ function buildValuesPayload(inputType, rows, mode) {
     const raw = Array.isArray(rows) ? rows : [];
 
     if (inputType === 'toggle') {
-        return [];
+        const row = raw[0] || {};
+        const base = {
+            label: 'On',
+            value: 'on',
+            color_hex: null,
+            sort_order: 0,
+            cost: numOrNull(row.cost),
+            price: numOrNull(row.price),
+        };
+        if (mode === 'edit' && row.id) {
+            return [{ id: row.id, ...base }];
+        }
+
+        return [base];
     }
 
     if (inputType === 'color') {

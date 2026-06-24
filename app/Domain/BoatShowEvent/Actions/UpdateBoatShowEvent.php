@@ -2,6 +2,7 @@
 
 namespace App\Domain\BoatShowEvent\Actions;
 
+use App\Domain\BoatShow\Support\WordPressBoatShowSync;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use App\Domain\BoatShowEvent\Support\BoatShowEventDisplayName;
 use App\Domain\BoatShowEvent\Support\BoatShowEventYear;
@@ -54,6 +55,8 @@ class UpdateBoatShowEvent
             $validated['display_name'] = BoatShowEventDisplayName::resolve($validated, $record);
             unset($validated['use_custom_display_name']);
             $record->update($validated);
+
+            WordPressBoatShowSync::pushEvent($record->fresh());
 
             return [
                 'success' => true,

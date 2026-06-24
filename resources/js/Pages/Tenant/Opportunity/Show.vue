@@ -5,6 +5,10 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { buildResourceRouteParams } from '@/Utils/resourceRoutes.js';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, nextTick, ref, watch } from 'vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED, lineItemTableColspan } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
+const featureRequestTableColspan = lineItemTableColspan(6);
 
 const FEATURE_REQUEST_ADDON_PAGE_SIZE = 15;
 
@@ -896,7 +900,7 @@ const formatDateTime = (value) => {
 
                                         <!-- Addons -->
                                         <div
-                                            v-if="item.opportunity_addons && item.opportunity_addons.length > 0"
+                                            v-if="lineItemAddonsUiEnabled && item.opportunity_addons && item.opportunity_addons.length > 0"
                                             class="pl-4 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                                         >
                                             <div
@@ -1015,6 +1019,7 @@ const formatDateTime = (value) => {
                                             <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ formatCurrency(opt.price) }}</td>
                                             <td class="px-4 py-2"></td>
                                         </tr>
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr
                                             v-for="(addon, aix) in (item.opportunity_addons || [])"
                                             :key="`addon-${item.id}-${aix}`"
@@ -1032,6 +1037,7 @@ const formatDateTime = (value) => {
                                             </td>
                                             <td class="px-4 py-2"></td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1091,7 +1097,7 @@ const formatDateTime = (value) => {
                                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Variant</div>
                                         <div class="text-base text-gray-900 dark:text-white mt-0.5">{{ fr.variant_label || '—' }}</div>
                                     </div>
-                                    <div>
+                                    <div v-if="lineItemAddonsUiEnabled">
                                         <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</div>
                                         <div class="mt-0.5">
                                             <span
@@ -1138,7 +1144,7 @@ const formatDateTime = (value) => {
                                     </ul>
                                 </div>
                                 <div
-                                    v-if="featureRequestAddonReviewRows(fr).length > 0"
+                                    v-if="lineItemAddonsUiEnabled && featureRequestAddonReviewRows(fr).length > 0"
                                     class="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/90 dark:bg-amber-900/20 px-3 py-3"
                                 >
                                     <div class="text-sm font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide mb-2">
@@ -1197,7 +1203,7 @@ const formatDateTime = (value) => {
                                         <th class="px-4 py-3 text-left text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Submitted</th>
                                         <th class="px-4 py-3 text-left text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
                                         <th class="px-4 py-3 text-left text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Variant</th>
-                                        <th class="px-4 py-3 text-center text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-center text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 text-right text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset options</th>
                                         <th class="px-4 py-3 text-left text-base font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Signer</th>
                                     </tr>
@@ -1208,7 +1214,7 @@ const formatDateTime = (value) => {
                                             <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ formatDateTime(fr.submitted_at) }}</td>
                                             <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ fr.asset_display_name || '—' }}</td>
                                             <td class="px-4 py-3 text-gray-600 dark:text-gray-400">{{ fr.variant_label || '—' }}</td>
-                                            <td class="px-4 py-3 text-center">
+                                            <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-center">
                                                 <span
                                                     :class="fr.include_addons ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-600/40'"
                                                     class="inline-flex px-2 py-0.5 rounded-full text-sm font-medium"
@@ -1225,7 +1231,7 @@ const formatDateTime = (value) => {
                                             v-if="featureRequestAssetOptionDisplayRows(fr).length > 0"
                                             class="bg-slate-50/90 dark:bg-slate-900/25 border-t border-slate-100 dark:border-slate-800/80"
                                         >
-                                            <td colspan="6" class="px-4 py-3">
+                                            <td :colspan="featureRequestTableColspan" class="px-4 py-3">
                                                 <div class="text-sm font-semibold text-slate-800 dark:text-slate-200 uppercase tracking-wide mb-2">
                                                     Requested asset options
                                                 </div>
@@ -1249,10 +1255,10 @@ const formatDateTime = (value) => {
                                             </td>
                                         </tr>
                                         <tr
-                                            v-if="featureRequestAddonReviewRows(fr).length > 0"
+                                            v-if="lineItemAddonsUiEnabled && featureRequestAddonReviewRows(fr).length > 0"
                                             class="bg-amber-50/90 dark:bg-amber-900/20 border-t border-amber-100 dark:border-amber-900/40"
                                         >
-                                            <td colspan="6" class="px-4 py-3">
+                                            <td :colspan="featureRequestTableColspan" class="px-4 py-3">
                                                 <div class="text-sm font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wide mb-2">
                                                     Requested by customer — add-ons
                                                 </div>
@@ -1748,6 +1754,7 @@ const formatDateTime = (value) => {
                     />
                 </div>
 
+                <template v-if="lineItemAddonsUiEnabled">
                 <label class="flex items-start gap-3 cursor-pointer select-none">
                     <input
                         type="checkbox"
@@ -1850,6 +1857,7 @@ const formatDateTime = (value) => {
                         </div>
                     </template>
                 </div>
+                </template>
 
                 <div class="flex flex-col-reverse sm:flex-row sm:flex-wrap gap-2 sm:justify-end pt-2">
                     <button

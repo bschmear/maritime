@@ -16,6 +16,7 @@ use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Services\AssetOptionResolver;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Schema;
@@ -25,6 +26,13 @@ use Inertia\Response as InertiaResponse;
 class AssetOptionController extends RecordController
 {
     protected $table = null;
+
+    protected function inertiaUpdateSuccessRedirect(Request $request, int|string $id): RedirectResponse
+    {
+        return redirect()
+            ->route('asset-options.show', ['assetOption' => $id])
+            ->with('success', $this->domainName.' updated successfully');
+    }
 
     protected function appendShowRelationships(array &$relationships): void
     {

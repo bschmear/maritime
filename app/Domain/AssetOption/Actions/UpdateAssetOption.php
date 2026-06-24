@@ -20,6 +20,7 @@ class UpdateAssetOption
         $validated = Validator::make($data, [
             'name' => ['sometimes', 'string', 'max:255'],
             'slug' => ['sometimes', 'nullable', 'string', 'max:255', Rule::unique('asset_options', 'slug')->ignore($id)],
+            'category_id' => ['nullable', 'integer', 'exists:asset_option_categories,id'],
             'input_type' => ['sometimes', 'string', Rule::in(['select', 'color', 'multi_select', 'toggle'])],
             'is_required' => ['sometimes', 'boolean'],
             'allow_multiple' => ['sometimes', 'boolean'],
@@ -75,6 +76,10 @@ class UpdateAssetOption
                         }
                     }
                     $record->allValues()->whereNotIn('id', $keepIds)->delete();
+                }
+
+                if (($record->input_type ?? '') === 'toggle') {
+                    $record->ensureToggleOnValue();
                 }
 
                 return $record->fresh();

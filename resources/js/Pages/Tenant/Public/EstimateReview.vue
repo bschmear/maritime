@@ -4,6 +4,9 @@ import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeade
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { useForm, Head } from '@inertiajs/vue3';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
 const props = defineProps({
     record: { type: Object, required: true },
@@ -366,6 +369,7 @@ onMounted(() => {
                                             <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(selectedOptionUnitPrice(opt))" />
                                         </PublicDocumentLineItemCard>
                                         <PublicDocumentLineItemCard
+                                            v-if="lineItemAddonsUiEnabled"
                                             v-for="addon in item.addons || []"
                                             :key="`m-addon-${addon.id}`"
                                             muted
@@ -420,6 +424,7 @@ onMounted(() => {
                                             {{ formatCurrency(selectedOptionUnitPrice(opt)) }}
                                         </td>
                                     </tr>
+                                    <template v-if="lineItemAddonsUiEnabled">
                                     <tr
                                         v-for="addon in item.addons || []"
                                         :key="'addon-' + addon.id"
@@ -432,6 +437,7 @@ onMounted(() => {
                                         <td class="py-2 text-right text-sm text-gray-600">{{ formatCurrency(addon.price) }}</td>
                                         <td class="py-2 text-right text-sm font-medium text-gray-700">{{ formatCurrency(addonTotal(addon)) }}</td>
                                     </tr>
+                                    </template>
                                 </template>
                             </tbody>
                         </table>

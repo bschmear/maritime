@@ -10,6 +10,22 @@ import { useTaxRateByAddress } from '@/composables/useTaxRateByAddress';
 import { computed, ref, watch, onMounted } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
 import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
+import {
+    clearAssetOptionSingle,
+    hasAssetOptionAnySelection,
+    isAssetOptionSelected,
+    isAssetOptionToggleOn,
+    setAssetOptionSingle,
+    toggleAssetOptionMulti,
+    toggleAssetOptionToggle,
+} from '@/Utils/assetOptionSelections';
+import AssetOptionRadioChoices from '@/Components/Tenant/AssetOptionRadioChoices.vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED, lineItemTableColspan } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
+const assetLineBoatOptionsColspan = lineItemTableColspan(11);
+const assetSubtotalTrailingColspan = LINE_ITEM_ADDONS_UI_ENABLED ? 2 : 1;
+const inventorySubtotalTrailingColspan = LINE_ITEM_ADDONS_UI_ENABLED ? 2 : 1;
 
 const debounce = (fn, delay) => {
     let timer;
@@ -643,29 +659,6 @@ const setAssetOptionsFillMode = (item, mode) => {
     item.asset_options_fill_mode = mode;
 };
 
-const isAssetOptionSelected = (item, optionId, valueId) =>
-    (item.asset_option_selections || []).some(
-        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
-    );
-
-const toggleAssetOptionMulti = (item, optionId, valueId, checked) => {
-    if (!item.asset_option_selections) item.asset_option_selections = [];
-    const rest = item.asset_option_selections.filter(
-        (s) => !(Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId)),
-    );
-    if (checked) {
-        item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
-    } else {
-        item.asset_option_selections = rest;
-    }
-};
-
-const setAssetOptionSingle = (item, optionId, valueId) => {
-    if (!item.asset_option_selections) item.asset_option_selections = [];
-    const rest = item.asset_option_selections.filter((s) => Number(s.option_id) !== Number(optionId));
-    item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
-};
-
 // ==============================
 // Load initial data
 // ==============================
@@ -1243,7 +1236,7 @@ const handleCancel = () => emit('cancelled');
                                     <span class="text-gray-500 dark:text-gray-400">Assets</span>
                                     <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(assetBaseSubtotal) }}</span>
                                 </div>
-                                <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-base pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                <div v-if="lineItemAddonsUiEnabled && assetAddonSubtotal > 0" class="flex justify-between items-center text-base pl-3 border-l-2 border-primary-200 dark:border-primary-800">
                                     <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
                                     <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
                                 </div>
@@ -1254,7 +1247,7 @@ const handleCancel = () => emit('cancelled');
                                     <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
                                     <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
                                 </div>
-                                <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-base pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                <div v-if="lineItemAddonsUiEnabled && inventoryAddonSubtotal > 0" class="flex justify-between items-center text-base pl-3 border-l-2 border-primary-200 dark:border-primary-800">
                                     <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
                                     <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
                                 </div>
@@ -1312,7 +1305,7 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
                                 </thead>
@@ -1343,7 +1336,7 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLinePreTaxBeforeAddons(item, index)) }}</td>
                                             <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetLinePreTaxBeforeAddons(item, index))) }}</td>
-                                            <td class="px-4 py-3">
+                                            <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
                                                     type="button"
@@ -1376,7 +1369,7 @@ const handleCancel = () => emit('cancelled');
                                             v-if="mode !== 'view' && (assetOptionChoices[index] || []).length > 0"
                                             class="bg-slate-50/90 dark:bg-slate-900/30"
                                         >
-                                            <td colspan="11" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
+                                            <td :colspan="assetLineBoatOptionsColspan" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
                                                 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                                                     <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                                         Boat options
@@ -1434,27 +1427,32 @@ const handleCancel = () => emit('cancelled');
                                                                 <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
                                                             </label>
                                                         </div>
-                                                        <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                                                            <label
-                                                                v-for="v in opt.values"
-                                                                :key="v.id"
-                                                                class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                                            >
+                                                        <div v-else-if="opt.input_type === 'toggle'" class="mt-2">
+                                                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                                 <input
-                                                                    type="radio"
-                                                                    :name="`est-ao-${index}-${opt.option_id}`"
-                                                                    :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
-                                                                    @change="setAssetOptionSingle(item, opt.option_id, v.id)"
+                                                                    type="checkbox"
+                                                                    :checked="isAssetOptionToggleOn(item, opt)"
+                                                                    @change="toggleAssetOptionToggle(item, opt, $event.target.checked)"
                                                                 />
+                                                                <span>Yes</span>
                                                                 <span
-                                                                    v-if="v.color_hex"
-                                                                    class="inline-block h-4 w-4 rounded border border-gray-300"
-                                                                    :style="{ backgroundColor: v.color_hex }"
-                                                                />
-                                                                <span>{{ v.label }}</span>
-                                                                <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                                    v-if="opt.values?.[0]?.price"
+                                                                    class="text-gray-500 tabular-nums"
+                                                                >
+                                                                    {{ formatCurrency(opt.values[0].price) }}
+                                                                </span>
                                                             </label>
                                                         </div>
+                                                        <AssetOptionRadioChoices
+                                                            v-else
+                                                            :opt="opt"
+                                                            :input-name="`est-ao-${index}-${opt.option_id}`"
+                                                            :format-price="formatCurrency"
+                                                            :is-selected="(valueId) => isAssetOptionSelected(item, opt.option_id, valueId)"
+                                                            :has-any-selection="() => hasAssetOptionAnySelection(item, opt.option_id)"
+                                                            @select="(valueId) => setAssetOptionSingle(item, opt.option_id, valueId)"
+                                                            @clear="clearAssetOptionSingle(item, opt.option_id)"
+                                                        />
                                                     </div>
                                                 </template>
                                                 <div
@@ -1470,6 +1468,7 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                         </tr>
                                         <!-- Add-ons sub-rows -->
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr v-for="(addon, addonIdx) in (item.addons || [])" :key="`asset-addon-${index}-${addonIdx}`" class="bg-primary-50/40 dark:bg-primary-900/10">
                                             <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="4">
                                                 ↳ {{ addon.name }}
@@ -1488,6 +1487,7 @@ const handleCancel = () => emit('cancelled');
                                                 </button>
                                             </td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1495,7 +1495,7 @@ const handleCancel = () => emit('cancelled');
                                         <td colspan="7" class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
                                         <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
                                         <td class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSectionTax) }}</td>
-                                        <td colspan="2"></td>
+                                        <td :colspan="assetSubtotalTrailingColspan"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -1540,7 +1540,7 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Pre-tax</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Tax</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
                                 </thead>
@@ -1556,7 +1556,7 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
                                             <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(lineBaseTotal(item))) }}</td>
-                                            <td class="px-4 py-3">
+                                            <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
                                                     type="button"
@@ -1586,6 +1586,7 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                         </tr>
                                         <!-- Add-ons sub-rows -->
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr v-for="(addon, addonIdx) in (item.addons || [])" :key="`inv-addon-${index}-${addonIdx}`" class="bg-primary-50/40 dark:bg-primary-900/10">
                                             <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="2">
                                                 ↳ {{ addon.name }}
@@ -1604,6 +1605,7 @@ const handleCancel = () => emit('cancelled');
                                                 </button>
                                             </td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1611,7 +1613,7 @@ const handleCancel = () => emit('cancelled');
                                         <td colspan="5" class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</td>
                                         <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 dark:text-white">{{ formatCurrency(inventorySubtotal) }}</td>
                                         <td class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(inventorySectionTax) }}</td>
-                                        <td colspan="2"></td>
+                                        <td :colspan="inventorySubtotalTrailingColspan"></td>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -1819,7 +1821,9 @@ const handleCancel = () => emit('cancelled');
             </div>
         </Teleport>
 
+        <!-- LINE_ITEM_ADDONS_UI: disabled via config/lineItemFeatures.js -->
         <AddonSelect
+            v-if="lineItemAddonsUiEnabled"
             v-model:open="showAddonModal"
             accent="primary"
             :context-subtitle="addonModalSubtitle"

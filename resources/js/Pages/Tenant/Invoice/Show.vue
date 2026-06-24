@@ -8,6 +8,9 @@ import { formatPhoneNumber } from '@/Utils/formatPhoneNumber';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
 const page = usePage();
 const inertiaApp = getCurrentInstance();
@@ -995,10 +998,11 @@ onMounted(() => {
                                         </div>
                                     </div>
                                     <div
-                                        v-if="group.flatAddons.length > 0"
+                                        v-if="lineItemAddonsUiEnabled && group.flatAddons.length > 0"
                                         class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                                     >
                                         <div
+                                            v-if="lineItemAddonsUiEnabled"
                                             v-for="(add, addIdx) in group.flatAddons"
                                             :key="`m-ad-${add.id}-${addIdx}`"
                                             class="flex flex-wrap items-center justify-between gap-2 text-sm"
@@ -1080,6 +1084,7 @@ onMounted(() => {
                                             <td class="px-5 py-2.5 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
                                         </tr>
                                         <tr
+                                            v-if="lineItemAddonsUiEnabled"
                                             v-for="(add, addIdx) in group.flatAddons"
                                             :key="`d-ad-${add.id}-${addIdx}`"
                                             class="bg-blue-50/30 dark:bg-blue-900/10"

@@ -8,6 +8,20 @@ import axios from 'axios';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import {
+    clearAssetOptionSingle,
+    hasAssetOptionAnySelection,
+    isAssetOptionSelected,
+    isAssetOptionToggleOn,
+    setAssetOptionSingle,
+    toggleAssetOptionMulti,
+    toggleAssetOptionToggle,
+} from '@/Utils/assetOptionSelections';
+import AssetOptionRadioChoices from '@/Components/Tenant/AssetOptionRadioChoices.vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED, lineItemTableColspan } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
+const assetLineBoatOptionsColspan = lineItemTableColspan(9);
 
 const mapOppAddonsFromApi = (rows) =>
     (rows || []).map((a) => ({
@@ -352,28 +366,26 @@ const debouncedRefreshAssetOptions = debounce(() => {
 
 watch(assetItems, () => debouncedRefreshAssetOptions(), { deep: true });
 
-const isAssetOptionSelected = (item, optionId, valueId) =>
-    (item.asset_option_selections || []).some(
-        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
-    );
+const isAssetOptionSelectedForItem = (item, optionId, valueId) =>
+    isAssetOptionSelected(item, optionId, valueId);
 
-const toggleAssetOptionMulti = (item, optionId, valueId, checked) => {
-    if (!item.asset_option_selections) item.asset_option_selections = [];
-    const rest = item.asset_option_selections.filter(
-        (s) => !(Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId)),
-    );
-    if (checked) {
-        item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
-    } else {
-        item.asset_option_selections = rest;
-    }
+const toggleAssetOptionMultiForItem = (item, optionId, valueId, checked) => {
+    toggleAssetOptionMulti(item, optionId, valueId, checked);
     item.option_premium_snapshot = 0;
 };
 
-const setAssetOptionSingle = (item, optionId, valueId) => {
-    if (!item.asset_option_selections) item.asset_option_selections = [];
-    const rest = item.asset_option_selections.filter((s) => Number(s.option_id) !== Number(optionId));
-    item.asset_option_selections = [...rest, { option_id: optionId, option_value_id: valueId }];
+const setAssetOptionSingleForItem = (item, optionId, valueId) => {
+    setAssetOptionSingle(item, optionId, valueId);
+    item.option_premium_snapshot = 0;
+};
+
+const clearAssetOptionSingleForItem = (item, optionId) => {
+    clearAssetOptionSingle(item, optionId);
+    item.option_premium_snapshot = 0;
+};
+
+const toggleAssetOptionToggleForItem = (item, opt, checked) => {
+    toggleAssetOptionToggle(item, opt, checked);
     item.option_premium_snapshot = 0;
 };
 
@@ -1121,7 +1133,7 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Line Total</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
@@ -1143,7 +1155,7 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineTotal(item, index)) }}</td>
-                                            <td class="px-4 py-3">
+                                            <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                                 <button
                                                     type="button"
                                                     @click="openAddonModalForAsset(item)"
@@ -1175,7 +1187,7 @@ const handleCancel = () => emit('cancelled');
                                             v-if="(assetOptionChoices[index] || []).length > 0"
                                             class="bg-slate-50/90 dark:bg-slate-900/30"
                                         >
-                                            <td colspan="9" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
+                                            <td :colspan="assetLineBoatOptionsColspan" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
                                                 <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Boat options</div>
                                                 <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
                                                     <div class="text-sm font-medium text-gray-900 dark:text-white">
@@ -1190,37 +1202,43 @@ const handleCancel = () => emit('cancelled');
                                                         >
                                                             <input
                                                                 type="checkbox"
-                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
-                                                                @change="toggleAssetOptionMulti(item, opt.option_id, v.id, $event.target.checked)"
+                                                                :checked="isAssetOptionSelectedForItem(item, opt.option_id, v.id)"
+                                                                @change="toggleAssetOptionMultiForItem(item, opt.option_id, v.id, $event.target.checked)"
                                                             />
                                                             <span>{{ v.label }}</span>
                                                             <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
                                                         </label>
                                                     </div>
-                                                    <div v-else class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                                                        <label
-                                                            v-for="v in opt.values"
-                                                            :key="v.id"
-                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                                        >
+                                                    <div v-else-if="opt.input_type === 'toggle'" class="mt-2">
+                                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                                                             <input
-                                                                type="radio"
-                                                                :name="`opp-ao-${index}-${opt.option_id}`"
-                                                                :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
-                                                                @change="setAssetOptionSingle(item, opt.option_id, v.id)"
+                                                                type="checkbox"
+                                                                :checked="isAssetOptionToggleOn(item, opt)"
+                                                                @change="toggleAssetOptionToggleForItem(item, opt, $event.target.checked)"
                                                             />
+                                                            <span>Yes</span>
                                                             <span
-                                                                v-if="v.color_hex"
-                                                                class="inline-block h-4 w-4 rounded border border-gray-300"
-                                                                :style="{ backgroundColor: v.color_hex }"
-                                                            />
-                                                            <span>{{ v.label }}</span>
-                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                                                v-if="opt.values?.[0]?.price"
+                                                                class="text-gray-500 tabular-nums"
+                                                            >
+                                                                {{ formatCurrency(opt.values[0].price) }}
+                                                            </span>
                                                         </label>
                                                     </div>
+                                                    <AssetOptionRadioChoices
+                                                        v-else
+                                                        :opt="opt"
+                                                        :input-name="`opp-ao-${index}-${opt.option_id}`"
+                                                        :format-price="formatCurrency"
+                                                        :is-selected="(valueId) => isAssetOptionSelectedForItem(item, opt.option_id, valueId)"
+                                                        :has-any-selection="() => hasAssetOptionAnySelection(item, opt.option_id)"
+                                                        @select="(valueId) => setAssetOptionSingleForItem(item, opt.option_id, valueId)"
+                                                        @clear="clearAssetOptionSingleForItem(item, opt.option_id)"
+                                                    />
                                                 </div>
                                             </td>
                                         </tr>
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr
                                             v-for="(addon, addonIdx) in (item.addons || [])"
                                             :key="`opp-asset-addon-${index}-${addonIdx}`"
@@ -1243,6 +1261,7 @@ const handleCancel = () => emit('cancelled');
                                                 </button>
                                             </td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1292,7 +1311,7 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
                                         <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
-                                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
+                                        <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Add-ons</th>
                                         <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</th>
                                         <th class="px-4 py-3 w-20"></th>
                                     </tr>
@@ -1305,7 +1324,7 @@ const handleCancel = () => emit('cancelled');
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineTotal(item)) }}</td>
-                                            <td class="px-4 py-3">
+                                            <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                                 <button
                                                     type="button"
                                                     @click="openAddonModalForInventory(item)"
@@ -1333,6 +1352,7 @@ const handleCancel = () => emit('cancelled');
                                                 </div>
                                             </td>
                                         </tr>
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr
                                             v-for="(addon, addonIdx) in (item.addons || [])"
                                             :key="`opp-inv-addon-${index}-${addonIdx}`"
@@ -1355,6 +1375,7 @@ const handleCancel = () => emit('cancelled');
                                                 </button>
                                             </td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1408,7 +1429,9 @@ const handleCancel = () => emit('cancelled');
             </Teleport>
         </form>
 
+        <!-- LINE_ITEM_ADDONS_UI: disabled via config/lineItemFeatures.js -->
         <AddonSelect
+            v-if="lineItemAddonsUiEnabled"
             v-model:open="showAddonModal"
             accent="primary"
             :context-subtitle="addonModalSubtitle"

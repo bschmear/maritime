@@ -1,6 +1,7 @@
 <?php
 namespace App\Domain\BoatShowEvent\Actions;
 
+use App\Domain\BoatShow\Support\WordPressBoatShowSync;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
@@ -12,6 +13,7 @@ class DeleteBoatShowEvent
     {
         try {
             $record = RecordModel::findOrFail($id);
+            WordPressBoatShowSync::deleteEvent($record);
             $record->delete();
 
             return [

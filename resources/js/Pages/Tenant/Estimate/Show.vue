@@ -4,6 +4,9 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, getCurrentInstance } from 'vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
 const inertiaApp = getCurrentInstance();
 
@@ -97,16 +100,74 @@ const confirmSendApproval = () => {
     });
 };
 
-const sendBoatOptionsForm = useForm({});
-const sendBoatOptionsInvite = () => {
+const sendBoatOptionsForm = useForm({
+    line_positions: [],
+    message: '',
+});
+
+const showBoatOptionsModal = ref(false);
+const boatOptionsSelectedPositions = ref([]);
+
+const pendingBoatOptionLines = computed(() =>
+    lineItems.value
+        .filter(
+            (li) =>
+                li.itemable_type === 'App\\Domain\\Asset\\Models\\Asset' &&
+                li.asset_options_fill_mode === 'customer' &&
+                !li.customer_asset_options_completed_at,
+        )
+        .map((li) => {
+            const lineNum = Number(li.position ?? 0) + 1;
+            const variant = assetLineVariantDisplay(li);
+            const base = (li.name && String(li.name).trim()) || 'Boat';
+            const variantSuffix = variant && variant !== '—' ? ` — ${variant}` : '';
+
+            return {
+                position: Number(li.position ?? 0),
+                label: `${base}${variantSuffix} (line ${lineNum})`,
+            };
+        }),
+);
+
+const boatOptionsCustomerEmail = computed(() => props.record?.customer?.email ?? '');
+
+const openBoatOptionsModal = () => {
+    boatOptionsSelectedPositions.value = pendingBoatOptionLines.value.map((line) => line.position);
+    sendBoatOptionsForm.message = '';
+    sendBoatOptionsForm.clearErrors();
+    showBoatOptionsModal.value = true;
+};
+
+const closeBoatOptionsModal = () => {
+    showBoatOptionsModal.value = false;
+};
+
+const toggleBoatOptionsLine = (position) => {
+    const pos = Number(position);
+    const idx = boatOptionsSelectedPositions.value.indexOf(pos);
+    if (idx === -1) {
+        boatOptionsSelectedPositions.value = [...boatOptionsSelectedPositions.value, pos];
+    } else {
+        boatOptionsSelectedPositions.value = boatOptionsSelectedPositions.value.filter((p) => p !== pos);
+    }
+};
+
+const isBoatOptionsLineSelected = (position) =>
+    boatOptionsSelectedPositions.value.includes(Number(position));
+
+const confirmSendBoatOptionsInvite = () => {
+    sendBoatOptionsForm.line_positions = [...boatOptionsSelectedPositions.value];
     sendBoatOptionsForm.post(route('estimates.send-boat-options', props.record.id), {
         preserveScroll: true,
         onSuccess: (page) => {
             const flash = page.props.flash;
+            const err = page.props.errors?.error;
+            if (flash?.success && !err) {
+                closeBoatOptionsModal();
+            }
             if (flash?.success) {
                 showToast('success', flash.success);
             }
-            const err = page.props.errors?.error;
             if (err) {
                 showToast('error', Array.isArray(err) ? err[0] : err);
             }
@@ -481,7 +542,7 @@ const confirmDelete = () => {
                             type="button"
                             :aria-label="sendBoatOptionsForm.processing ? 'Sending boat options email' : 'Email boat options to customer'"
                             title="Email secure links so the customer can choose boat options"
-                            @click="sendBoatOptionsInvite"
+                            @click="openBoatOptionsModal"
                             :disabled="sendBoatOptionsForm.processing"
                             class="inline-flex items-center justify-center gap-0 rounded-lg bg-sky-600 p-2 text-sm font-medium text-white transition-colors hover:bg-sky-700 disabled:opacity-60 md:gap-1.5 md:px-4 md:py-2"
                         >
@@ -933,7 +994,7 @@ const confirmDelete = () => {
                                     </div>
                                 </div>
                                 <div
-                                    v-if="item.addons && item.addons.length > 0"
+                                    v-if="lineItemAddonsUiEnabled && item.addons && item.addons.length > 0"
                                     class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                                 >
                                     <div
@@ -1029,6 +1090,7 @@ const confirmDelete = () => {
                                             <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr
                                             v-for="(addon, addonIdx) in (item.addons || [])"
                                             :key="`asset-addon-${index}-${addonIdx}`"
@@ -1044,6 +1106,7 @@ const confirmDelete = () => {
                                                 {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
                                             </td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1200,7 +1263,7 @@ const confirmDelete = () => {
                                     </div>
                                 </div>
                                 <div
-                                    v-if="item.addons && item.addons.length > 0"
+                                    v-if="lineItemAddonsUiEnabled && item.addons && item.addons.length > 0"
                                     class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                                 >
                                     <div
@@ -1251,6 +1314,7 @@ const confirmDelete = () => {
                                             <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
                                         </tr>
                                         <!-- Add-on sub-rows -->
+                                        <template v-if="lineItemAddonsUiEnabled">
                                         <tr
                                             v-for="(addon, addonIdx) in (item.addons || [])"
                                             :key="`inv-addon-${index}-${addonIdx}`"
@@ -1266,6 +1330,7 @@ const confirmDelete = () => {
                                                 {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
                                             </td>
                                         </tr>
+                                        </template>
                                     </template>
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1309,7 +1374,7 @@ const confirmDelete = () => {
                             <button
                                 v-if="canSendBoatOptionsInvite"
                                 type="button"
-                                @click="sendBoatOptionsInvite"
+                                @click="openBoatOptionsModal"
                                 :disabled="sendBoatOptionsForm.processing"
                                 class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 rounded-lg transition-colors"
                             >
@@ -1414,7 +1479,7 @@ const confirmDelete = () => {
                                     <span class="text-gray-400 dark:text-gray-500">Boat options</span>
                                     <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetOptionPremiumSubtotal) }}</span>
                                 </div>
-                                <div v-if="assetAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                <div v-if="lineItemAddonsUiEnabled && assetAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
                                     <span class="text-gray-400 dark:text-gray-500">Asset Add-ons</span>
                                     <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(assetAddonSubtotal) }}</span>
                                 </div>
@@ -1424,7 +1489,7 @@ const confirmDelete = () => {
                                     <span class="text-gray-500 dark:text-gray-400">Parts &amp; Acc.</span>
                                     <span class="text-gray-700 dark:text-gray-300">{{ formatCurrency(inventoryBaseSubtotal) }}</span>
                                 </div>
-                                <div v-if="inventoryAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
+                                <div v-if="lineItemAddonsUiEnabled && inventoryAddonSubtotal > 0" class="flex justify-between items-center text-sm pl-3 border-l-2 border-primary-200 dark:border-primary-800">
                                     <span class="text-gray-400 dark:text-gray-500">Parts Add-ons</span>
                                     <span class="text-gray-500 dark:text-gray-400">+ {{ formatCurrency(inventoryAddonSubtotal) }}</span>
                                 </div>
@@ -1562,6 +1627,76 @@ const confirmDelete = () => {
                 </div>
             </div>
         </div>
+
+        <!-- Email boat options: choose lines + custom message -->
+        <Modal :show="showBoatOptionsModal" max-width="md" @close="closeBoatOptionsModal">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Email boat options</h3>
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    Choose which boat lines to include and optionally add a personal message for the customer.
+                </p>
+                <p v-if="boatOptionsCustomerEmail" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Email goes to
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ boatOptionsCustomerEmail }}</span>
+                </p>
+                <p v-if="sendBoatOptionsForm.errors.error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {{ sendBoatOptionsForm.errors.error }}
+                </p>
+
+                <fieldset class="mt-4 space-y-2">
+                    <legend class="text-sm font-medium text-gray-900 dark:text-white">Boat lines</legend>
+                    <label
+                        v-for="line in pendingBoatOptionLines"
+                        :key="line.position"
+                        class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-600"
+                    >
+                        <input
+                            type="checkbox"
+                            class="mt-1 rounded border-gray-300 text-primary-600"
+                            :checked="isBoatOptionsLineSelected(line.position)"
+                            @change="toggleBoatOptionsLine(line.position)"
+                        />
+                        <span class="text-sm text-gray-800 dark:text-gray-200">{{ line.label }}</span>
+                    </label>
+                </fieldset>
+
+                <div class="mt-4">
+                    <label for="boat-options-custom-message" class="block text-sm font-medium text-gray-900 dark:text-white">
+                        Custom message <span class="font-normal text-gray-500">(optional)</span>
+                    </label>
+                    <textarea
+                        id="boat-options-custom-message"
+                        v-model="sendBoatOptionsForm.message"
+                        rows="4"
+                        maxlength="5000"
+                        class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        placeholder="Add any notes or instructions for the customer…"
+                    />
+                    <p v-if="sendBoatOptionsForm.errors.message" class="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {{ sendBoatOptionsForm.errors.message }}
+                    </p>
+                </div>
+
+                <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                        :disabled="sendBoatOptionsForm.processing"
+                        @click="closeBoatOptionsModal"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="inline-flex justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-60"
+                        :disabled="sendBoatOptionsForm.processing || boatOptionsSelectedPositions.length === 0"
+                        @click="confirmSendBoatOptionsInvite"
+                    >
+                        {{ sendBoatOptionsForm.processing ? 'Sending…' : 'Send email' }}
+                    </button>
+                </div>
+            </div>
+        </Modal>
 
         <!-- Send for approval: email vs email + SMS -->
         <Modal :show="showApprovalDeliveryModal" max-width="md" @close="closeApprovalDeliveryModal">

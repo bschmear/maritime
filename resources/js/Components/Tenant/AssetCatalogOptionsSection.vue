@@ -542,8 +542,21 @@ function chipSwatchStyle(row) {
                     </div>
 
                     <!-- Toggle -->
-                    <div v-if="opt.input_type === 'toggle'" class="text-sm text-gray-500 dark:text-gray-400 italic">
-                        On / off — no preset choices.
+                    <div v-if="opt.input_type === 'toggle'" class="overflow-hidden rounded-lg border border-gray-100 dark:border-gray-700/70">
+                        <div class="grid grid-cols-[1fr_auto_auto] bg-gray-50 px-3 py-1.5 dark:bg-gray-800/60">
+                            <span class="text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">When included</span>
+                            <span class="text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 text-right pr-6">Cost</span>
+                            <span class="text-sm font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 text-right">Price</span>
+                        </div>
+                        <div class="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 px-3 py-2">
+                            <span class="text-md font-medium text-gray-800 dark:text-gray-200">Yes</span>
+                            <span class="text-right text-md tabular-nums text-gray-700 dark:text-gray-300">
+                                {{ opt.values?.[0]?.cost ?? '—' }}
+                            </span>
+                            <span class="text-right text-md tabular-nums text-gray-700 dark:text-gray-300">
+                                {{ opt.values?.[0]?.price ?? '—' }}
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Choices table -->

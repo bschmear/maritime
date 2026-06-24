@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Http\Controllers\Api\WordPressBoatShowController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
@@ -50,6 +51,7 @@ use App\Http\Controllers\Tenant\IntegrationController;
 use App\Http\Controllers\Tenant\Integrations\GoogleController;
 use App\Http\Controllers\Tenant\Integrations\MailchimpController;
 use App\Http\Controllers\Tenant\Integrations\QuickbooksController;
+use App\Http\Controllers\Tenant\Integrations\WordPressController;
 use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
@@ -214,6 +216,14 @@ Route::middleware([
     Route::post('/boat-show-events/{uuid}/lead', [PublicBoatShowEventController::class, 'leadStore'])
         ->middleware('throttle:20,1')
         ->name('boat-show-events.public.lead.store');
+
+    Route::prefix('api/wordpress')
+        ->middleware(['verify.wordpress-integration', 'throttle:60,1'])
+        ->group(function () {
+            Route::get('/status', [WordPressBoatShowController::class, 'status'])->name('wordpress.api.status');
+            Route::get('/boat-shows', [WordPressBoatShowController::class, 'index'])->name('wordpress.api.boat-shows.index');
+            Route::get('/boat-shows/{uuid}', [WordPressBoatShowController::class, 'show'])->name('wordpress.api.boat-shows.show');
+        });
 
     Route::get('/surveys', [PublicSurveyController::class, 'index'])->name('surveysPublic');
     Route::prefix('survey')->group(function () {
@@ -925,6 +935,15 @@ Route::middleware([
                 Route::post('/sheet/models/push', [GoogleController::class, 'pushModelsSheet'])->name('google.sheet.models.push');
                 Route::post('/sheet/models/pull', [GoogleController::class, 'pullModelsSheet'])->name('google.sheet.models.pull');
                 Route::post('/sheet/models/recreate', [GoogleController::class, 'recreateModelsSheet'])->name('google.sheet.models.recreate');
+            });
+
+            Route::prefix('wordpress')->group(function () {
+                Route::get('/', [WordPressController::class, 'show'])->name('wordpress');
+                Route::post('/', [WordPressController::class, 'store'])->name('wordpress.store');
+                Route::delete('/', [WordPressController::class, 'destroy'])->name('wordpress.destroy');
+                Route::post('/regenerate-key', [WordPressController::class, 'regenerateKey'])->name('wordpress.regenerate-key');
+                Route::post('/test-connection', [WordPressController::class, 'testConnection'])->name('wordpress.test-connection');
+                Route::post('/push-all', [WordPressController::class, 'pushAll'])->name('wordpress.push-all');
             });
         });
 

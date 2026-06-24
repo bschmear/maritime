@@ -2,6 +2,9 @@
 import ClientPortalLayout from '@/Layouts/ClientPortalLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
 const props = defineProps({
     estimate:   { type: Object, required: true },
@@ -344,6 +347,7 @@ const submitDecline = () => {
                                 </td>
                             </tr>
                             <tr
+                                v-if="lineItemAddonsUiEnabled"
                                 v-for="addon in item.addons || []"
                                 :key="'addon-' + addon.id"
                                 class="bg-gray-50"

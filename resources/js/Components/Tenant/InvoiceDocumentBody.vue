@@ -2,6 +2,9 @@
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { computed } from 'vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
 const ASSET_TYPE = 'App\\Domain\\Asset\\Models\\Asset';
@@ -249,6 +252,7 @@ const customerFacingLineTotal = (item) => {
                                 <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(opt.price)" />
                             </PublicDocumentLineItemCard>
                             <PublicDocumentLineItemCard
+                                v-if="lineItemAddonsUiEnabled"
                                 v-for="(add, ai) in group.flatAddons"
                                 :key="`m-bo-ad-${add.id}-${ai}`"
                                 muted
@@ -328,6 +332,7 @@ const customerFacingLineTotal = (item) => {
                                 <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(opt.price) }}</td>
                             </tr>
                             <tr
+                                v-if="lineItemAddonsUiEnabled"
                                 v-for="(add, ai) in group.flatAddons"
                                 :key="`bo-ad-${add.id}-${ai}`"
                                 class="bg-blue-50/40"
@@ -567,6 +572,7 @@ const customerFacingLineTotal = (item) => {
                                 <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(opt.price)" />
                             </PublicDocumentLineItemCard>
                             <PublicDocumentLineItemCard
+                                v-if="lineItemAddonsUiEnabled"
                                 v-for="(add, ai) in group.flatAddons"
                                 :key="`m-inv-ad-${add.id}-${ai}`"
                                 muted
@@ -647,6 +653,7 @@ const customerFacingLineTotal = (item) => {
                                     <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 sm:px-6">{{ formatCurrency(opt.price) }}</td>
                                 </tr>
                                 <tr
+                                    v-if="lineItemAddonsUiEnabled"
                                     v-for="(add, ai) in group.flatAddons"
                                     :key="`inv-ad-${add.id}-${ai}`"
                                     class="bg-blue-50/40"

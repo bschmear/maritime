@@ -7,6 +7,7 @@ enum IntegrationType: int
     case MailChimp = 1;
     case QuickBooks = 2;
     case Google = 3;
+    case WordPress = 4;
 
     public function isEnabled(): bool
     {
@@ -21,6 +22,7 @@ enum IntegrationType: int
             self::MailChimp => 'MailChimp',
             self::QuickBooks => 'QuickBooks Online',
             self::Google => 'Google Workspace',
+            self::WordPress => 'WordPress',
         };
     }
 
@@ -30,6 +32,7 @@ enum IntegrationType: int
             self::MailChimp => 'Online platform for sending professional e-mails to mass recipients.',
             self::QuickBooks => 'Accounting platform — sync customers with contacts and leads in Helmful.',
             self::Google => 'Connect Google Drive and Sheets to sync inventory with a shared spreadsheet.',
+            self::WordPress => 'Sync boat shows and events to your WordPress site as custom post types.',
         };
     }
 
@@ -39,6 +42,7 @@ enum IntegrationType: int
             self::MailChimp => 'get',
             self::QuickBooks => 'get',
             self::Google => 'get',
+            self::WordPress => 'get',
         };
     }
 
@@ -48,6 +52,7 @@ enum IntegrationType: int
             self::MailChimp => 'mailchimp',
             self::QuickBooks => 'account_balance_wallet',
             self::Google => 'cloud',
+            self::WordPress => 'language',
         };
     }
 
@@ -57,6 +62,7 @@ enum IntegrationType: int
             self::MailChimp => 'email',
             self::QuickBooks => 'accounting',
             self::Google => 'productivity',
+            self::WordPress => 'cms',
         };
     }
 
@@ -66,6 +72,7 @@ enum IntegrationType: int
             self::MailChimp => true,
             self::QuickBooks => true,
             self::Google => true,
+            self::WordPress => false,
         };
     }
 
@@ -75,6 +82,7 @@ enum IntegrationType: int
             self::MailChimp => 'mailchimp',
             self::QuickBooks => 'quickbooks',
             self::Google => 'google',
+            self::WordPress => 'wordpress',
         };
     }
 

@@ -60,6 +60,12 @@
         <div class="body">
             <p>Dear {{ $estimate->customer?->display_name ?? 'Valued Customer' }},</p>
             <p>{{ $account->name ?? 'We' }} need your selections for the boat configuration below. Each link is secure and expires after some time — please complete your choices and sign to confirm.</p>
+            @if (! empty($customMessage))
+                <div style="margin: 20px 0; padding: 14px 18px; background: #f8fafc; border-left: 4px solid #0369a1; border-radius: 4px;">
+                    <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 8px;">Message from your sales team</div>
+                    <div style="font-size: 15px; color: #334155; white-space: pre-wrap;">{{ $customMessage }}</div>
+                </div>
+            @endif
             @foreach ($lines as $row)
                 <div class="line-link">
                     <div style="font-size: 13px; color: #64748b; margin-bottom: 6px;">{{ $row['label'] }}</div>

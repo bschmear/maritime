@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\AssetOption\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AssetOption extends Model
@@ -14,6 +15,7 @@ class AssetOption extends Model
     protected $fillable = [
         'name',
         'slug',
+        'category_id',
         'input_type',
         'is_required',
         'allow_multiple',
@@ -28,7 +30,13 @@ class AssetOption extends Model
         'active' => 'boolean',
         'min_select' => 'integer',
         'max_select' => 'integer',
+        'category_id' => 'integer',
     ];
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(AssetOptionCategory::class, 'category_id');
+    }
 
     public function values(): HasMany
     {
@@ -54,6 +62,31 @@ class AssetOption extends Model
     public function makeAssignments(): HasMany
     {
         return $this->hasMany(AssetOptionMakeAssignment::class, 'option_id');
+    }
+
+    /**
+     * Toggle options use a single implicit "on" value for pricing and persistence.
+     */
+    public function ensureToggleOnValue(): AssetOptionValue
+    {
+        $existing = $this->allValues()->where('value', 'on')->first()
+            ?? $this->allValues()->orderBy('sort_order')->first();
+
+        if ($existing !== null) {
+            if (! $existing->active) {
+                $existing->update(['active' => true]);
+            }
+
+            return $existing->fresh();
+        }
+
+        return $this->allValues()->create([
+            'label' => 'On',
+            'value' => 'on',
+            'sort_order' => 0,
+            'is_default' => true,
+            'active' => true,
+        ]);
     }
 
     /**

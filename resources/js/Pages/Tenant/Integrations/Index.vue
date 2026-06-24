@@ -44,6 +44,9 @@ function configureHref(slug) {
     if (slug === 'google') {
         return route('google');
     }
+    if (slug === 'wordpress') {
+        return route('wordpress');
+    }
     return null;
 }
 </script>

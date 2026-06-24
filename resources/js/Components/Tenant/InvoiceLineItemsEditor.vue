@@ -5,6 +5,9 @@
  */
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
 import AddonSelect from '@/Components/Tenant/AddonSelect.vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 import AssetLineModal from '@/Components/Tenant/AssetLineModal.vue';
 import { lineAssetSelectedOptions, selectedOptionLabel } from '@/Utils/lineItemsFromEstimate';
 
@@ -714,7 +717,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add-ons</th>
+                                <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add-ons</th>
                                 <th v-if="!readonly" class="px-4 py-3 w-20"></th>
                             </tr>
                         </thead>
@@ -779,7 +782,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         <td class="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(line)) }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatMoney(taxOnItemBase(line)) }}</td>
                                         <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineCoreTotalWithTax(line)) }}</td>
-                                        <td class="px-4 py-3">
+                                        <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                             <button
                                                 v-if="!readonly"
                                                 type="button"
@@ -828,6 +831,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         <td class="px-4 py-2"></td>
                                         <td v-if="!readonly" class="px-4 py-2"></td>
                                     </tr>
+                                    <template v-if="lineItemAddonsUiEnabled">
                                     <tr
                                         v-for="(addon, aidx) in (line.addons || [])"
                                         :key="`asset-addon-${idx}-${aidx}`"
@@ -888,6 +892,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                             </div>
                                         </td>
                                     </tr>
+                                </template>
                                 </template>
                             </template>
                         </tbody>
@@ -956,7 +961,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                             </div>
                         </div>
                         <div
-                            v-if="(line.addons || []).length"
+                            v-if="lineItemAddonsUiEnabled && (line.addons || []).length"
                             class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                         >
                             <div
@@ -968,7 +973,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <span class="font-medium tabular-nums shrink-0">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</span>
                             </div>
                         </div>
-                        <div v-if="!readonly" class="pt-1">
+                        <div v-if="lineItemAddonsUiEnabled && !readonly" class="pt-1">
                             <button
                                 type="button"
                                 class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400"
@@ -1030,7 +1035,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
                                 <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
-                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add-ons</th>
+                                <th v-if="lineItemAddonsUiEnabled" class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Add-ons</th>
                                 <th v-if="!readonly" class="px-4 py-3 w-20"></th>
                             </tr>
                         </thead>
@@ -1085,7 +1090,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         <td class="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(line)) }}</td>
                                         <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatMoney(taxOnItemBase(line)) }}</td>
                                         <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineCoreTotalWithTax(line)) }}</td>
-                                        <td class="px-4 py-3">
+                                        <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                             <button
                                                 v-if="!readonly"
                                                 type="button"
@@ -1108,6 +1113,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                             </div>
                                         </td>
                                     </tr>
+                                    <template v-if="lineItemAddonsUiEnabled">
                                     <tr
                                         v-for="(addon, aidx) in (line.addons || [])"
                                         :key="`inv-addon-${idx}-${aidx}`"
@@ -1167,6 +1173,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                         </td>
                                     </tr>
                                 </template>
+                                </template>
                             </template>
                         </tbody>
                         <tfoot class="bg-gray-50 dark:bg-gray-900/50 border-t-2 border-gray-200 dark:border-gray-600">
@@ -1220,7 +1227,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                             </div>
                         </div>
                         <div
-                            v-if="(line.addons || []).length"
+                            v-if="lineItemAddonsUiEnabled && (line.addons || []).length"
                             class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
                         >
                             <div
@@ -1232,7 +1239,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                                 <span class="font-medium tabular-nums shrink-0">{{ formatMoney(addonPreTaxTotal(addon) + taxOnAddon(addon)) }}</span>
                             </div>
                         </div>
-                        <div v-if="!readonly" class="pt-1">
+                        <div v-if="lineItemAddonsUiEnabled && !readonly" class="pt-1">
                             <button
                                 type="button"
                                 class="inline-flex items-center gap-1 text-sm text-blue-600 dark:text-blue-400"
@@ -1305,7 +1312,8 @@ function buildItemsForSubmitInternal(taxRatePercent) {
             </div>
         </template>
 
-        <AddonSelect v-model:open="showAddonModal" accent="primary" @picked="onAddonPicked" />
+        <!-- LINE_ITEM_ADDONS_UI: disabled via config/lineItemFeatures.js -->
+        <AddonSelect v-if="lineItemAddonsUiEnabled" v-model:open="showAddonModal" accent="primary" @picked="onAddonPicked" />
 
         <!-- Asset modal -->
         <AssetLineModal

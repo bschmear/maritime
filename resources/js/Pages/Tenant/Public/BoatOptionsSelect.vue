@@ -1,6 +1,10 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import AssetOptionRadioChoices from '@/Components/Tenant/AssetOptionRadioChoices.vue';
+import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+
+const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
 const props = defineProps({
     /** 'estimate' | 'opportunity' */
@@ -98,6 +102,37 @@ const toggleMulti = (optionId, valueId, checked) => {
 const setSingle = (optionId, valueId) => {
     const rest = singleSelections.value.filter((s) => Number(s.option_id) !== Number(optionId));
     singleSelections.value = [...rest, { option_id: optionId, option_value_id: valueId }];
+};
+
+const clearSingle = (optionId) => {
+    singleSelections.value = singleSelections.value.filter((s) => Number(s.option_id) !== Number(optionId));
+};
+
+const isSingleSelected = (optionId, valueId) =>
+    singleSelections.value.some(
+        (s) => Number(s.option_id) === Number(optionId) && Number(s.option_value_id) === Number(valueId),
+    );
+
+const hasSingleSelection = (optionId) =>
+    singleSelections.value.some((s) => Number(s.option_id) === Number(optionId));
+
+const isToggleOn = (opt) => {
+    const valueId = opt.values?.[0]?.id;
+
+    return valueId != null && isSingleSelected(opt.option_id, valueId);
+};
+
+const toggleToggleOption = (opt, checked) => {
+    const valueId = opt.values?.[0]?.id;
+    if (valueId == null) {
+        return;
+    }
+
+    if (checked) {
+        setSingle(opt.option_id, valueId);
+    } else {
+        clearSingle(opt.option_id);
+    }
 };
 
 const form = useForm({
@@ -231,29 +266,30 @@ const assetHeroLines = computed(() => {
                                 <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
                             </label>
                         </div>
-                        <div v-else class="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-                            <label
-                                v-for="v in opt.values"
-                                :key="v.id"
-                                class="inline-flex items-center gap-2 text-sm text-gray-700"
-                            >
+                        <div v-else-if="opt.input_type === 'toggle'" class="mt-3">
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
                                 <input
-                                    type="radio"
-                                    :name="`opt-${opt.option_id}`"
-                                    @change="setSingle(opt.option_id, v.id)"
+                                    type="checkbox"
+                                    :checked="isToggleOn(opt)"
+                                    @change="toggleToggleOption(opt, $event.target.checked)"
                                 />
-                                <span
-                                    v-if="v.color_hex"
-                                    class="inline-block h-4 w-4 rounded border border-gray-300"
-                                    :style="{ backgroundColor: v.color_hex }"
-                                />
-                                <span>{{ v.label }}</span>
-                                <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
+                                <span>Yes</span>
+                                <span class="text-gray-500 tabular-nums">{{ formatCurrency(opt.values?.[0]?.price) }}</span>
                             </label>
                         </div>
+                        <AssetOptionRadioChoices
+                            v-else
+                            :opt="opt"
+                            :input-name="`opt-${opt.option_id}`"
+                            :format-price="formatCurrency"
+                            :is-selected="(valueId) => isSingleSelected(opt.option_id, valueId)"
+                            :has-any-selection="() => hasSingleSelection(opt.option_id)"
+                            @select="(valueId) => setSingle(opt.option_id, valueId)"
+                            @clear="clearSingle(opt.option_id)"
+                        />
                     </div>
 
-                    <div v-if="includeAddonsInForm && addonsOffered.length > 0" class="border-t border-gray-100 pt-5 space-y-3">
+                    <div v-if="lineItemAddonsUiEnabled && includeAddonsInForm && addonsOffered.length > 0" class="border-t border-gray-100 pt-5 space-y-3">
                         <h2 class="text-sm font-semibold text-gray-900">Additional Options (Add-ons)</h2>
                         <p class="text-xs text-gray-500">
                             Select the add-ons you want included with this request. Quantities can be adjusted below.

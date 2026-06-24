@@ -2,6 +2,7 @@
 
 namespace App\Domain\BoatShowEvent\Actions;
 
+use App\Domain\BoatShow\Support\WordPressBoatShowSync;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent as RecordModel;
 use App\Domain\BoatShowEvent\Support\BoatShowEventDisplayName;
 use App\Domain\BoatShowEvent\Support\BoatShowEventDuplicator;
@@ -72,6 +73,8 @@ class CreateBoatShowEvent
                     BoatShowEventDuplicator::copyRelations($source, $record);
                 }
             }
+
+            WordPressBoatShowSync::pushEvent($record);
 
             return [
                 'success' => true,

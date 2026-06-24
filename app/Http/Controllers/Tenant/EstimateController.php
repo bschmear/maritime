@@ -473,9 +473,20 @@ class EstimateController extends RecordController
      */
     public function sendBoatOptionsInvite(Request $request, $id, TenantMailService $tenantMail)
     {
+        $validated = $request->validate([
+            'line_positions' => ['required', 'array', 'min:1'],
+            'line_positions.*' => ['integer', 'min:0'],
+            'message' => ['nullable', 'string', 'max:5000'],
+        ]);
+
         $estimate = RecordModel::with(['customer', 'primaryVersion.lineItems', 'user'])->findOrFail($id);
 
         $customerEmail = $estimate->customer?->email;
+        $selectedPositions = array_map('intval', $validated['line_positions']);
+        $customMessage = isset($validated['message']) ? trim((string) $validated['message']) : '';
+        if ($customMessage === '') {
+            $customMessage = null;
+        }
 
         $lines = [];
         foreach ($estimate->primaryVersion?->lineItems ?? [] as $li) {
@@ -486,6 +497,9 @@ class EstimateController extends RecordController
                 continue;
             }
             if ($li->customer_asset_options_completed_at) {
+                continue;
+            }
+            if (! in_array((int) $li->position, $selectedPositions, true)) {
                 continue;
             }
 
@@ -505,7 +519,7 @@ class EstimateController extends RecordController
         }
 
         $account = AccountSettings::getCurrent();
-        $mailable = new EstimateBoatOptionsInvite($estimate, $account, $lines);
+        $mailable = new EstimateBoatOptionsInvite($estimate, $account, $lines, $customMessage);
 
         if (! $tenantMail->canSend($customerEmail, $mailable, $request->user())) {
             return back()->withErrors(['error' => $tenantMail->validationErrorMessage($mailable)]);

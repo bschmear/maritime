@@ -28,6 +28,7 @@ class EstimateBoatOptionsInvite extends Mailable implements ShouldQueue
         public Estimate $estimate,
         public AccountSettings $account,
         public array $lines,
+        public ?string $customMessage = null,
     ) {}
 
     public function envelope(): Envelope
@@ -48,6 +49,7 @@ class EstimateBoatOptionsInvite extends Mailable implements ShouldQueue
                 'estimate' => $this->estimate,
                 'account' => $this->account,
                 'lines' => $this->lines,
+                'customMessage' => $this->customMessage,
             ],
         );
     }

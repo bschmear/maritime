@@ -74,6 +74,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'stripe/webhook',
             'stripe/connect-webhook',
             'api/inbound-email',
+            'api/wordpress/*',
         ]);
         $middleware->alias([
             'kiosk.domain' => EnsureKioskDomain::class,
@@ -85,6 +86,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'ticket.support' => EnsureTicketSupportAccess::class,
             'checkout.execution_time' => ExtendCheckoutExecutionTime::class,
             'verify.inbound-email' => VerifyInboundEmailRequest::class,
+            'verify.wordpress-integration' => \App\Http\Middleware\VerifyWordPressIntegrationRequest::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {
