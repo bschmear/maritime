@@ -1,0 +1,810 @@
+/* ============================================================
+   Helmful Sync – Shortcode Display
+   Logo + metadata + link layouts. No full-size images.
+   ============================================================ */
+
+/* ── Design tokens (overridden by inline style from settings) ── */
+/* ============================================================
+   FULL-WIDTH SHELL (breaks out of theme max-width containers)
+   ============================================================ */
+
+body .helmful-boat-shows-shell {
+    width: 100%;
+    /* max-width: none;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    padding-left: clamp(1.25rem, 4vw, 3.5rem);
+    padding-right: clamp(1.25rem, 4vw, 3.5rem); */
+    box-sizing: border-box;
+}
+
+body .helmful-boat-shows-shell li::before, body .helmful-boat-shows-shell li::after  {
+    /* display: none !important; */
+}
+
+body .helmful-boat-shows-shell .helmful-boat-shows,body .helmful-boat-shows-shell .helmful-boat-show-events{
+    --helmful-accent:        #1d3557;
+    --helmful-accent-hover:  #16304f;
+    --helmful-accent-light:  #e8eef5;
+    --helmful-card-radius:   12px;
+    --helmful-card-shadow:   0 2px 8px rgba(16,24,40,0.07), 0 0 1px rgba(16,24,40,0.06);
+    --helmful-border:        #e2e5e9;
+    --helmful-surface:       #f8f9fb;
+    --helmful-muted:         #50575e;
+    --helmful-gap:           1.25rem;
+    --helmful-card-padding:  1.5rem;
+    --helmful-columns:       2;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+/* ============================================================
+   THEME ISOLATION — override .blg-content list/typography rules
+   ============================================================ */
+
+body .helmful-boat-shows-shell ul,
+body .helmful-boat-shows-shell ol {
+    list-style: none !important;
+    list-style-type: none !important;
+    /* margin: 0 !important;
+    padding: 0 !important; */
+    counter-reset: none !important;
+}
+
+body .helmful-boat-shows-shell ul > li,
+body .helmful-boat-shows-shell ol > li {
+    list-style: none !important;
+    list-style-type: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+body .helmful-boat-shows-shell ul > li::before,
+body .helmful-boat-shows-shell ul > li::after,
+body .helmful-boat-shows-shell ol > li::before,
+body .helmful-boat-shows-shell ol > li::after,
+body .blg-content .helmful-boat-shows-shell ul > li::before,
+body .blg-content .helmful-boat-shows-shell ul > li::after,
+body .blg-content .helmful-boat-shows-shell ol > li::before,
+body .blg-content .helmful-boat-shows-shell ol > li::after {
+    content: none !important;
+    display: none !important;
+    position: static !important;
+    left: auto !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: none !important;
+    border: none !important;
+    color: inherit !important;
+    font-weight: inherit !important;
+}
+
+body .helmful-boat-shows-shell article,
+body .helmful-boat-shows-shell header,
+body .helmful-boat-shows-shell footer,
+body .helmful-boat-shows-shell section {
+    margin: 0;
+    padding: 0;
+}
+
+body .helmful-boat-shows-shell :is(h1, h2, h3, h4, h5, h6) {
+    margin-top: 0;
+}
+
+body .helmful-boat-shows-shell a {
+    box-shadow: none;
+}
+
+/* ── Links: inherit from title, no underline by default ── */
+body .helmful-boat-shows-shell .helmful-boat-show__title-link,body .helmful-boat-shows-shell .helmful-event__title-link,body .helmful-boat-shows-shell .helmful-timeline__title-link,body .helmful-boat-shows-shell .helmful-timeline__show-link,body .helmful-boat-shows-shell .helmful-compact-show-link,body .helmful-boat-shows-shell .helmful-compact-event-link{
+    color: inherit;
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-boat-show__title-link:hover,body .helmful-boat-shows-shell .helmful-event__title-link:hover,body .helmful-boat-shows-shell .helmful-timeline__title-link:hover,body .helmful-boat-shows-shell .helmful-compact-show-link:hover,body .helmful-boat-shows-shell .helmful-compact-event-link:hover{
+    color: var(--helmful-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* ── Buttons ── */
+body .helmful-boat-shows-shell .helmful-boat-show__links,body .helmful-boat-shows-shell .helmful-event__links,body .helmful-boat-shows-shell .helmful-compact-links{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+}
+
+body .helmful-boat-shows-shell .helmful-link{
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.95rem;
+    border-radius: 6px;
+    border: 1px solid var(--helmful-border);
+    color: #1d2327;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: none;
+    background: #fff;
+    transition: background 0.12s, border-color 0.12s;
+    line-height: 1.4;
+}
+
+body .helmful-boat-shows-shell .helmful-link:hover{
+    background: var(--helmful-surface);
+    border-color: #8c8f94;
+    color: #1d2327;
+}
+
+body .helmful-boat-shows-shell .helmful-link--primary{
+    background: var(--helmful-accent);
+    border-color: var(--helmful-accent);
+    color: #fff;
+}
+
+body .helmful-boat-shows-shell .helmful-link--primary:hover{
+    background: var(--helmful-accent-hover);
+    border-color: var(--helmful-accent-hover);
+    color: #fff;
+}
+
+/* ── Meta line (date / location / booth) ── */
+body .helmful-boat-shows-shell .helmful-event__dates,body .helmful-boat-shows-shell .helmful-event__location,body .helmful-boat-shows-shell .helmful-event__booth,body .helmful-boat-shows-shell .helmful-timeline__meta{
+    display: flex;
+    align-items: baseline;
+    gap: 0.35em;
+    color: var(--helmful-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-top: 0.2rem;
+}
+
+body .helmful-boat-shows-shell .helmful-icon{
+    flex-shrink: 0;
+    width: 1.1em;
+    display: inline-block;
+}
+
+/* ── Empty state ── */
+body .helmful-boat-shows-shell .helmful-empty{
+    padding: 2rem 1.5rem;
+    border-radius: var(--helmful-card-radius);
+    background: var(--helmful-surface);
+    border: 1px dashed var(--helmful-border);
+    color: var(--helmful-muted);
+    text-align: center;
+    font-size: 0.95rem;
+}
+
+/* ── Logo chip (shared across layouts) ── */
+body .helmful-boat-shows-shell .helmful-logo-chip{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid var(--helmful-border);
+    background: #fff;
+    padding: 0.25rem;
+    overflow: hidden;
+}
+
+body .helmful-boat-shows-shell .helmful-logo-chip img{
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+body .helmful-boat-shows-shell .helmful-logo-chip--lg{
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 10px;
+}
+
+/* ── Boat show description ── */
+body .helmful-boat-shows-shell .helmful-boat-show__description{
+    color: var(--helmful-muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+    margin: 0.35rem 0 0;
+}
+
+body .helmful-boat-shows-shell .helmful-boat-show__description p{
+    margin: 0 0 0.4em;
+}
+
+body .helmful-boat-shows-shell .helmful-boat-show__description p:last-child{
+    margin-bottom: 0;
+}
+
+
+/* ============================================================
+   LAYOUT: STACKED
+   Full-width show cards, each with a row of event entries
+   ============================================================ */
+
+body .helmful-boat-shows-shell .helmful-layout-stacked{
+    display: grid;
+    gap: var(--helmful-gap);
+}
+
+/* Show card */
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-boat-show{
+    margin: 0;
+    border: 1px solid var(--helmful-border);
+    border-radius: calc(var(--helmful-card-radius) + 2px);
+    padding: var(--helmful-card-padding);
+    background: #fff;
+    box-shadow:
+        0 1px 2px rgba(16, 24, 40, 0.04),
+        0 8px 24px rgba(16, 24, 40, 0.07);
+    overflow: hidden;
+}
+
+/* Show header: logo chip left, title + description right */
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-boat-show__header{
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin: 0 0 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--helmful-border);
+}
+
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-boat-show__title{
+    margin: 0 0 0.15rem;
+    padding: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1d2327;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-boat-show__summary{
+    min-width: 0;
+    flex: 1;
+}
+
+/* When there's no logo the summary still looks fine */
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-boat-show__header:not(.helmful-boat-show__header--with-logo) .helmful-boat-show__summary {
+    padding-left: 0;
+}
+
+/* Event list inside a stacked show */
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event-list,
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event-list--nested{
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-top: 0;
+    display: grid;
+    gap: 0.65rem;
+}
+
+/* Events-only shortcode (no parent show card) */
+body .helmful-boat-shows-shell .helmful-boat-show-events.helmful-layout-stacked .helmful-event-list{
+    gap: 0.75rem;
+}
+
+/* Single event row: logo chip + body side by side */
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event{
+    display: flex !important;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin: 0 !important;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    background: var(--helmful-surface);
+    border: 1px solid var(--helmful-border);
+    list-style: none !important;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event__body{
+    min-width: 0;
+    flex: 1;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event__title{
+    margin: 0 0 0.15rem;
+    padding: 0;
+    font-weight: 600;
+    font-size: 0.98rem;
+    color: #1d2327;
+    line-height: 1.35;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event__dates,
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event__location,
+body .helmful-boat-shows-shell .helmful-layout-stacked .helmful-event__booth{
+    margin-top: 0.15rem;
+}
+
+
+/* ============================================================
+   LAYOUT: GRID
+   Clean cards — one surface, no nested boxes
+   ============================================================ */
+
+body .helmful-boat-shows-shell .helmful-layout-grid{
+    display: grid;
+    grid-template-columns: repeat(var(--helmful-columns, 2), minmax(0, 1fr));
+    gap: clamp(1rem, 2vw, 1.75rem);
+    align-items: stretch;
+    width: 100%;
+    max-width: none;
+}
+
+body .helmful-boat-shows-shell .helmful-boat-show--grid-card{
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: calc(var(--helmful-card-radius) + 2px);
+    background: #fff;
+    box-shadow:
+        0 1px 2px rgba(16, 24, 40, 0.04),
+        0 8px 24px rgba(16, 24, 40, 0.07);
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+body .helmful-boat-shows-shell .helmful-boat-show--grid-card:hover{
+    transform: translateY(-3px);
+    box-shadow:
+        0 2px 4px rgba(16, 24, 40, 0.05),
+        0 14px 36px rgba(16, 24, 40, 0.1);
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__cover{
+    display: block;
+    padding: 1.5rem 1.5rem 0.75rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__cover:hover .helmful-grid-card__title{
+    color: var(--helmful-accent);
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__logo{
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 4.25rem;
+    height: 4.25rem;
+    margin-bottom: 1rem;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__logo-img{
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__title{
+    margin: 0 0 0.5rem;
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1d2327;
+    transition: color 0.15s ease;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__description{
+    margin: 0;
+    color: var(--helmful-muted);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__description p{
+    margin: 0;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__events{
+    list-style: none;
+    margin: 0;
+    padding: 0.25rem 1.5rem 0;
+    border-top: 1px solid #eef0f2;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event{
+    margin: 0;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #eef0f2;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event:last-child{
+    border-bottom: none;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-link{
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-link:hover .helmful-grid-card__event-name{
+    color: var(--helmful-accent);
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-name{
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #1d2327;
+    line-height: 1.35;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-date{
+    font-size: 0.8rem;
+    color: var(--helmful-muted);
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-more{
+    padding: 0.5rem 0 0.25rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-more a{
+    color: var(--helmful-accent);
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__event-more a:hover{
+    text-decoration: underline;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__footer{
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.25rem;
+    margin-top: auto;
+    padding: 1rem 1.5rem 1.35rem;
+    border-top: 1px solid #eef0f2;
+    background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__cta {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background: var(--helmful-accent);
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s ease;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__cta:hover{
+    background: var(--helmful-accent-hover);
+    color: #fff;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__website{
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: var(--helmful-muted);
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-grid-card__website:hover{
+    color: var(--helmful-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* Legacy grid rules (stacked events inside grid) — keep for safety */
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-boat-show:not(.helmful-boat-show--grid-card){
+    border: 1px solid var(--helmful-border);
+    border-radius: var(--helmful-card-radius);
+    padding: var(--helmful-card-padding);
+    background: #fff;
+    box-shadow: var(--helmful-card-shadow);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-boat-show__header{
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.9rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--helmful-border);
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-boat-show__title{
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1d2327;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-boat-show__summary{
+    min-width: 0;
+    flex: 1;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event-list{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.5rem;
+    flex: 1;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event{
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 7px;
+    border: 1px solid var(--helmful-border);
+    background: var(--helmful-surface);
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event__body{
+    min-width: 0;
+    flex: 1;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event__title{
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: #1d2327;
+    line-height: 1.35;
+    margin-bottom: 0.15rem;
+}
+
+body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event__dates,body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event__location,body .helmful-boat-shows-shell .helmful-layout-grid .helmful-event__booth{
+    font-size: 0.82rem;
+}
+
+
+/* ============================================================
+   LAYOUT: TIMELINE
+   Chronological list; show name as eyebrow above event title
+   ============================================================ */
+
+body .helmful-boat-shows-shell .helmful-layout-timeline .helmful-timeline{
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 0 0 1rem !important;
+    border-left: 2px solid var(--helmful-accent-light);
+    counter-reset: none !important;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__item{
+    position: relative;
+    margin: 0 0 1.1rem;
+    padding-left: 1.35rem;
+    list-style: none !important;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__item:last-child{
+    margin-bottom: 0;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__marker{
+    position: absolute;
+    left: -1.45rem;
+    top: 1rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--helmful-accent);
+    box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--helmful-accent-light);
+}
+
+/* Timeline card */
+body .helmful-boat-shows-shell .helmful-timeline__content{
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    background: #fff;
+    border: 1px solid var(--helmful-border);
+    border-radius: var(--helmful-card-radius);
+    padding: 0.9rem 1.1rem;
+    box-shadow: var(--helmful-card-shadow);
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__media{
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__body{
+    min-width: 0;
+    flex: 1;
+}
+
+/* Eyebrow */
+body .helmful-boat-shows-shell .helmful-timeline__show{
+    margin: 0 0 0.15rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--helmful-accent);
+    line-height: 1.3;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__show-link{
+    color: var(--helmful-accent);
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__show-link:hover{
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__title{
+    margin: 0 0 0.3rem;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #1d2327;
+}
+
+body .helmful-boat-shows-shell .helmful-timeline__meta{
+    margin: 0;
+    padding: 0;
+}
+
+
+/* ============================================================
+   LAYOUT: COMPACT
+   Dense scannable table. Header row + data rows.
+   ============================================================ */
+
+body .helmful-boat-shows-shell .helmful-layout-compact .helmful-compact-table{
+    width: 100%;
+    border: 1px solid var(--helmful-border);
+    border-radius: var(--helmful-card-radius);
+    overflow: hidden;
+    background: #fff;
+    box-shadow: var(--helmful-card-shadow);
+}
+
+body .helmful-boat-shows-shell .helmful-compact-row{
+    display: grid;
+    grid-template-columns: 1.1fr 1.3fr 0.95fr 1fr 0.75fr;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.1rem;
+    border-bottom: 1px solid var(--helmful-border);
+}
+
+body .helmful-boat-shows-shell .helmful-compact-row:last-child{
+    border-bottom: 0;
+}
+
+body .helmful-boat-shows-shell .helmful-compact-row--head{
+    background: var(--helmful-accent);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+
+/* Zebra + hover */
+body .helmful-boat-shows-shell .helmful-compact-row:not(.helmful-compact-row--head):nth-child(even){
+    background: var(--helmful-surface);
+}
+
+body .helmful-boat-shows-shell .helmful-compact-row:not(.helmful-compact-row--head):hover{
+    background: var(--helmful-accent-light);
+}
+
+body .helmful-boat-shows-shell .helmful-compact-show{
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #1d2327;
+    font-size: 0.88rem;
+}
+
+body .helmful-boat-shows-shell .helmful-compact-event{
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    color: #1d2327;
+}
+
+body .helmful-boat-shows-shell .helmful-compact-row:not(.helmful-compact-row--head) [role="cell"]:nth-child(3),body .helmful-boat-shows-shell .helmful-compact-row:not(.helmful-compact-row--head) [role="cell"]:nth-child(4){
+    font-size: 0.85rem;
+    color: var(--helmful-muted);
+}
+
+/* Logo in compact rows */
+body .helmful-boat-shows-shell .helmful-compact__logo{
+    display: block;
+    width: 1.6rem;
+    height: 1.6rem;
+    flex-shrink: 0;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid var(--helmful-border);
+    background: #fff;
+    padding: 0.1rem;
+}
+
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+    body .helmful-boat-shows-shell .helmful-layout-grid{
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (min-width: 1200px) {
+    body .helmful-boat-shows-shell .helmful-layout-grid[style*="--helmful-columns:3"]{
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 680px) {
+    /* Compact: collapse to stacked label+value cards */
+    body .helmful-boat-shows-shell .helmful-compact-row,    body .helmful-boat-shows-shell .helmful-compact-row--head{
+        grid-template-columns: 1fr;
+    }
+
+    body .helmful-boat-shows-shell .helmful-compact-row--head{
+        display: none;
+    }
+
+    body .helmful-boat-shows-shell .helmful-compact-row{
+        gap: 0.25rem;
+        padding: 0.85rem 1rem;
+        border-bottom: 1px solid var(--helmful-border);
+    }
+
+    body .helmful-boat-shows-shell .helmful-compact-row [role="cell"]::before{
+        display: block !important;
+        content: "" !important;
+        position: static !important;
+        left: auto !important;
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #8c8f94;
+        margin-bottom: 0.1rem;
+    }
+
+    body .helmful-boat-shows-shell .helmful-compact-row [role="cell"]:nth-child(1)::before{ content: "Show" !important; }
+    body .helmful-boat-shows-shell .helmful-compact-row [role="cell"]:nth-child(2)::before{ content: "Event" !important; }
+    body .helmful-boat-shows-shell .helmful-compact-row [role="cell"]:nth-child(3)::before{ content: "When" !important; }
+    body .helmful-boat-shows-shell .helmful-compact-row [role="cell"]:nth-child(4)::before{ content: "Where" !important; }
+    body .helmful-boat-shows-shell .helmful-compact-row [role="cell"]:nth-child(5)::before{ content: "Details" !important; }
+}

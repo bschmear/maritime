@@ -58,6 +58,12 @@ const irregularPlurals = {
     delivery_location: 'delivery-locations',
     BillPayment: 'bill-payments',
     billpayment: 'bill-payments',
+    BoatShow: 'boat-shows',
+    boatshow: 'boat-shows',
+    BoatShowEvent: 'boat-show-events',
+    boatshowevent: 'boat-show-events',
+    BoatShowLayout: 'boat-show-layouts',
+    boatshowlayout: 'boat-show-layouts',
 };
 
 /** Map a schema typeDomain (e.g. "Asset", "Customer") to the tenant route plural segment. */

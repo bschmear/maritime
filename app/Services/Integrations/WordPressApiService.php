@@ -23,6 +23,61 @@ class WordPressApiService
     }
 
     /**
+     * @return array{success: bool, message?: string, blocking?: bool}
+     */
+    public function syncWordPressApiKeyToSite(?string $wordpressApiKey = null): array
+    {
+        if (! WordPressIntegrationSettings::forCurrentTenant()->wordpressUrl()) {
+            return [
+                'success' => false,
+                'blocking' => true,
+                'message' => 'WordPress site URL is not configured.',
+            ];
+        }
+
+        $integration = WordPressIntegrationSettings::integration();
+        $apiKey = $wordpressApiKey ?? $integration?->access_token;
+        if (! is_string($apiKey) || $apiKey === '') {
+            return [
+                'success' => false,
+                'blocking' => true,
+                'message' => 'Save a WordPress API key in Helmful first.',
+            ];
+        }
+
+        if ($this->helmfulIntegrationKey() === null) {
+            return [
+                'success' => false,
+                'blocking' => true,
+                'message' => 'Replace your Helmful integration key, paste it into WordPress under Settings → Helmful Sync, then try again.',
+            ];
+        }
+
+        try {
+            $response = $this->helmfulClient()->post($this->endpoint('/api-key'), [
+                'api_key' => $apiKey,
+            ]);
+
+            if (! $response->successful()) {
+                return [
+                    'success' => false,
+                    'message' => $this->responseMessage($response->json(), 'Could not register the WordPress API key on your site.'),
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => $response->json('message') ?? 'WordPress API key registered.',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * @return array{success: bool, message?: string}
      */
     public function ping(): array
@@ -33,7 +88,10 @@ class WordPressApiService
             if (! $response->successful()) {
                 return [
                     'success' => false,
-                    'message' => $response->json('message') ?? 'WordPress connection failed.',
+                    'message' => $this->responseMessage(
+                        $response->json(),
+                        'WordPress connection failed.',
+                    ),
                 ];
             }
 
@@ -200,12 +258,57 @@ class WordPressApiService
         $integration = WordPressIntegrationSettings::integration();
         $apiKey = $integration?->access_token;
         if (! is_string($apiKey) || $apiKey === '') {
-            throw new RuntimeException('WordPress API key is missing.');
+            throw new RuntimeException('WordPress API key is missing in Helmful.');
         }
 
         return Http::timeout(30)
             ->acceptJson()
             ->withToken($apiKey);
+    }
+
+    private function helmfulClient(): PendingRequest
+    {
+        $helmfulKey = $this->helmfulIntegrationKey();
+        if ($helmfulKey === null) {
+            throw new RuntimeException('Helmful integration key is not available.');
+        }
+
+        return Http::timeout(30)
+            ->acceptJson()
+            ->withToken($helmfulKey);
+    }
+
+    private function helmfulIntegrationKey(): ?string
+    {
+        $integration = WordPressIntegrationSettings::integration();
+        $token = $integration?->sync_token;
+
+        return is_string($token) && $token !== '' ? $token : null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $body
+     */
+    private function responseMessage(?array $body, string $fallback): string
+    {
+        if (! is_array($body)) {
+            return $fallback;
+        }
+
+        $message = (string) ($body['message'] ?? '');
+        if ($message === '') {
+            return $fallback;
+        }
+
+        if (($body['code'] ?? '') === 'helmful_not_configured') {
+            return 'WordPress does not have an API key yet. Save settings in Helmful after pasting your Helmful integration key into WordPress, or generate a key in WordPress under Settings → Helmful Sync.';
+        }
+
+        if (($body['code'] ?? '') === 'helmful_helmful_not_configured') {
+            return 'Paste your Helmful integration key into WordPress under Settings → Helmful Sync, then test again.';
+        }
+
+        return $message;
     }
 
     private function endpoint(string $path): string

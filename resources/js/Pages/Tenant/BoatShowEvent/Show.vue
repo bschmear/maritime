@@ -112,8 +112,9 @@ const printLayoutHref = computed(() => {
 const breadcrumbItems = computed(() => {
     const items = [{ label: 'Home', href: route('dashboard') }];
 
+    items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
+
     if (isNested.value && parentShow.value) {
-        items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
         items.push({ label: parentShowLabel.value, href: parentShowHref.value });
     } else {
         items.push({ label: 'Boat Show Events', href: indexHref.value });

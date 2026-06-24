@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\BoatShow\Support;
 
 use App\Domain\BoatShow\Models\BoatShow;
+use App\Domain\BoatShow\Support\BoatShowDocumentUrl;
 use App\Domain\BoatShowEvent\Models\BoatShowEvent;
 use App\Support\TenantAbsoluteUrl;
 use Illuminate\Support\Collection;
@@ -22,6 +23,7 @@ final class BoatShowWordPressPayload
             'slug' => $show->slug,
             'description' => $show->description,
             'website' => $show->website,
+            'logo_url' => BoatShowDocumentUrl::logoUrlForShow($show),
             'app_show_url' => TenantAbsoluteUrl::path('boat-shows/'.$show->slug),
             'updated_at' => $show->updated_at?->toIso8601String(),
         ];
@@ -52,6 +54,7 @@ final class BoatShowWordPressPayload
             'longitude' => $event->longitude,
             'booth' => $event->booth,
             'active' => (bool) $event->active,
+            'logo_url' => $event->show ? BoatShowDocumentUrl::logoUrlForShow($event->show) : null,
             'app_event_url' => TenantAbsoluteUrl::path('boat-show-events/'.$event->id),
             'public_event_url' => TenantAbsoluteUrl::path('boat-show-events/'.$event->uuid.'/public'),
             'updated_at' => $event->updated_at?->toIso8601String(),

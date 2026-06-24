@@ -10,6 +10,7 @@ use App\Enums\Integration\IntegrationSyncStatus;
 use App\Enums\Integration\IntegrationType;
 use App\Http\Controllers\Controller;
 use App\Services\Integrations\WordPressApiService;
+use App\Services\Integrations\WordPressPluginZipBuilder;
 use App\Support\TenantAbsoluteUrl;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,11 +19,13 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class WordPressController extends Controller
 {
     public function __construct(
         private readonly WordPressApiService $wordpress,
+        private readonly WordPressPluginZipBuilder $pluginZip,
     ) {}
 
     public function show(Request $request): Response
@@ -51,7 +54,8 @@ class WordPressController extends Controller
             'wordpressSettings' => $settings->toArray(),
             'tenantDomain' => parse_url((string) TenantAbsoluteUrl::root(), PHP_URL_HOST),
             'helmfulApiKey' => $request->session()->pull('wordpress_helmful_api_key'),
-            'pluginPath' => 'wordpress-plugin/helmful-sync',
+            'pluginDownloadUrl' => route('wordpress.download-plugin'),
+            'pluginVersion' => $this->pluginZip->version(),
         ]);
     }
 
@@ -75,10 +79,12 @@ class WordPressController extends Controller
         ]);
 
         $settings = $integration->settings ?? [];
+        $helmfulSyncToken = null;
         if (! isset($settings['helmful_api_key_hash'])) {
             $helmfulKey = Str::random(64);
             $settings['helmful_api_key_hash'] = WordPressIntegrationSettings::hashApiKey($helmfulKey);
             $request->session()->flash('wordpress_helmful_api_key', $helmfulKey);
+            $helmfulSyncToken = $helmfulKey;
         }
 
         $settings['wordpress_url'] = $url;
@@ -90,16 +96,31 @@ class WordPressController extends Controller
             'active' => true,
             'settings' => $settings,
             'sync_status' => IntegrationSyncStatus::Pending,
-            'external_id' => hash('sha256', $url),
         ]);
 
+        $secrets = ['external_id' => hash('sha256', $url)];
         if (filled($validated['wordpress_api_key'] ?? null)) {
-            $integration->access_token = $validated['wordpress_api_key'];
+            $secrets['access_token'] = $validated['wordpress_api_key'];
         }
+        if ($helmfulSyncToken !== null) {
+            $secrets['sync_token'] = $helmfulSyncToken;
+        }
+        $integration->forceFill($secrets);
 
         $integration->save();
 
-        return redirect()->route('wordpress')->with('success', 'WordPress integration saved.');
+        $syncNotice = null;
+        if ($integration->access_token) {
+            $sync = $this->wordpress->syncWordPressApiKeyToSite();
+            if (! ($sync['success'] ?? false)) {
+                $syncNotice = $sync['message'] ?? 'Could not register the WordPress API key on your site.';
+            }
+        }
+
+        return redirect()->route('wordpress')->with([
+            'success' => 'WordPress integration saved.',
+            'error' => $syncNotice,
+        ]);
     }
 
     public function destroy(): RedirectResponse
@@ -115,22 +136,59 @@ class WordPressController extends Controller
     {
         $integration = Integration::query()
             ->where('integration_type', IntegrationType::WordPress)
-            ->firstOrFail();
+            ->first();
+
+        $isNew = $integration === null;
+
+        if ($isNew) {
+            $integration = new Integration([
+                'integration_type' => IntegrationType::WordPress,
+            ]);
+        }
 
         $helmfulKey = Str::random(64);
         $settings = $integration->settings ?? [];
         $settings['helmful_api_key_hash'] = WordPressIntegrationSettings::hashApiKey($helmfulKey);
-        $integration->update(['settings' => $settings]);
+
+        $integration->fill([
+            'user_id' => current_tenant_profile()?->getKey(),
+            'name' => IntegrationType::WordPress->label(),
+            'active' => true,
+            'settings' => $settings,
+            'sync_status' => IntegrationSyncStatus::Pending,
+        ]);
+
+        if (! filled($integration->external_id)) {
+            $integration->forceFill([
+                'external_id' => 'wordpress:'.(tenant()?->getTenantKey() ?? 'default'),
+            ]);
+        }
+
+        $integration->forceFill([
+            'sync_token' => $helmfulKey,
+        ]);
+
+        $integration->save();
 
         return redirect()->route('wordpress')->with([
-            'success' => 'Helmful API key regenerated. Copy it into WordPress before the old key stops working.',
+            'success' => $isNew
+                ? 'Integration key generated. Copy it into WordPress under Settings → Helmful Sync.'
+                : 'Integration key regenerated. Copy the new key into WordPress before the old key stops working.',
             'wordpress_helmful_api_key' => $helmfulKey,
         ]);
     }
 
     public function testConnection(): JsonResponse
     {
+        $sync = $this->wordpress->syncWordPressApiKeyToSite();
+        if (! ($sync['success'] ?? false) && ($sync['blocking'] ?? false)) {
+            return response()->json($sync, 422);
+        }
+
         $result = $this->wordpress->ping();
+        if (! ($result['success'] ?? false) && ! ($sync['success'] ?? false) && isset($sync['message'])) {
+            $result['message'] = trim(($sync['message'] ?? '').' '.($result['message'] ?? ''));
+        }
 
         return response()->json($result, ($result['success'] ?? false) ? 200 : 422);
     }
@@ -144,5 +202,16 @@ class WordPressController extends Controller
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
+    }
+
+    public function downloadPlugin(): BinaryFileResponse
+    {
+        $zipPath = $this->pluginZip->build();
+
+        return response()->download(
+            $zipPath,
+            WordPressPluginZipBuilder::ZIP_FILENAME,
+            ['Content-Type' => 'application/zip'],
+        )->deleteFileAfterSend(true);
     }
 }

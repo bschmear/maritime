@@ -939,6 +939,7 @@ Route::middleware([
 
             Route::prefix('wordpress')->group(function () {
                 Route::get('/', [WordPressController::class, 'show'])->name('wordpress');
+                Route::get('/download-plugin', [WordPressController::class, 'downloadPlugin'])->name('wordpress.download-plugin');
                 Route::post('/', [WordPressController::class, 'store'])->name('wordpress.store');
                 Route::delete('/', [WordPressController::class, 'destroy'])->name('wordpress.destroy');
                 Route::post('/regenerate-key', [WordPressController::class, 'regenerateKey'])->name('wordpress.regenerate-key');

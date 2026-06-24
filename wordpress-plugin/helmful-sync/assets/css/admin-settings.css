@@ -1,0 +1,448 @@
+/* ============================================================
+   Helmful Sync – Admin Settings
+   ============================================================ */
+
+/* ── Page wrapper ── */
+.helmful-sync-settings {
+    max-width: 900px;
+}
+
+.helmful-sync-settings > h1 {
+    font-size: 1.6rem;
+    margin-bottom: 0.35rem;
+}
+
+.helmful-sync-settings > p {
+    color: #50575e;
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Nav tabs ── */
+.helmful-admin-tabs {
+    margin-top: 0.5rem;
+    margin-bottom: 0;
+    border-bottom: 2px solid #dcdcde;
+}
+
+.helmful-admin-tabs .nav-tab {
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.helmful-admin-tabs .nav-tab-active,
+.helmful-admin-tabs .nav-tab:focus {
+    border-bottom-color: #1d3557;
+    color: #1d3557;
+    background: transparent;
+    box-shadow: none;
+}
+
+/* ── Panels ── */
+.helmful-admin-panel {
+    display: none;
+    margin-top: 2rem;
+}
+
+.helmful-admin-panel.is-active {
+    display: block;
+}
+
+.helmful-admin-panel h2 {
+    font-size: 1.1rem;
+    margin: 0 0 0.3rem;
+    color: #1d2327;
+}
+
+.helmful-admin-panel > p,
+.helmful-admin-panel > h2 + p {
+    color: #50575e;
+    margin-top: 0.25rem;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Section blocks (card containers) ── */
+.helmful-section {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.helmful-section h2 {
+    margin-top: 0;
+    margin-bottom: 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1d2327;
+}
+
+.helmful-section > p {
+    color: #50575e;
+    margin-top: 0.25rem;
+    margin-bottom: 1.25rem;
+    font-size: 13px;
+}
+
+.helmful-section hr {
+    border: 0;
+    border-top: 1px solid #ececec;
+    margin: 1.5rem 0;
+}
+
+/* ── Status badge ── */
+.helmful-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #e9f5e9;
+    color: #1a7e3b;
+    margin-bottom: 1rem;
+}
+
+.helmful-status-badge::before {
+    content: '';
+    display: block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1a7e3b;
+}
+
+/* ── Form table overrides ── */
+.helmful-section .form-table {
+    margin-top: 0;
+}
+
+.helmful-section .form-table th {
+    width: 200px;
+    padding: 12px 10px 12px 0;
+    font-size: 13px;
+    color: #1d2327;
+}
+
+.helmful-section .form-table td {
+    padding: 10px 0;
+}
+
+.helmful-section .form-table .description {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #646970;
+}
+
+/* ── API key reveal block ── */
+.helmful-key-reveal {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    display: block;
+    padding: 10px 14px;
+    background: #f6f7f7;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    word-break: break-all;
+    margin-bottom: 1rem;
+    color: #1d2327;
+    user-select: all;
+}
+
+/* ── Action button row ── */
+.helmful-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.helmful-last-sync {
+    font-size: 12px;
+    color: #646970;
+    margin-left: 0.5rem;
+}
+
+/* ── Layout picker ── */
+.helmful-layout-picker {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin: 0.75rem 0 1.5rem;
+}
+
+.helmful-layout-option {
+    position: relative;
+    display: block;
+    cursor: pointer;
+}
+
+.helmful-layout-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.helmful-layout-card {
+    display: flex;
+    flex-direction: column;
+    border: 2px solid #dcdcde;
+    border-radius: 10px;
+    padding: 0.85rem;
+    background: #fff;
+    transition: border-color 0.14s ease, box-shadow 0.14s ease;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.helmful-layout-option:hover .helmful-layout-card {
+    border-color: #8c8f94;
+}
+
+.helmful-layout-option input:checked + .helmful-layout-card {
+    border-color: #1d3557;
+    box-shadow: 0 0 0 1px #1d3557;
+}
+
+.helmful-layout-card__thumb {
+    height: 68px;
+    border-radius: 6px;
+    background: #f6f7f7;
+    border: 1px solid #e5e5e5;
+    margin-bottom: 0.6rem;
+    overflow: hidden;
+    padding: 0.5rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.3rem;
+}
+
+.helmful-layout-card__title {
+    font-weight: 700;
+    font-size: 12px;
+    color: #1d2327;
+    line-height: 1.3;
+}
+
+.helmful-layout-card__desc {
+    margin-top: 0.2rem;
+    font-size: 11px;
+    color: #646970;
+    line-height: 1.45;
+}
+
+/* ── Thumbnail sketches ── */
+.helmful-thumb-stacked .bar {
+    height: 12px;
+    border-radius: 3px;
+    background: #dcdcde;
+}
+
+.helmful-thumb-stacked .bar--lg {
+    height: 22px;
+    background: #b8bec4;
+}
+
+.helmful-thumb-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem;
+    height: 100%;
+}
+
+.helmful-thumb-grid span {
+    border-radius: 3px;
+    background: #c3c4c7;
+    min-height: 20px;
+}
+
+.helmful-thumb-timeline {
+    border-left: 2px solid #b8bec4;
+    padding-left: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.helmful-thumb-timeline span {
+    display: block;
+    height: 10px;
+    border-radius: 3px;
+    background: #dcdcde;
+    position: relative;
+}
+
+.helmful-thumb-timeline span::before {
+    content: '';
+    position: absolute;
+    left: -0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #1d3557;
+}
+
+.helmful-thumb-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.helmful-thumb-compact span {
+    display: block;
+    height: 7px;
+    border-radius: 2px;
+    background: #dcdcde;
+}
+
+.helmful-thumb-compact span:first-child {
+    height: 11px;
+    background: #1d3557;
+    border-radius: 3px;
+}
+
+/* ── Display sub-sections ── */
+.helmful-section h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #646970;
+    margin: 1.5rem 0 0.75rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #ececec;
+}
+
+.helmful-section h3:first-child {
+    margin-top: 0;
+}
+
+/* ── Grid columns field ── */
+.helmful-field--columns.is-hidden {
+    display: none;
+}
+
+/* ── Color field ── */
+.helmful-color-field {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.helmful-color-field input[type="color"] {
+    width: 44px;
+    height: 34px;
+    padding: 2px;
+    border: 1px solid #8c8f94;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+}
+
+.helmful-color-field input[type="text"] {
+    width: 100px;
+}
+
+/* ── Style preview ── */
+.helmful-display-preview {
+    margin-top: 1.5rem;
+    border: 1px dashed #c3c4c7;
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+    background: #fafafa;
+}
+
+.helmful-display-preview > h3 {
+    margin-top: 0 !important;
+    border-bottom: none !important;
+    margin-bottom: 0.75rem !important;
+}
+
+.helmful-display-preview__frame {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    border: 1px solid #e5e5e5;
+}
+
+/* ── Shortcode tab ── */
+.helmful-shortcode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+    margin-top: 1.25rem;
+}
+
+.helmful-shortcode-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    padding: 1rem 1.15rem;
+}
+
+.helmful-shortcode-card--featured {
+    border-color: #1d3557;
+    background: #f0f4f8;
+}
+
+.helmful-shortcode-card__label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #1d3557;
+    margin-bottom: 0.4rem;
+}
+
+.helmful-shortcode-card--featured .helmful-shortcode-card__label {
+    color: #1d3557;
+}
+
+.helmful-shortcode-card code {
+    display: block;
+    font-size: 12.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 5px;
+    padding: 6px 10px;
+    color: #1d2327;
+    word-break: break-all;
+    margin-bottom: 0.5rem;
+}
+
+.helmful-shortcode-card--featured code {
+    background: #fff;
+    border-color: #b8cfe8;
+}
+
+.helmful-shortcode-card p {
+    margin: 0;
+    font-size: 12px;
+    color: #50575e;
+    line-height: 1.5;
+}
+
+/* ── Responsive ── */
+@media (max-width: 782px) {
+    .helmful-layout-picker {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .helmful-shortcode-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .helmful-section .form-table th {
+        width: auto;
+    }
+}

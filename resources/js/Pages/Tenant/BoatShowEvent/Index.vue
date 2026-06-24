@@ -21,19 +21,14 @@ const props = defineProps({
 
 const breadcrumbItems = computed(() => {
     const items = [{ label: 'Home', href: route('dashboard') }];
+    items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
     if (props.parentBoatShow) {
-        items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
         items.push({
             label: props.parentBoatShow.name,
             href: route('boat-shows.show', props.parentBoatShow.routeKey),
         });
-        items.push({ label: props.pluralTitle });
-    } else if (Object.keys(props.extraRouteParams).length === 0) {
-        items.push({ label: props.pluralTitle });
-    } else {
-        items.push({ label: 'Boat Shows', href: route('boat-shows.index') });
-        items.push({ label: props.pluralTitle });
     }
+    items.push({ label: props.pluralTitle });
     return items;
 });
 </script>
