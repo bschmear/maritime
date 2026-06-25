@@ -53,6 +53,19 @@
           "required": false
         }
       ]
+    },
+    "google_reviews": {
+      "label": "Google Reviews",
+      "fields": [
+        {
+          "key": "google_review_url",
+          "required": false
+        },
+        {
+          "key": "prompt_google_review_on_transaction_close",
+          "required": false
+        }
+      ]
     }
   },
   "sublists": [

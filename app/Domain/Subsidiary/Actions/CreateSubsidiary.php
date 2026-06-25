@@ -4,6 +4,7 @@ namespace App\Domain\Subsidiary\Actions;
 
 use App\Domain\Location\Actions\CreateLocation as CreateLocationAction;
 use App\Domain\Subsidiary\Models\Subsidiary as RecordModel;
+use App\Domain\Subsidiary\Support\GoogleReviewUrl;
 use App\Enums\Locations\LocationType;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,8 @@ class CreateSubsidiary
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'website' => ['nullable', 'string', 'max:255'],
+            'google_review_url' => GoogleReviewUrl::validationRules(),
+            'prompt_google_review_on_transaction_close' => ['nullable', 'boolean'],
             'timezone' => ['nullable', 'string', 'max:50'],
             'default_labor_rate' => ['nullable', 'numeric', 'min:0'],
             'work_order_prefix' => ['nullable', 'string', 'max:10'],
@@ -69,12 +72,27 @@ class CreateSubsidiary
 
         $validated = Validator::make($data, $validationRules)->validate();
 
+        if (array_key_exists('google_review_url', $validated)) {
+            $validated['google_review_url'] = GoogleReviewUrl::normalize($validated['google_review_url']);
+        }
+
         $locations = $validated['locations'];
         $createData = $validated;
         unset($createData['locations']);
 
         foreach (self::ADDRESS_FIELDS as $field) {
             unset($createData[$field]);
+        }
+
+        if (array_key_exists('prompt_google_review_on_transaction_close', $createData)) {
+            $createData['prompt_google_review_on_transaction_close'] = filter_var(
+                $createData['prompt_google_review_on_transaction_close'],
+                FILTER_VALIDATE_BOOLEAN
+            );
+        }
+
+        if (array_key_exists('google_review_url', $createData)) {
+            $createData['google_review_url'] = GoogleReviewUrl::normalize($createData['google_review_url']);
         }
 
         try {

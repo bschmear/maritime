@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Domain\Customer\Models\Customer;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Subsidiary\Support\GoogleReviewPromptForTransaction;
+use App\Domain\Subsidiary\Support\GoogleReviewRequestMessage;
 use App\Domain\Transaction\Actions\CreateTransaction;
 use App\Domain\Transaction\Actions\DeleteTransaction;
 use App\Domain\Transaction\Actions\UpdateTransaction;
@@ -13,11 +15,15 @@ use App\Enums\Invoice\Status as InvoiceStatus;
 use App\Enums\Timezone;
 use App\Enums\Transaction\TransactionStatus;
 use App\Http\Controllers\Concerns\HasSchemaSupport;
+use App\Mail\GoogleReviewRequestMail;
 use App\Models\AccountSettings;
+use App\Services\Mail\TenantMailService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
@@ -393,7 +399,12 @@ class TransactionController extends BaseController
                 'deliveries' => fn ($q) => $q
                     ->select(['id', 'transaction_id', 'sequence', 'status', 'scheduled_at'])
                     ->orderByDesc('id'),
-                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'subsidiary' => fn ($q) => $q->select([
+                    'id',
+                    'display_name',
+                    'google_review_url',
+                    'prompt_google_review_on_transaction_close',
+                ]),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
             ])
             ->findOrFail($id);
@@ -452,7 +463,12 @@ class TransactionController extends BaseController
                 'user' => fn ($q) => $q->select(['id', 'display_name']),
                 'estimate' => fn ($q) => $q->select(['id', 'sequence']),
                 'opportunity' => fn ($q) => $q->select(['id', 'display_name']),
-                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'subsidiary' => fn ($q) => $q->select([
+                    'id',
+                    'display_name',
+                    'google_review_url',
+                    'prompt_google_review_on_transaction_close',
+                ]),
                 'location' => fn ($q) => $q->select(['id', 'display_name']),
                 'invoices' => fn ($q) => $q
                     ->select(['id', 'transaction_id', 'sequence', 'status', 'amount_paid'])
@@ -500,9 +516,75 @@ class TransactionController extends BaseController
                 ->with('error', $result['message'] ?? 'Failed to update transaction.');
         }
 
-        return redirect()
+        $redirect = redirect()
             ->route('transactions.show', $id)
             ->with('success', 'Transaction updated successfully.');
+
+        if ($result['just_completed'] ?? false) {
+            $prompt = GoogleReviewPromptForTransaction::resolve($result['record']);
+            if ($prompt !== null) {
+                $redirect->with('google_review_prompt', $prompt);
+            }
+        }
+
+        return $redirect;
+    }
+
+    public function sendGoogleReviewRequest(Request $request, $transaction): RedirectResponse
+    {
+        $id = $transaction instanceof Transaction ? $transaction->getKey() : (int) $transaction;
+        $model = Transaction::query()->findOrFail($id);
+
+        if (! $model->isCompleted()) {
+            return back()->with('error', 'Google review requests can only be sent after the deal is completed.');
+        }
+
+        $tenantMail = app(TenantMailService::class);
+        if ($tenantMail->isSandboxActive()) {
+            return back()->with('error', 'Google review emails are disabled while sandbox mode is on.');
+        }
+
+        $prompt = GoogleReviewPromptForTransaction::resolve($model);
+        if ($prompt === null) {
+            return back()->with('error', 'This deal is not eligible for a Google review request.');
+        }
+
+        $email = trim((string) ($prompt['customer_email'] ?? ''));
+        if ($email === '') {
+            return back()->with('error', 'This customer does not have an email address on file.');
+        }
+
+        $model->loadMissing('subsidiary');
+        $subsidiary = $model->subsidiary;
+        if ($subsidiary === null) {
+            return back()->with('error', 'This deal has no subsidiary assigned.');
+        }
+
+        $customerName = trim((string) ($prompt['customer_name'] ?? 'Customer'));
+        $settings = AccountSettings::getCurrent();
+
+        $validated = $request->validate([
+            'message' => GoogleReviewRequestMessage::validationRules(),
+        ]);
+
+        $message = GoogleReviewRequestMessage::normalize(
+            $validated['message'],
+            $subsidiary->display_name,
+        );
+
+        $tenantMail->send(
+            $email,
+            new GoogleReviewRequestMail(
+                $settings,
+                $subsidiary,
+                $customerName,
+                (string) $prompt['google_review_url'],
+                $message,
+            ),
+            Auth::user(),
+        );
+
+        return back()->with('success', 'Google review request sent to '.$email.'.');
     }
 
     public function destroy($transaction)

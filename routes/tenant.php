@@ -397,6 +397,8 @@ Route::middleware([
             Route::get('/location-tax-rate', [GeneralController::class, 'getTaxRate'])->name('location-tax-rate');
             Route::get('/{transaction}/mso/units', [MsoController::class, 'units'])->name('mso.units');
             Route::post('/{transaction}/mso/batch', [MsoController::class, 'batch'])->name('mso.batch');
+            Route::post('/{transaction}/send-google-review-request', [TransactionController::class, 'sendGoogleReviewRequest'])
+                ->name('send-google-review-request');
             Route::resource('/', TransactionController::class)->parameters(['' => 'transaction']);
         });
 

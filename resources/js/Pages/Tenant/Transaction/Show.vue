@@ -10,12 +10,13 @@ import {
 } from '@/Utils/lineItemsFromEstimate';
 import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
 import TransactionAssetUnitStatusModal from '@/Components/Tenant/TransactionAssetUnitStatusModal.vue';
+import GoogleReviewPromptModal from '@/Components/Tenant/GoogleReviewPromptModal.vue';
 import {
     buildAssetUnitStatusDraft,
     collectAssetUnitsFromLineItems,
 } from '@/Utils/transactionAssetUnits';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     record: {
@@ -30,6 +31,25 @@ const props = defineProps({
 
 const page = usePage();
 const flash = computed(() => page.props.flash || {});
+
+const showGoogleReviewModal = ref(false);
+const googleReviewPrompt = ref(null);
+
+const openGoogleReviewFromFlash = () => {
+    const prompt = flash.value?.google_review_prompt;
+    if (prompt && typeof prompt === 'object') {
+        googleReviewPrompt.value = prompt;
+        showGoogleReviewModal.value = true;
+    }
+};
+
+onMounted(openGoogleReviewFromFlash);
+watch(flash, openGoogleReviewFromFlash);
+
+const closeGoogleReviewModal = () => {
+    showGoogleReviewModal.value = false;
+    googleReviewPrompt.value = null;
+};
 
 const statusEnumKey = 'App\\Enums\\Transaction\\TransactionStatus';
 const invoiceStatusEnumKey = 'App\\Enums\\Invoice\\Status';
@@ -1433,6 +1453,12 @@ const confirmAddStep = () => {
             :processing="completingDeal"
             @close="closeAssetUnitStatusModal"
             @confirm="confirmAssetUnitStatuses"
+        />
+
+        <GoogleReviewPromptModal
+            :show="showGoogleReviewModal"
+            :prompt="googleReviewPrompt"
+            @close="closeGoogleReviewModal"
         />
     </TenantLayout>
 </template>

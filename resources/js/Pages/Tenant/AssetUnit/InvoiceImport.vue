@@ -671,6 +671,22 @@ function formatMoney(value) {
 
     return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+const stepActiveClass = 'font-semibold text-primary-600 dark:text-primary-400';
+const stepInactiveClass = 'text-gray-400 dark:text-gray-500';
+const stepSeparatorClass = 'text-gray-300 dark:text-gray-600';
+
+const secondaryButtonClass =
+    'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700';
+
+const fileInputClass =
+    'mt-4 block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-700 hover:file:bg-primary-100 dark:text-gray-300 dark:file:bg-primary-900/30 dark:file:text-primary-300 dark:hover:file:bg-primary-900/50';
+
+const formInputClass =
+    'rounded border-gray-300 text-xs text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-400 dark:focus:border-primary-400 dark:focus:ring-primary-400';
+
+const checkboxClass =
+    'rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:focus:ring-primary-400';
 </script>
 
 <template>
@@ -683,15 +699,15 @@ function formatMoney(value) {
 
         <div class="w-full min-w-0 space-y-6">
             <div class="flex flex-wrap gap-2 text-sm">
-                <span :class="step >= 1 ? 'font-semibold text-primary-600' : 'text-gray-400'">1. Brand</span>
-                <span class="text-gray-300">/</span>
-                <span :class="step >= 2 ? 'font-semibold text-primary-600' : 'text-gray-400'">2. Upload</span>
-                <span class="text-gray-300">/</span>
-                <span :class="step >= 3 ? 'font-semibold text-primary-600' : 'text-gray-400'">3. Extract</span>
-                <span class="text-gray-300">/</span>
-                <span :class="step >= 4 ? 'font-semibold text-primary-600' : 'text-gray-400'">4. Review</span>
-                <span class="text-gray-300">/</span>
-                <span :class="step >= 5 ? 'font-semibold text-primary-600' : 'text-gray-400'">5. Done</span>
+                <span :class="step >= 1 ? stepActiveClass : stepInactiveClass">1. Brand</span>
+                <span :class="stepSeparatorClass">/</span>
+                <span :class="step >= 2 ? stepActiveClass : stepInactiveClass">2. Upload</span>
+                <span :class="stepSeparatorClass">/</span>
+                <span :class="step >= 3 ? stepActiveClass : stepInactiveClass">3. Extract</span>
+                <span :class="stepSeparatorClass">/</span>
+                <span :class="step >= 4 ? stepActiveClass : stepInactiveClass">4. Review</span>
+                <span :class="stepSeparatorClass">/</span>
+                <span :class="step >= 5 ? stepActiveClass : stepInactiveClass">5. Done</span>
             </div>
 
             <p v-if="error" class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-200">{{ error }}</p>
@@ -715,7 +731,7 @@ function formatMoney(value) {
                     <Link
                         v-if="brand.id"
                         :href="route('boatmakes.show', brand.id)"
-                        class="font-medium underline"
+                        class="font-medium underline dark:text-primary-400"
                     >
                         Add one on the brand record
                     </Link>
@@ -742,11 +758,11 @@ function formatMoney(value) {
                     <input
                         type="file"
                         accept="application/pdf,.pdf"
-                        class="mt-4 block w-full text-sm"
+                        :class="fileInputClass"
                         :disabled="parsing"
                         @change="onFileSelected"
                     />
-                    <p v-if="parsing" class="mt-2 text-sm text-gray-500">Uploading and analyzing document…</p>
+                    <p v-if="parsing" class="mt-2 text-sm text-gray-500 dark:text-gray-400">Uploading and analyzing document…</p>
                     <p
                         v-else-if="cacheKey"
                         class="mt-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-200"
@@ -769,17 +785,17 @@ function formatMoney(value) {
                     <textarea
                         v-model="aiInstructions"
                         rows="10"
-                        class="mt-2 w-full rounded-lg border-gray-300 font-mono text-xs dark:border-gray-600 dark:bg-gray-700"
+                        class="mt-2 w-full rounded-lg border-gray-300 bg-white font-mono text-xs text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-primary-400 dark:focus:ring-primary-400"
                         placeholder="Describe document layout, columns, and how to find HINs, models, and prices…"
                     />
                     <label class="mt-3 inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <input v-model="saveAiInstructions" type="checkbox" />
+                        <input v-model="saveAiInstructions" type="checkbox" :class="checkboxClass" />
                         Save instructions for this brand
                     </label>
                 </div>
 
                 <div class="flex justify-between gap-2">
-                    <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="step = 1">Back</button>
+                    <button type="button" :class="secondaryButtonClass" @click="step = 1">Back</button>
                     <button
                         type="button"
                         class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
@@ -804,20 +820,20 @@ function formatMoney(value) {
                     </p>
                     <dl v-if="extraction" class="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                         <div>
-                            <dt class="text-gray-500">Document #</dt>
-                            <dd class="font-medium">{{ extraction.invoice_number || '—' }}</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">Document #</dt>
+                            <dd class="font-medium text-gray-900 dark:text-white">{{ extraction.invoice_number || '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">Date</dt>
-                            <dd class="font-medium">{{ extraction.invoice_date || '—' }}</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">Date</dt>
+                            <dd class="font-medium text-gray-900 dark:text-white">{{ extraction.invoice_date || '—' }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">Units</dt>
-                            <dd class="font-medium">{{ includedRows.length }} / {{ rows.length }}</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">Units</dt>
+                            <dd class="font-medium text-gray-900 dark:text-white">{{ includedRows.length }} / {{ rows.length }}</dd>
                         </div>
                         <div>
-                            <dt class="text-gray-500">Brand</dt>
-                            <dd class="font-medium">{{ brand?.display_name || '—' }}</dd>
+                            <dt class="text-gray-500 dark:text-gray-400">Brand</dt>
+                            <dd class="font-medium text-gray-900 dark:text-white">{{ brand?.display_name || '—' }}</dd>
                         </div>
                     </dl>
                 </div>
@@ -984,49 +1000,50 @@ function formatMoney(value) {
 
                 <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                     <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 dark:bg-gray-900/40">
+                        <thead class="bg-gray-50 text-gray-600 dark:bg-gray-900/40 dark:text-gray-400">
                             <tr>
-                                <th class="px-3 py-2 text-left">Include</th>
-                                <th class="px-3 py-2 text-left">Item</th>
-                                <th class="px-3 py-2 text-left">HIN</th>
-                                <th class="px-3 py-2 text-left">Serial</th>
-                                <th class="px-3 py-2 text-right">Cost</th>
-                                <th class="px-3 py-2 text-left">Asset</th>
-                                <th class="px-3 py-2 text-left">Variant</th>
-                                <th v-if="placementMode === 'individual'" class="px-3 py-2 text-left">Subsidiary</th>
-                                <th v-if="placementMode === 'individual'" class="px-3 py-2 text-left">Location</th>
-                                <th v-if="statusMode === 'individual'" class="px-3 py-2 text-left">Unit status</th>
-                                <th class="px-3 py-2 text-left">Catalog</th>
-                                <th class="px-3 py-2 text-left">Inventory</th>
+                                <th class="px-3 py-2 text-left font-medium">Include</th>
+                                <th class="px-3 py-2 text-left font-medium">Item</th>
+                                <th class="px-3 py-2 text-left font-medium">HIN</th>
+                                <th class="px-3 py-2 text-left font-medium">Serial</th>
+                                <th class="px-3 py-2 text-right font-medium">Cost</th>
+                                <th class="px-3 py-2 text-left font-medium">Asset</th>
+                                <th class="px-3 py-2 text-left font-medium">Variant</th>
+                                <th v-if="placementMode === 'individual'" class="px-3 py-2 text-left font-medium">Subsidiary</th>
+                                <th v-if="placementMode === 'individual'" class="px-3 py-2 text-left font-medium">Location</th>
+                                <th v-if="statusMode === 'individual'" class="px-3 py-2 text-left font-medium">Unit status</th>
+                                <th class="px-3 py-2 text-left font-medium">Catalog</th>
+                                <th class="px-3 py-2 text-left font-medium">Inventory</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
                                 v-for="row in reviewRows"
                                 :key="row.row_index"
-                                class="border-t border-gray-100 dark:border-gray-700"
+                                class="border-t border-gray-100 text-gray-900 dark:border-gray-700 dark:text-gray-100"
                                 :class="row.already_exists
                                     ? 'bg-amber-50/90 dark:bg-amber-900/15'
-                                    : ''"
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'"
                             >
                                 <td class="px-3 py-2 align-top">
                                     <input
                                         v-model="row.include"
                                         type="checkbox"
+                                        :class="checkboxClass"
                                         :disabled="row.already_exists"
                                         :title="row.already_exists ? 'This unit already exists in inventory' : undefined"
                                     />
                                 </td>
                                 <td class="px-3 py-2 align-top">
-                                    <div class="font-medium">{{ row.item_code || '—' }}</div>
-                                    <div class="text-xs text-gray-500">{{ row.description }}</div>
-                                    <div v-if="row.extracted_model" class="text-xs text-gray-400">AI: {{ row.extracted_model }} {{ row.extracted_variant }}</div>
+                                    <div class="font-medium text-gray-900 dark:text-white">{{ row.item_code || '—' }}</div>
+                                    <div class="text-xs text-gray-500 dark:text-gray-400">{{ row.description }}</div>
+                                    <div v-if="row.extracted_model" class="text-xs text-gray-400 dark:text-gray-500">AI: {{ row.extracted_model }} {{ row.extracted_variant }}</div>
                                 </td>
                                 <td class="px-3 py-2 align-top">
                                     <input
                                         v-model="row.hin"
                                         type="text"
-                                        class="w-36 rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700"
+                                        :class="[formInputClass, 'w-36']"
                                         @blur="refreshRowExistingFlags(row)"
                                     />
                                 </td>
@@ -1034,12 +1051,12 @@ function formatMoney(value) {
                                     <input
                                         v-model="row.serial_number"
                                         type="text"
-                                        class="w-28 rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700"
+                                        :class="[formInputClass, 'w-28']"
                                         @blur="refreshRowExistingFlags(row)"
                                     />
                                 </td>
                                 <td class="px-3 py-2 align-top text-right">
-                                    <input v-model.number="row.unit_price" type="number" step="0.01" min="0" class="w-24 rounded border-gray-300 text-right text-xs dark:border-gray-600 dark:bg-gray-700" />
+                                    <input v-model.number="row.unit_price" type="number" step="0.01" min="0" :class="[formInputClass, 'w-24 text-right']" />
                                 </td>
                                 <td class="min-w-[12rem] px-3 py-2 align-top">
                                     <RecordSelect
@@ -1067,7 +1084,7 @@ function formatMoney(value) {
                                         :disabled="!row.asset_id"
                                         @record-selected="(rec) => onVariantSelected(row, rec)"
                                     />
-                                    <span v-else class="text-xs text-gray-400">—</span>
+                                    <span v-else class="text-xs text-gray-400 dark:text-gray-500">—</span>
                                 </td>
                                 <td v-if="placementMode === 'individual'" class="min-w-[10rem] px-3 py-2 align-top">
                                     <RecordSelect
@@ -1095,7 +1112,7 @@ function formatMoney(value) {
                                 <td v-if="statusMode === 'individual'" class="min-w-[8rem] px-3 py-2 align-top">
                                     <select
                                         v-model.number="row.status"
-                                        class="w-full rounded border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-700"
+                                        :class="[formInputClass, 'w-full']"
                                     >
                                         <option v-for="opt in unitStatusChoices" :key="opt.id" :value="opt.id">
                                             {{ opt.name }}
@@ -1133,10 +1150,10 @@ function formatMoney(value) {
 
                 <div class="flex justify-between gap-2">
                     <div class="flex flex-wrap gap-2">
-                        <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="goBackToInstructions">
+                        <button type="button" :class="secondaryButtonClass" @click="goBackToInstructions">
                             Go back to instructions
                         </button>
-                        <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="resetImport">
+                        <button type="button" :class="secondaryButtonClass" @click="resetImport">
                             Start over
                         </button>
                     </div>
@@ -1175,7 +1192,7 @@ function formatMoney(value) {
                     <Link :href="route('assetunits.index')" class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white">
                         View units
                     </Link>
-                    <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="resetImport">Import another</button>
+                    <button type="button" :class="secondaryButtonClass" @click="resetImport">Import another</button>
                 </div>
             </section>
         </div>
@@ -1187,28 +1204,28 @@ function formatMoney(value) {
                     Create {{ includedRows.length }} unit(s) from this document?
                 </p>
                 <div class="mt-5 space-y-3">
-                    <label class="flex items-start gap-3 text-sm">
-                        <input v-model="createBill" type="checkbox" class="mt-0.5" :disabled="!vendorId" />
+                    <label class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                        <input v-model="createBill" type="checkbox" :class="checkboxClass" :disabled="!vendorId" />
                         <span>
                             Create Bill from this document
-                            <span v-if="!vendorId" class="block text-xs text-amber-600">Select a vendor first.</span>
+                            <span v-if="!vendorId" class="block text-xs text-amber-600 dark:text-amber-400">Select a vendor first.</span>
                         </span>
                     </label>
-                    <label v-if="canShowQuickbooksSync && createBill" class="flex items-start gap-3 text-sm">
+                    <label v-if="canShowQuickbooksSync && createBill" class="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
                         <input
                             v-model="syncQuickbooks"
                             type="checkbox"
-                            class="mt-0.5"
+                            :class="checkboxClass"
                             :disabled="!vendorHasQuickbooks"
                         />
                         <span>
                             Sync Bill to QuickBooks
-                            <span v-if="!vendorHasQuickbooks" class="block text-xs text-amber-600">Vendor is not linked to QuickBooks.</span>
+                            <span v-if="!vendorHasQuickbooks" class="block text-xs text-amber-600 dark:text-amber-400">Vendor is not linked to QuickBooks.</span>
                         </span>
                     </label>
                 </div>
                 <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" class="rounded-lg border px-4 py-2 text-sm" @click="showBillModal = false">Cancel</button>
+                    <button type="button" :class="secondaryButtonClass" @click="showBillModal = false">Cancel</button>
                     <button
                         type="button"
                         class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"

@@ -209,6 +209,9 @@ class UpdateTransaction
             return [
                 'success' => true,
                 'record' => $record,
+                'just_completed' => $record !== null
+                    && $record->isCompleted()
+                    && ! $this->statusIsCompleted($previousStatus),
             ];
         } catch (QueryException $e) {
             Log::error('Database query error in UpdateTransaction', [
@@ -368,5 +371,18 @@ class UpdateTransaction
                 $addonsTaxSum,
             );
         }
+    }
+
+    private function statusIsCompleted(mixed $status): bool
+    {
+        if ($status === TransactionStatus::Completed->value || $status === 'won') {
+            return true;
+        }
+
+        if (is_numeric($status) && (int) $status === TransactionStatus::Completed->id()) {
+            return true;
+        }
+
+        return TransactionStatus::tryFrom((string) $status) === TransactionStatus::Completed;
     }
 }

@@ -92,6 +92,12 @@ const websiteHref = computed(() => {
     return site.startsWith('http') ? site : `https://${site}`;
 });
 
+const hasGoogleReviewUrl = computed(() => !!props.record.google_review_url?.trim());
+
+const googleReviewPromptEnabled = computed(
+    () => !!props.record.prompt_google_review_on_transaction_close && hasGoogleReviewUrl.value,
+);
+
 const formattedPhone = computed(() => {
     const p = props.record.phone;
     if (!p) {
@@ -328,6 +334,52 @@ const confirmDelete = () => {
                             <p class="whitespace-pre-line text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                                 {{ record.notes }}
                             </p>
+                        </div>
+                    </section>
+
+                    <section
+                        class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        <header
+                            class="flex items-center gap-2 border-b border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-700 dark:bg-gray-900/30"
+                        >
+                            <span class="material-icons text-base text-gray-500 dark:text-gray-400">star</span>
+                            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Google reviews</h3>
+                        </header>
+                        <div class="space-y-3 p-5 text-sm">
+                            <div v-if="hasGoogleReviewUrl">
+                                <p class="text-gray-500 dark:text-gray-400">Review link</p>
+                                <a
+                                    :href="record.google_review_url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="mt-1 inline-flex items-center gap-1 font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                                >
+                                    {{ record.google_review_url }}
+                                    <span class="material-icons text-[16px]">open_in_new</span>
+                                </a>
+                            </div>
+                            <p v-else class="text-gray-500 dark:text-gray-400">
+                                No Google review link configured.
+                                <Link :href="editHref" class="font-medium text-primary-600 hover:underline dark:text-primary-400">
+                                    Add one
+                                </Link>
+                            </p>
+                            <div class="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-gray-600 dark:bg-gray-900/30">
+                                <span
+                                    class="material-icons shrink-0 text-[18px]"
+                                    :class="googleReviewPromptEnabled ? 'text-green-600 dark:text-green-400' : 'text-gray-400'"
+                                >
+                                    {{ googleReviewPromptEnabled ? 'check_circle' : 'radio_button_unchecked' }}
+                                </span>
+                                <p class="text-gray-700 dark:text-gray-300">
+                                    {{
+                                        googleReviewPromptEnabled
+                                            ? 'Staff are prompted to email a review request after deals assigned to this subsidiary close.'
+                                            : 'Post-close review email prompt is off for this subsidiary.'
+                                    }}
+                                </p>
+                            </div>
                         </div>
                     </section>
 

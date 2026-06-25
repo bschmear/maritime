@@ -31,6 +31,7 @@ class Subsidiary extends Model
      */
     protected $casts = [
         'inactive' => 'boolean',
+        'prompt_google_review_on_transaction_close' => 'boolean',
         'latitude' => 'decimal:7',
         'longitude' => 'decimal:7',
         'default_labor_rate' => 'decimal:2',

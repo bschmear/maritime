@@ -41,6 +41,19 @@
     "type": "text"
   },
 
+  "google_review_url": {
+    "label": "Google review URL",
+    "type": "text",
+    "help": "Short link customers use to leave a Google review for this subsidiary."
+  },
+
+  "prompt_google_review_on_transaction_close": {
+    "label": "Prompt for Google review after deal closes",
+    "type": "boolean",
+    "default": false,
+    "help": "When enabled, staff are prompted to email a review request after a deal assigned to this subsidiary is marked completed."
+  },
+
   "address_line_1": {
     "label": "Address Line 1",
     "type": "text"

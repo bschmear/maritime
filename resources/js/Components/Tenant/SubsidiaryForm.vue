@@ -1,5 +1,6 @@
 <script setup>
 import AddressAutocomplete from '@/Components/AddressAutocomplete.vue';
+import FormFixedActionBar from '@/Components/Tenant/FormComponents/FormFixedActionBar.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
@@ -43,6 +44,8 @@ const form = useForm({
     email: initial.value.email ?? '',
     phone: initial.value.phone ?? '',
     website: initial.value.website ?? '',
+    google_review_url: initial.value.google_review_url ?? '',
+    prompt_google_review_on_transaction_close: !!initial.value.prompt_google_review_on_transaction_close,
     timezone: initial.value.timezone ?? (props.mode === 'create' ? props.account?.timezone ?? '' : ''),
     logo: null,
 });
@@ -53,6 +56,25 @@ const subsidiaryLabel = computed(() => {
     }
     return isEdit.value ? `Subsidiary #${props.record.id}` : 'New subsidiary';
 });
+
+const submitLabel = computed(() => (isEdit.value ? 'Save changes' : 'Create subsidiary'));
+
+const normalizeGoogleReviewUrl = (raw) => {
+    if (typeof raw !== 'string') {
+        return null;
+    }
+
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+        return null;
+    }
+
+    if (!/^https?:\/\//i.test(trimmed)) {
+        return `https://${trimmed}`;
+    }
+
+    return trimmed;
+};
 
 const timezoneOptions = computed(() => {
     const fromProps = props.timezones?.length ? props.timezones : props.enumOptions[timezoneEnumKey] ?? [];
@@ -142,6 +164,12 @@ const transformPayload = (data) => {
         ...data,
         inactive: !!(data.inactive === true || data.inactive === 1 || data.inactive === '1'),
         timezone: data.timezone === '' ? null : data.timezone,
+        google_review_url: normalizeGoogleReviewUrl(data.google_review_url),
+        prompt_google_review_on_transaction_close: !!(
+            data.prompt_google_review_on_transaction_close === true
+            || data.prompt_google_review_on_transaction_close === 1
+            || data.prompt_google_review_on_transaction_close === '1'
+        ),
     };
 
     if (isCreate.value) {
@@ -199,6 +227,11 @@ const submit = () => {
         return;
     }
 
+    if (form.prompt_google_review_on_transaction_close && !form.google_review_url?.trim()) {
+        showToast('error', 'Add a Google review URL before enabling the post-close email prompt.');
+        return;
+    }
+
     const url = isEdit.value
         ? route(`${props.recordType}.update`, props.record.id)
         : route(`${props.recordType}.store`);
@@ -242,7 +275,7 @@ const submit = () => {
 
 <template>
     <div class="w-full">
-        <form class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-6" @submit.prevent="submit">
+        <form id="subsidiary-form" class="grid grid-cols-1 gap-6 pb-28 lg:grid-cols-12 lg:gap-6" @submit.prevent="submit">
             <div
                 class="relative overflow-hidden lg:col-span-12 sm:rounded-xl bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900 shadow-lg dark:from-primary-700 dark:via-primary-800 dark:to-primary-950"
             >
@@ -422,6 +455,69 @@ const submit = () => {
                     </div>
                 </section>
 
+                <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <header class="border-b border-gray-200 bg-gray-50 px-5 py-3 dark:border-gray-700 dark:bg-gray-900/30">
+                        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Google reviews
+                        </h3>
+                    </header>
+                    <div class="space-y-4 p-5">
+                        <p class="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                            Add your business’s Google review link so staff can optionally invite happy customers to leave feedback after a deal closes. Nothing is sent automatically — your team decides when the customer had a great experience.
+                        </p>
+
+                        <div class="rounded-lg border border-blue-200 bg-blue-50/80 px-4 py-3 text-sm text-blue-950 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
+                            <p class="font-medium">How to find your Google review link</p>
+                            <ol class="mt-2 list-decimal space-y-1.5 pl-5">
+                                <li>Open your Google Business Profile (business.google.com) and select this location.</li>
+                                <li>Go to <strong>Ask for reviews</strong> or <strong>Get more reviews</strong>.</li>
+                                <li>Copy the short link Google provides — it usually looks like
+                                    <code class="rounded bg-white/70 px-1 py-0.5 text-xs dark:bg-gray-900/50">https://g.page/r/…/review</code>.
+                                </li>
+                            </ol>
+                            
+                        </div>
+
+                        <div>
+                            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Google review URL
+                            </label>
+                            <input
+                                v-model="form.google_review_url"
+                                type="url"
+                                class="input-style"
+                                placeholder="https://g.page/r/your-business/review"
+                            />
+                            <p v-if="form.errors.google_review_url" class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                {{ form.errors.google_review_url }}
+                            </p>
+                        </div>
+
+                        <label
+                            class="flex cursor-pointer select-none items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-600 dark:bg-gray-900/40"
+                            :class="{ 'opacity-60': !form.google_review_url?.trim() }"
+                        >
+                            <input
+                                v-model="form.prompt_google_review_on_transaction_close"
+                                type="checkbox"
+                                class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                                :disabled="!form.google_review_url?.trim()"
+                            />
+                            <span>
+                                <span class="block text-sm font-medium text-gray-900 dark:text-white">
+                                    Prompt staff to email a review request when a deal closes
+                                </span>
+                                <span class="mt-1 block text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                                    When a transaction assigned to this subsidiary is marked completed, show a prompt to email the customer a link to this Google review page. Use it only when the customer is satisfied.
+                                </span>
+                            </span>
+                        </label>
+                        <p v-if="form.errors.prompt_google_review_on_transaction_close" class="text-xs text-red-600 dark:text-red-400">
+                            {{ form.errors.prompt_google_review_on_transaction_close }}
+                        </p>
+                    </div>
+                </section>
+
                 <section
                     v-if="isCreate"
                     class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
@@ -564,26 +660,13 @@ const submit = () => {
                     </div>
                 </section>
             </div>
-
-            <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end lg:col-span-12">
-                <button
-                    type="button"
-                    class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                    @click="emit('cancelled')"
-                >
-                    Cancel
-                </button>
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="inline-flex items-center justify-center gap-2 rounded-lg border border-transparent bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    <span class="material-icons text-[18px]" :class="{ 'animate-spin': form.processing }">
-                        {{ form.processing ? 'sync' : 'save' }}
-                    </span>
-                    {{ form.processing ? 'Saving…' : isEdit ? 'Save changes' : 'Create subsidiary' }}
-                </button>
-            </div>
         </form>
+
+        <FormFixedActionBar
+            form-id="subsidiary-form"
+            :processing="form.processing"
+            :submit-label="submitLabel"
+            @cancel="emit('cancelled')"
+        />
     </div>
 </template>

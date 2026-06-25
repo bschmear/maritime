@@ -3,6 +3,7 @@
 namespace App\Domain\Subsidiary\Actions;
 
 use App\Domain\Subsidiary\Models\Subsidiary as RecordModel;
+use App\Domain\Subsidiary\Support\GoogleReviewUrl;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\QueryException;
@@ -19,7 +20,9 @@ class UpdateSubsidiary
             'inactive'            => ['nullable', 'boolean'],
             'email'               => ['nullable', 'email', 'max:255'],
             'phone'               => ['nullable', 'string', 'max:50'],
-            'website'             => ['nullable', 'string', 'max:255'],
+            'website'               => ['nullable', 'string', 'max:255'],
+            'google_review_url'     => GoogleReviewUrl::validationRules(),
+            'prompt_google_review_on_transaction_close' => ['nullable', 'boolean'],
             'address_line_1'      => ['nullable', 'string', 'max:255'],
             'address_line_2'      => ['nullable', 'string', 'max:255'],
             'city'                => ['nullable', 'string', 'max:100'],
@@ -38,12 +41,27 @@ class UpdateSubsidiary
         ];
 
         // Only validate fields that exist in the input
-        $rulesToUse = array_filter($validationRules, fn($key) => array_key_exists($key, $data), ARRAY_FILTER_USE_KEY);
+        $rulesToUse = array_filter($validationRules, fn ($key) => array_key_exists($key, $data), ARRAY_FILTER_USE_KEY);
+
+        if (array_key_exists('google_review_url', $data)) {
+            $data['google_review_url'] = GoogleReviewUrl::normalize($data['google_review_url']);
+        }
 
         $validated = Validator::make($data, $rulesToUse)->validate();
 
         // Merge validated fields with any extra custom fields
         $updateData = array_merge($validated, array_diff_key($data, $rulesToUse));
+
+        if (array_key_exists('prompt_google_review_on_transaction_close', $updateData)) {
+            $updateData['prompt_google_review_on_transaction_close'] = filter_var(
+                $updateData['prompt_google_review_on_transaction_close'],
+                FILTER_VALIDATE_BOOLEAN
+            );
+        }
+
+        if (array_key_exists('google_review_url', $updateData)) {
+            $updateData['google_review_url'] = GoogleReviewUrl::normalize($updateData['google_review_url']);
+        }
 
         try {
             $record = RecordModel::findOrFail($id);
