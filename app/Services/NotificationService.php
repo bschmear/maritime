@@ -10,6 +10,8 @@ use App\Domain\Document\Actions\CreateDocument;
 use App\Domain\Document\Models\Document;
 use App\Domain\DocumentRequest\Models\DocumentRequest;
 use App\Domain\Estimate\Models\Estimate;
+use App\Domain\Estimate\Models\EstimateCustomerOptionSignoff;
+use App\Domain\Estimate\Models\EstimateLineItem;
 use App\Domain\Financing\Models\Financing;
 use App\Domain\Notification\Models\Notification;
 use App\Domain\Opportunity\Models\Opportunity;
@@ -23,6 +25,7 @@ use App\Mail\ContractSignedNotification;
 use App\Mail\DeliveryRequestReviewedMail;
 use App\Mail\DeliveryRequestSubmittedMail;
 use App\Mail\EstimateApprovalNotification;
+use App\Mail\EstimateBoatOptionsSubmittedMail;
 use App\Mail\OpportunityFeatureRequestSubmittedMail;
 use App\Mail\ServiceTicketApprovalNotification;
 use App\Mail\ServiceTicketApproved;
@@ -326,6 +329,61 @@ class NotificationService
                 'estimate_id' => $estimate->id,
                 'action' => $action,
                 'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function notifyEstimateBoatOptionsSubmitted(
+        Estimate $estimate,
+        EstimateCustomerOptionSignoff $signoff,
+        EstimateLineItem $lineItem,
+        AccountSettings $account,
+    ): void {
+        try {
+            $estimate->loadMissing(['user', 'customer']);
+            $lineItem->loadMissing(['selectedAssetOptions']);
+
+            $notifyUser = $estimate->user ?? $this->getAccountOwner();
+
+            if (! $notifyUser) {
+                Log::warning('No user found to notify for estimate boat options submission', [
+                    'estimate_id' => $estimate->id,
+                    'signoff_id' => $signoff->id,
+                ]);
+
+                return;
+            }
+
+            $lineLabel = trim($lineItem->name ?: 'Boat');
+            $lineNumber = ((int) $lineItem->position) + 1;
+            $customerName = $estimate->customer?->display_name ?? 'Customer';
+
+            Notification::create([
+                'assigned_to_user_id' => $notifyUser->id,
+                'type' => 'estimate_boat_options_submitted',
+                'title' => 'Customer submitted boat options',
+                'message' => "{$signoff->signer_name} submitted boat options for {$lineLabel} (line {$lineNumber}) on {$estimate->display_name} ({$customerName}).",
+                'route' => 'estimates.show',
+                'route_params' => ['estimate' => $estimate->id],
+            ]);
+
+            $email = $notifyUser->email ?? null;
+            if ($email !== null && trim((string) $email) !== '') {
+                $mailable = new EstimateBoatOptionsSubmittedMail(
+                    $estimate,
+                    $signoff,
+                    $lineItem,
+                    $account,
+                    $notifyUser,
+                );
+                $this->tenantMail->send($email, $mailable);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to notify estimate boat options submission', [
+                'estimate_id' => $estimate->id,
+                'signoff_id' => $signoff->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }

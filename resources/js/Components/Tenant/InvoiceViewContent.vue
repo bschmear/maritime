@@ -17,6 +17,10 @@ const props = defineProps({
         type: Object,
         default: () => ({ card: false, bank: false, codes: [] }),
     },
+    contactForDetailsMethods: {
+        type: Array,
+        default: () => [],
+    },
     showPortalPromotion: { type: Boolean, default: true },
     paymentConstraints: {
         type: Object,
@@ -239,6 +243,54 @@ const submitPay = () => {
 
 const hasPortalLogin = computed(() => route().has('portal.login'));
 const hasPortalRegister = computed(() => route().has('portal.register'));
+
+const contactForDetailsLabels = computed(() =>
+    (props.contactForDetailsMethods || [])
+        .map((m) => m?.label)
+        .filter(Boolean),
+);
+
+const hasContactForDetailsMethods = computed(() => contactForDetailsLabels.value.length > 0);
+
+const formatMethodList = (labels) => {
+    if (labels.length === 0) {
+        return '';
+    }
+    if (labels.length === 1) {
+        return labels[0];
+    }
+    if (labels.length === 2) {
+        return `${labels[0]} and ${labels[1]}`;
+    }
+    return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+};
+
+const contactForDetailsMessage = computed(() => {
+    const labels = contactForDetailsLabels.value;
+    if (labels.length === 0) {
+        return null;
+    }
+    const methods = formatMethodList(labels);
+    const verb = labels.length === 1 ? 'is' : 'are';
+    return `${methods} ${verb} accepted on this invoice. Contact us for details.`;
+});
+
+const contactForDetailsHint = computed(() => {
+    const parts = [];
+    if (companyPhone.value) {
+        parts.push(`call ${formatPhoneNumber(companyPhone.value)}`);
+    }
+    if (companyEmail.value) {
+        parts.push(`email ${companyEmail.value}`);
+    }
+    if (parts.length === 0) {
+        return null;
+    }
+    if (parts.length === 1) {
+        return `You can ${parts[0]}.`;
+    }
+    return `You can ${parts[0]} or ${parts[1]}.`;
+});
 </script>
 
 <template>
@@ -522,7 +574,33 @@ const hasPortalRegister = computed(() => route().has('portal.register'));
                         {{ payButtonLabel }}
                     </button>
                 </div>
+
+                <div
+                    v-if="hasContactForDetailsMethods && !isQuickbooksManaged"
+                    class="mt-5 rounded-lg border border-primary-200 bg-primary-50 px-4 py-4 text-sm text-primary-900"
+                    role="note"
+                >
+                    <p class="font-medium">{{ contactForDetailsMessage }}</p>
+                    <p v-if="contactForDetailsHint" class="mt-1 text-primary-800">
+                        {{ contactForDetailsHint }}
+                    </p>
+                </div>
             </template>
+
+            <div
+                v-else-if="due > 0 && hasContactForDetailsMethods && !isQuickbooksManaged"
+                class="mt-5 border-t border-gray-200 pt-5"
+            >
+                <div
+                    class="rounded-lg border border-primary-200 bg-primary-50 px-4 py-4 text-sm text-primary-900"
+                    role="note"
+                >
+                    <p class="font-medium">{{ contactForDetailsMessage }}</p>
+                    <p v-if="contactForDetailsHint" class="mt-1 text-primary-800">
+                        {{ contactForDetailsHint }}
+                    </p>
+                </div>
+            </div>
 
             <p
                 v-else-if="due > 0 && isQuickbooksManaged"

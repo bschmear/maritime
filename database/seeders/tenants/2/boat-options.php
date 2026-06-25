@@ -2,9 +2,8 @@
 
 use App\Domain\AssetOption\Actions\CreateAssetOption;
 use App\Domain\AssetOption\Actions\UpdateAssetOption;
-use App\Domain\AssetOption\Actions\SyncAssetOptionAssignments;
 use App\Domain\AssetOption\Models\AssetOption;
-use App\Domain\AssetOption\Models\AssetOptionCategory;
+use App\Domain\AssetOptionCategory\Models\AssetOptionCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -131,7 +130,6 @@ return new class extends Seeder
 
         $create = app(CreateAssetOption::class);
         $update = app(UpdateAssetOption::class);
-        $sync = app(SyncAssetOptionAssignments::class);
         $categories = [];
         $optionIds = [];
         $created = 0;
@@ -242,11 +240,11 @@ return new class extends Seeder
         }
 
         foreach ($optionIds as $optionId) {
-            $sync($optionId, true, []);
+            AssetOption::query()->whereKey($optionId)->update(['is_global' => true]);
         }
 
         $this->command?->info(sprintf(
-            'Boat options: %d created, %d updated, %d legacy toggles removed, %d assigned to all active brands.',
+            'Boat options: %d created, %d updated, %d legacy toggles removed, %d marked as global.',
             $created,
             $updated,
             $removed,
@@ -313,10 +311,7 @@ return new class extends Seeder
     private function categoryId(array &$categories, string $name): int
     {
         if (! isset($categories[$name])) {
-            $categories[$name] = AssetOptionCategory::firstOrCreateByName(
-                $name,
-                count($categories) * 10
-            )->id;
+            $categories[$name] = AssetOptionCategory::firstOrCreateByName($name)->id;
         }
 
         return $categories[$name];

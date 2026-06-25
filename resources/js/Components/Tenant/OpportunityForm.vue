@@ -8,16 +8,11 @@ import axios from 'axios';
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
+import AssetLineBoatOptionsPanel from '@/Components/Tenant/AssetLineBoatOptionsPanel.vue';
 import {
-    clearAssetOptionSingle,
-    hasAssetOptionAnySelection,
-    isAssetOptionSelected,
-    isAssetOptionToggleOn,
-    setAssetOptionSingle,
-    toggleAssetOptionMulti,
-    toggleAssetOptionToggle,
-} from '@/Utils/assetOptionSelections';
-import AssetOptionRadioChoices from '@/Components/Tenant/AssetOptionRadioChoices.vue';
+    hydrateAddedGlobalOptionIds,
+    lineOptionsForDisplay,
+} from '@/Utils/assetLineBoatOptions.js';
 import { LINE_ITEM_ADDONS_UI_ENABLED, lineItemTableColspan } from '@/config/lineItemFeatures';
 
 const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
@@ -66,6 +61,19 @@ const mapAssetRecordToLineItem = (item) => {
             vRel?.display_name || vRel?.name || (pivotVid ? `Variant #${pivotVid}` : ''),
         asset_unit_id: item.pivot?.asset_unit_id ?? item.asset_unit_id ?? null,
         asset_option_selections: mapOppSelectionsFromApi(selRows),
+        customer_offered_option_ids: (() => {
+            const raw = item.pivot?.customer_offered_option_ids;
+            if (Array.isArray(raw)) return raw.map(Number);
+            if (typeof raw === 'string' && raw) {
+                try {
+                    return JSON.parse(raw).map(Number);
+                } catch {
+                    return [];
+                }
+            }
+            return [];
+        })(),
+        added_global_option_ids: [],
         addons: mapOppAddonsFromApi(item.opportunity_addons ?? item.addons),
         option_premium_snapshot: sumSnapshotOptionPrices(selRows),
     };
@@ -276,6 +284,8 @@ const assetForm = ref({
     variant_display_name: '',
     asset_unit_id: null,
     asset_option_selections: [],
+    customer_offered_option_ids: [],
+    added_global_option_ids: [],
     addons: [],
     option_premium_snapshot: 0,
 });
@@ -301,7 +311,8 @@ const assetAddonTotal = (item) =>
 const assetOptionChoices = ref({});
 
 const assetOptionPremiumForLine = (item, index) => {
-    const choices = assetOptionChoices.value[index] || [];
+    const ctx = assetOptionChoices.value[index] || {};
+    const choices = lineOptionsForDisplay(ctx.assigned, ctx.global, item.added_global_option_ids);
     if (choices.length && (item.asset_option_selections || []).length) {
         let sum = 0;
         for (const s of item.asset_option_selections || []) {
@@ -333,6 +344,17 @@ const grossProfit = computed(() => combinedSubtotal.value - combinedCostTotal.va
 // ==============================
 // Boat options (resolve catalog like estimates)
 // ==============================
+const assignedOptionsForLine = (index) => assetOptionChoices.value[index]?.assigned ?? [];
+const globalOptionsForLine = (index) => assetOptionChoices.value[index]?.global ?? [];
+
+const showBoatOptionsRow = (index, item) => {
+    const ctx = assetOptionChoices.value[index];
+    const assigned = ctx?.assigned ?? [];
+    const global = ctx?.global ?? [];
+    const onLine = lineOptionsForDisplay(assigned, global, item.added_global_option_ids);
+    return onLine.length > 0 || global.length > 0 || (item.asset_option_selections ?? []).length > 0;
+};
+
 const refreshAssetOptionChoices = async () => {
     const next = { ...assetOptionChoices.value };
     for (let i = 0; i < assetItems.value.length; i++) {
@@ -352,7 +374,11 @@ const refreshAssetOptionChoices = async () => {
                     variant_id: item.asset_variant_id || undefined,
                 },
             });
-            next[i] = data.options || [];
+            next[i] = {
+                assigned: data.options || [],
+                global: data.global_options || [],
+            };
+            hydrateAddedGlobalOptionIds(item, next[i].assigned, next[i].global);
         } catch {
             delete next[i];
         }
@@ -365,29 +391,6 @@ const debouncedRefreshAssetOptions = debounce(() => {
 }, 350);
 
 watch(assetItems, () => debouncedRefreshAssetOptions(), { deep: true });
-
-const isAssetOptionSelectedForItem = (item, optionId, valueId) =>
-    isAssetOptionSelected(item, optionId, valueId);
-
-const toggleAssetOptionMultiForItem = (item, optionId, valueId, checked) => {
-    toggleAssetOptionMulti(item, optionId, valueId, checked);
-    item.option_premium_snapshot = 0;
-};
-
-const setAssetOptionSingleForItem = (item, optionId, valueId) => {
-    setAssetOptionSingle(item, optionId, valueId);
-    item.option_premium_snapshot = 0;
-};
-
-const clearAssetOptionSingleForItem = (item, optionId) => {
-    clearAssetOptionSingle(item, optionId);
-    item.option_premium_snapshot = 0;
-};
-
-const toggleAssetOptionToggleForItem = (item, opt, checked) => {
-    toggleAssetOptionToggle(item, opt, checked);
-    item.option_premium_snapshot = 0;
-};
 
 // ==============================
 // Add-ons
@@ -754,6 +757,7 @@ const submit = () => {
             asset_variant_id: item.asset_variant_id || null,
             asset_unit_id: item.asset_unit_id || null,
             asset_option_selections: item.asset_option_selections || [],
+            customer_offered_option_ids: (item.customer_offered_option_ids ?? []).map(Number),
             addons: (item.addons || []).map((a) => ({
                 addon_id: a.addon_id ?? null,
                 name: a.name ?? '',
@@ -1184,58 +1188,21 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                         </tr>
                                         <tr
-                                            v-if="(assetOptionChoices[index] || []).length > 0"
+                                            v-if="showBoatOptionsRow(index, item)"
                                             class="bg-slate-50/90 dark:bg-slate-900/30"
                                         >
                                             <td :colspan="assetLineBoatOptionsColspan" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
-                                                <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Boat options</div>
-                                                <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
-                                                    <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {{ opt.name }}
-                                                        <span v-if="opt.is_required" class="text-red-500">*</span>
-                                                    </div>
-                                                    <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                                                        <label
-                                                            v-for="v in opt.values"
-                                                            :key="v.id"
-                                                            class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                :checked="isAssetOptionSelectedForItem(item, opt.option_id, v.id)"
-                                                                @change="toggleAssetOptionMultiForItem(item, opt.option_id, v.id, $event.target.checked)"
-                                                            />
-                                                            <span>{{ v.label }}</span>
-                                                            <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
-                                                        </label>
-                                                    </div>
-                                                    <div v-else-if="opt.input_type === 'toggle'" class="mt-2">
-                                                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                                            <input
-                                                                type="checkbox"
-                                                                :checked="isAssetOptionToggleOn(item, opt)"
-                                                                @change="toggleAssetOptionToggleForItem(item, opt, $event.target.checked)"
-                                                            />
-                                                            <span>Yes</span>
-                                                            <span
-                                                                v-if="opt.values?.[0]?.price"
-                                                                class="text-gray-500 tabular-nums"
-                                                            >
-                                                                {{ formatCurrency(opt.values[0].price) }}
-                                                            </span>
-                                                        </label>
-                                                    </div>
-                                                    <AssetOptionRadioChoices
-                                                        v-else
-                                                        :opt="opt"
-                                                        :input-name="`opp-ao-${index}-${opt.option_id}`"
-                                                        :format-price="formatCurrency"
-                                                        :is-selected="(valueId) => isAssetOptionSelectedForItem(item, opt.option_id, valueId)"
-                                                        :has-any-selection="() => hasAssetOptionAnySelection(item, opt.option_id)"
-                                                        @select="(valueId) => setAssetOptionSingleForItem(item, opt.option_id, valueId)"
-                                                        @clear="clearAssetOptionSingleForItem(item, opt.option_id)"
-                                                    />
-                                                </div>
+                                                <AssetLineBoatOptionsPanel
+                                                    :item="item"
+                                                    :index="index"
+                                                    :assigned-options="assignedOptionsForLine(index)"
+                                                    :global-options="globalOptionsForLine(index)"
+                                                    :format-price="formatCurrency"
+                                                    :editable="true"
+                                                    :show-fill-mode-toggle="false"
+                                                    show-customer-offer-curation
+                                                    input-name-prefix="opp"
+                                                />
                                             </td>
                                         </tr>
                                         <template v-if="lineItemAddonsUiEnabled">

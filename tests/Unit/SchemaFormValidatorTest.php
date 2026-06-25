@@ -160,4 +160,73 @@ class SchemaFormValidatorTest extends TestCase
         $this->assertNotNull($result);
         $this->assertArrayHasKey('input_type', $result['errors']);
     }
+
+    public function test_merge_field_defaults_applies_enum_ids_for_contract_quick_create(): void
+    {
+        $fieldsSchema = [
+            'status' => [
+                'label' => 'Status',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\Contract\\ContractStatus',
+                'default' => 'draft',
+            ],
+            'payment_status' => [
+                'label' => 'Payment Status',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\Contract\\ContractPaymentStatus',
+                'default' => 'pending',
+            ],
+        ];
+
+        $formSchema = [
+            'form' => [
+                'primary' => [
+                    'fields' => [
+                        ['key' => 'status', 'required' => true],
+                        ['key' => 'payment_status', 'required' => true],
+                    ],
+                ],
+            ],
+        ];
+
+        $result = SchemaFormValidator::validate(
+            [
+                'customer_id' => 1,
+                'total_amount' => 1000,
+            ],
+            $formSchema,
+            $fieldsSchema,
+        );
+
+        $this->assertNull($result);
+    }
+
+    public function test_string_backed_enum_with_numeric_option_ids_accepts_id_or_value(): void
+    {
+        $fieldsSchema = [
+            'status' => [
+                'label' => 'Status',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\Invoice\\Status',
+                'required' => true,
+            ],
+        ];
+
+        $formSchema = [
+            'form' => [
+                'primary' => [
+                    'fields' => [
+                        ['key' => 'status', 'required' => true],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertNull(SchemaFormValidator::validate(['status' => 1], $formSchema, $fieldsSchema));
+        $this->assertNull(SchemaFormValidator::validate(['status' => 'draft'], $formSchema, $fieldsSchema));
+
+        $invalid = SchemaFormValidator::validate(['status' => 'not_a_status'], $formSchema, $fieldsSchema);
+        $this->assertNotNull($invalid);
+        $this->assertArrayHasKey('status', $invalid['errors']);
+    }
 }

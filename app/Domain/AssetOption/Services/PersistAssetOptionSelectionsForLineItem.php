@@ -52,7 +52,7 @@ final class PersistAssetOptionSelectionsForLineItem
             ? AssetVariant::query()->whereKey($variantId)->where('asset_id', $asset->id)->first()
             : null;
 
-        $resolved = $this->resolver->resolve($asset, $variant)->keyBy('option_id');
+        $assigned = $this->resolver->resolve($asset, $variant)->keyBy('option_id');
 
         $normalizedSelections = [];
         foreach ($selections as $sel) {
@@ -82,7 +82,24 @@ final class PersistAssetOptionSelectionsForLineItem
             $selectedByOption[$oid] = array_values($vids);
         }
 
-        foreach ($resolved as $optionPayload) {
+        $selectedOptionIds = array_keys($selectedByOption);
+        $globalAndSelected = $this->resolver->resolveByIds($asset, $variant, $selectedOptionIds)->keyBy('option_id');
+
+        if ($customerFillsOptions) {
+            $offeredIds = array_map('intval', $lineData['customer_offered_option_ids'] ?? []);
+            if ($offeredIds !== []) {
+                foreach ($selectedOptionIds as $oid) {
+                    if (! in_array($oid, $offeredIds, true)) {
+                        $name = (string) ($globalAndSelected->get($oid)['name'] ?? 'Unknown');
+                        throw ValidationException::withMessages([
+                            'selected_asset_options' => 'Option "'.$name.'" is not offered on this line.',
+                        ]);
+                    }
+                }
+            }
+        }
+
+        foreach ($assigned as $optionPayload) {
             $optionId = (int) $optionPayload['option_id'];
             $valueIds = $selectedByOption[$optionId] ?? [];
 
@@ -92,26 +109,7 @@ final class PersistAssetOptionSelectionsForLineItem
                 ]);
             }
 
-            $allowMultiple = (bool) ($optionPayload['allow_multiple'] ?? false);
-            if (! $allowMultiple && count($valueIds) > 1) {
-                throw ValidationException::withMessages([
-                    'selected_asset_options' => 'Option "'.$optionPayload['name'].'" allows only one selection.',
-                ]);
-            }
-
-            $min = $optionPayload['min_select'] ?? null;
-            $max = $optionPayload['max_select'] ?? null;
-            $count = count($valueIds);
-            if (! $customerFillsOptions && $min !== null && $count < $min) {
-                throw ValidationException::withMessages([
-                    'selected_asset_options' => 'Option "'.$optionPayload['name'].'" requires at least '.$min.' selection(s).',
-                ]);
-            }
-            if ($max !== null && $count > $max) {
-                throw ValidationException::withMessages([
-                    'selected_asset_options' => 'Option "'.$optionPayload['name'].'" allows at most '.$max.' selection(s).',
-                ]);
-            }
+            $this->validateSelectionCounts($optionPayload, $valueIds, $customerFillsOptions);
         }
 
         foreach ($normalizedSelections as $sel) {
@@ -121,7 +119,7 @@ final class PersistAssetOptionSelectionsForLineItem
                 continue;
             }
 
-            $optionPayload = $resolved->get($oid);
+            $optionPayload = $globalAndSelected->get($oid);
             if ($optionPayload === null) {
                 throw ValidationException::withMessages([
                     'selected_asset_options' => 'Invalid option selection for this boat configuration.',
@@ -145,6 +143,34 @@ final class PersistAssetOptionSelectionsForLineItem
                 'cost' => $valueMeta['cost'],
                 'price' => $valueMeta['price'],
                 'taxable' => $sel['taxable'] ?? true,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $optionPayload
+     * @param  list<int>  $valueIds
+     */
+    private function validateSelectionCounts(array $optionPayload, array $valueIds, bool $customerFillsOptions): void
+    {
+        $allowMultiple = (bool) ($optionPayload['allow_multiple'] ?? false);
+        if (! $allowMultiple && count($valueIds) > 1) {
+            throw ValidationException::withMessages([
+                'selected_asset_options' => 'Option "'.$optionPayload['name'].'" allows only one selection.',
+            ]);
+        }
+
+        $min = $optionPayload['min_select'] ?? null;
+        $max = $optionPayload['max_select'] ?? null;
+        $count = count($valueIds);
+        if (! $customerFillsOptions && $min !== null && $count < $min) {
+            throw ValidationException::withMessages([
+                'selected_asset_options' => 'Option "'.$optionPayload['name'].'" requires at least '.$min.' selection(s).',
+            ]);
+        }
+        if ($max !== null && $count > $max) {
+            throw ValidationException::withMessages([
+                'selected_asset_options' => 'Option "'.$optionPayload['name'].'" allows at most '.$max.' selection(s).',
             ]);
         }
     }

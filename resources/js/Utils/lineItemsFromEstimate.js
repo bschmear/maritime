@@ -65,6 +65,27 @@ export function lineAssetOptionsPreTaxSum(item) {
 }
 
 /**
+ * Persisted `line_total` when it reflects the row; null when missing or stale (e.g. deal rows at 0 with unit_price set).
+ */
+function resolvedLineTotalStored(item) {
+    const stored = item.line_total;
+    if (stored == null || stored === '' || Number.isNaN(Number(stored))) {
+        return null;
+    }
+
+    const n = Number(stored);
+    if (n === 0) {
+        const base = lineItemPreTaxTotal(item);
+        const opts = lineAssetOptionsPreTaxSum(item);
+        if (base > 0 || opts > 0) {
+            return null;
+        }
+    }
+
+    return n;
+}
+
+/**
  * Unit price for display and pre-tax math. Deal rows copied from an estimate often persist
  * `line_total` while `unit_price` stays 0; the linked estimate line may hold the catalog price.
  */
@@ -271,9 +292,9 @@ export function lineItemRowKey(item) {
  * Mirrors Estimate Show `assetLineCatalogTotal`.
  */
 export function assetLineCatalogTotal(item) {
-    const stored = item.line_total;
-    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
-        return Number(stored);
+    const stored = resolvedLineTotalStored(item);
+    if (stored !== null) {
+        return stored;
     }
     return lineItemPreTaxTotal(item);
 }
@@ -287,11 +308,11 @@ export function lineTotalWithAddons(item) {
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
         0,
     );
-    const stored = item.line_total;
-    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
-        return Number(stored) + addonsTotal;
+    const stored = resolvedLineTotalStored(item);
+    if (stored !== null) {
+        return stored + addonsTotal;
     }
-    return lineItemPreTaxTotal(item) + addonsTotal;
+    return lineItemPreTaxTotal(item) + lineAssetOptionsPreTaxSum(item) + addonsTotal;
 }
 
 export function partitionLineItemsByCatalogType(items) {
@@ -310,4 +331,73 @@ export function partitionLineItemsByCatalogType(items) {
         }
     }
     return { assetLines, inventoryLines, otherLines };
+}
+
+/**
+ * Attach estimate-level selected_asset_options rows onto line items when not nested on the line.
+ */
+export function enrichLineItemsWithRecordSelectedOptions(items, selectedAssetOptions) {
+    const rows = selectedAssetOptions ?? [];
+    if (! rows.length) {
+        return items ?? [];
+    }
+
+    const byLineId = {};
+    for (const row of rows) {
+        const lid = row.transaction_line_item_id ?? row.transactionLineItemId;
+        if (lid == null) {
+            continue;
+        }
+        const key = String(lid);
+        if (! byLineId[key]) {
+            byLineId[key] = [];
+        }
+        byLineId[key].push({
+            option_name: row.option_name,
+            value_label: row.value_label,
+            price: Number(row.price ?? 0),
+            taxable: row.taxable,
+        });
+    }
+
+    return (items ?? []).map((item) => {
+        const direct = item.selected_asset_options ?? item.selectedAssetOptions;
+        if (Array.isArray(direct) && direct.length > 0) {
+            return item;
+        }
+        const key = lineItemRowKey(item);
+        const fromRecord = key ? byLineId[key] : null;
+        if (! fromRecord?.length) {
+            return item;
+        }
+
+        return { ...item, selected_asset_options: fromRecord };
+    });
+}
+
+/** Pre-tax subtotal for all lines (base + boat options + add-ons). */
+export function resolveLineItemsPreTaxSubtotal(items) {
+    let total = 0;
+    for (const item of items ?? []) {
+        total += lineTotalWithAddons(item);
+    }
+
+    return roundMoneyAmount(total);
+}
+
+/** Grand total with per-line tax on taxable base rows, options, and add-ons. */
+export function resolveLineItemsGrandTotalWithTax(items, taxRatePercent) {
+    const r = Number(taxRatePercent) || 0;
+    let total = 0;
+    for (const item of items ?? []) {
+        total += lineItemPreTaxTotal(item) + lineItemTaxOnBase(item, r);
+        for (const opt of lineAssetSelectedOptions(item)) {
+            total += assetOptionRowPreTax(opt) + assetOptionRowTax(opt, r);
+        }
+        for (const addon of item.addons ?? []) {
+            total += addonLinePreTax(addon) + addonLineTax(addon, r);
+        }
+    }
+
+    return roundMoneyAmount(total);
 }

@@ -31,6 +31,7 @@ class TransactionLineItem extends Model
         'tax_amount' => 'decimal:2',
         'position' => 'integer',
         'customer_asset_options_completed_at' => 'datetime',
+        'customer_offered_option_ids' => 'array',
     ];
 
     public function parent(): MorphTo

@@ -14,6 +14,7 @@ use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AiInboxController;
 use App\Http\Controllers\Tenant\AssetController;
 use App\Http\Controllers\Tenant\AssetOptionController;
+use App\Http\Controllers\Tenant\AssetOptionCategoryController;
 use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
@@ -349,6 +350,10 @@ Route::middleware([
             Route::put('/{assetOption}/values/{value}', [AssetOptionController::class, 'updateValue'])->name('values.update');
             Route::delete('/{assetOption}/values/{value}', [AssetOptionController::class, 'destroyValue'])->name('values.destroy');
             Route::resource('/', AssetOptionController::class)->parameters(['' => 'assetOption']);
+        });
+
+        Route::prefix('asset-option-categories')->name('asset-option-categories.')->group(function () {
+            Route::resource('/', AssetOptionCategoryController::class)->parameters(['' => 'assetOptionCategory']);
         });
 
         Route::prefix('vendors')->name('vendors.')->group(function () {

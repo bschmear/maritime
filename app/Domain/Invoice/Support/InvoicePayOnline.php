@@ -12,6 +12,9 @@ final class InvoicePayOnline
     /** App codes that map to Stripe Checkout payment rails for public invoice pay. */
     private const STRIPE_CHECKOUT_METHOD_CODES = ['credit_card', 'ach', 'wire'];
 
+    /** Offline methods where customers should contact the dealership for instructions. */
+    private const CONTACT_FOR_DETAILS_METHOD_CODES = ['check', 'financing'];
+
     public static function canPayOnline(Invoice $invoice): bool
     {
         if ($invoice->isQuickbooksManaged()) {
@@ -87,5 +90,41 @@ final class InvoicePayOnline
             'bank' => array_intersect(['ach', 'wire'], $codes) !== [],
             'codes' => $codes,
         ];
+    }
+
+    /**
+     * Payment methods enabled on the account and allowed on this invoice (for customer-facing copy).
+     *
+     * @return list<array{code: string, label: string}>
+     */
+    public static function resolvedAcceptedMethodOptions(Invoice $invoice): array
+    {
+        $enabled = collect(PaymentConfiguration::enabledStripeMethodOptionsForCurrentAccount())
+            ->filter(fn (array $method) => isset($method['code']) && is_string($method['code']))
+            ->keyBy('code');
+
+        $onInvoice = $invoice->allowed_methods;
+        if ($onInvoice === null) {
+            return $enabled->values()->all();
+        }
+
+        return collect($onInvoice)
+            ->filter(fn ($code) => is_string($code) && $code !== '' && $enabled->has($code))
+            ->map(fn (string $code) => $enabled->get($code))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Check / financing (and similar) methods that require contacting the dealership.
+     *
+     * @return list<array{code: string, label: string}>
+     */
+    public static function contactForDetailsMethodOptions(Invoice $invoice): array
+    {
+        return array_values(array_filter(
+            self::resolvedAcceptedMethodOptions($invoice),
+            fn (array $method) => in_array($method['code'] ?? '', self::CONTACT_FOR_DETAILS_METHOD_CODES, true),
+        ));
     }
 }

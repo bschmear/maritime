@@ -17,6 +17,8 @@ final class SchemaFormValidator
      */
     public static function validate(array $data, ?array $formSchema, array $fieldsSchema): ?array
     {
+        $data = self::mergeFieldDefaults($data, $formSchema, $fieldsSchema);
+
         $requiredKeys = self::collectRequiredKeys($formSchema, $fieldsSchema);
         if ($requiredKeys === []) {
             return null;
@@ -45,6 +47,73 @@ final class SchemaFormValidator
         }
 
         return null;
+    }
+
+    /**
+     * Fill missing keys from fields.json defaults so quick-create payloads (e.g. deal contract modal) validate.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $formSchema
+     * @param  array<string, array<string, mixed>>  $fieldsSchema
+     * @return array<string, mixed>
+     */
+    public static function mergeFieldDefaults(array $data, ?array $formSchema, array $fieldsSchema): array
+    {
+        foreach ($fieldsSchema as $key => $def) {
+            if (! is_array($def) || ! array_key_exists('default', $def)) {
+                continue;
+            }
+
+            if (self::isPresentValue($data[$key] ?? null)) {
+                continue;
+            }
+
+            $data[$key] = self::resolveDefaultForValidation($def, $def['default']);
+        }
+
+        return $data;
+    }
+
+    private static function isPresentValue(mixed $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        return ! (is_array($value) && $value === []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $def
+     */
+    private static function resolveDefaultForValidation(array $def, mixed $default): mixed
+    {
+        $type = $def['type'] ?? 'text';
+        if ($type !== 'select' || ! isset($def['enum']) || ! is_string($def['enum'])) {
+            return $default;
+        }
+
+        $enumClass = $def['enum'];
+        if (! class_exists($enumClass) || ! method_exists($enumClass, 'options')) {
+            return $default;
+        }
+
+        $options = $enumClass::options();
+        if (! is_array($options) || $options === [] || ! is_string($default)) {
+            return $default;
+        }
+
+        foreach ($options as $option) {
+            if (! is_array($option)) {
+                continue;
+            }
+
+            if (($option['value'] ?? null) === $default) {
+                return $option['id'] ?? $default;
+            }
+        }
+
+        return $default;
     }
 
     /**
@@ -134,6 +203,33 @@ final class SchemaFormValidator
 
                 if ($allNumeric) {
                     $numericIds = array_map(static fn (mixed $id) => (int) $id, $ids);
+                    $stringValues = array_values(array_filter(array_map(
+                        static fn (array $option) => isset($option['value']) ? (string) $option['value'] : null,
+                        $options,
+                    )));
+
+                    try {
+                        $reflection = new ReflectionEnum($enumClass);
+                        $isStringBacked = $reflection->isBacked()
+                            && $reflection->getBackingType()?->getName() === 'string';
+                    } catch (\Throwable) {
+                        $isStringBacked = false;
+                    }
+
+                    // String-backed enums (e.g. invoice status) persist option `value` but forms may submit numeric `id`.
+                    if ($isStringBacked && $stringValues !== []) {
+                        return ['required', function (string $attribute, mixed $value, \Closure $fail) use ($numericIds, $stringValues): void {
+                            if (is_numeric($value) && in_array((int) $value, $numericIds, true)) {
+                                return;
+                            }
+
+                            if (is_string($value) && in_array($value, $stringValues, true)) {
+                                return;
+                            }
+
+                            $fail(__('validation.in', ['attribute' => $attribute]));
+                        }];
+                    }
 
                     return ['required', 'integer', Rule::in($numericIds)];
                 }

@@ -31,6 +31,8 @@ class TenantMailServiceTest extends TestCase
         $this->assertFalse($service->isExemptMailableClass(InvoiceViewRequest::class));
         $this->assertFalse($service->isExemptMailableClass(SurveyInvitationMail::class));
         $this->assertFalse($service->isExemptMailableClass(ServiceTicketApproved::class));
+        $this->assertTrue($service->isExemptMailableClass(\App\Mail\EstimateBoatOptionsSubmittedMail::class));
+        $this->assertFalse($service->isExemptMailableClass(\App\Mail\EstimateBoatOptionsInvite::class));
     }
 
     #[Test]

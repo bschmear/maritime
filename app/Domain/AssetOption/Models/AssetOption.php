@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domain\AssetOption\Models;
 
+use App\Domain\AssetOptionCategory\Models\AssetOptionCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,12 +23,14 @@ class AssetOption extends Model
         'min_select',
         'max_select',
         'active',
+        'is_global',
     ];
 
     protected $casts = [
         'is_required' => 'boolean',
         'allow_multiple' => 'boolean',
         'active' => 'boolean',
+        'is_global' => 'boolean',
         'min_select' => 'integer',
         'max_select' => 'integer',
         'category_id' => 'integer',

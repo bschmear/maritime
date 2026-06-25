@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Portal;
 use App\Domain\Contact\Models\Contact;
 use App\Http\Controllers\Controller;
 use App\Models\AccountSettings;
+use App\Notifications\CustomerVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -56,12 +57,18 @@ class CustomerRegistrationController extends Controller
         }
 
         $contact->password = Hash::make($request->password);
+        $contact->email_verified_at = null;
         $contact->save();
+
+        $contact->notify(new CustomerVerifyEmail);
 
         Auth::guard('customer')->login($contact);
 
         $request->session()->regenerate();
+        $request->session()->put('customer_verification_email_sent', true);
 
-        return redirect()->route('portal.index');
+        return redirect()
+            ->route('portal.verification.notice')
+            ->with('status', 'We sent a verification link to your email address.');
     }
 }

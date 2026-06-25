@@ -1,0 +1,14 @@
+{
+    "settings": {
+        "max_width": "md"
+    },
+    "form": {
+        "primary": {
+            "label": "Category",
+            "fields": [
+                { "key": "name", "required": true },
+                { "key": "active", "required": false }
+            ]
+        }
+    }
+}

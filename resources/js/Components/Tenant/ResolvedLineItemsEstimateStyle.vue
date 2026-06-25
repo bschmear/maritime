@@ -351,7 +351,13 @@ const inventoryDealRollup = computed(() => {
                                 <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
                             </span>
                             <span :class="cx('font-medium text-gray-900 tabular-nums shrink-0', 'dark:text-white')">
-                                {{ formatMoney(opt.price) }}
+                                {{
+                                    formatMoney(
+                                        dealTaxMode
+                                            ? assetOptionRowPreTax(opt) + assetOptionRowTax(opt, dealTaxR)
+                                            : Number(opt.price || 0),
+                                    )
+                                }}
                             </span>
                         </div>
                     </div>

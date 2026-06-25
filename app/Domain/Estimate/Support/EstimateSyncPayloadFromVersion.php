@@ -81,6 +81,7 @@ final class EstimateSyncPayloadFromVersion
                 'asset_variant_id' => $li->asset_variant_id,
                 'asset_unit_id' => $li->asset_unit_id,
                 'asset_options_fill_mode' => $li->asset_options_fill_mode ?? 'staff',
+                'customer_offered_option_ids' => $li->customer_offered_option_ids,
             ];
         }
 

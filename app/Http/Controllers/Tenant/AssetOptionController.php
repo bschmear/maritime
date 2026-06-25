@@ -36,6 +36,7 @@ class AssetOptionController extends RecordController
 
     protected function appendShowRelationships(array &$relationships): void
     {
+        $relationships['category'] = fn ($q) => $q->select(['id', 'name']);
         $relationships['allValues'] = fn ($q) => $q->orderBy('sort_order');
         $relationships['makeAssignments.make'] = fn ($q) => $q->select(['id', 'display_name']);
         $relationships['assignments.asset'] = fn ($q) => $q->select(['id', 'display_name', 'make_id']);
@@ -54,6 +55,16 @@ class AssetOptionController extends RecordController
             new DeleteAction,
             'AssetOption'
         );
+    }
+
+    protected function createPageExtraProps(): array
+    {
+        return [];
+    }
+
+    protected function editPageExtraProps($record): array
+    {
+        return [];
     }
 
     /**
@@ -180,6 +191,8 @@ class AssetOptionController extends RecordController
         $validated = $request->validate([
             'asset_id' => ['required', 'integer', 'exists:assets,id'],
             'variant_id' => ['nullable', 'integer', 'exists:asset_variants,id'],
+            'option_ids' => ['nullable', 'array'],
+            'option_ids.*' => ['integer', 'exists:asset_options,id'],
         ]);
 
         $asset = Asset::query()->findOrFail((int) $validated['asset_id']);
@@ -192,15 +205,23 @@ class AssetOptionController extends RecordController
                 ->firstOrFail();
         }
 
-        $options = app(AssetOptionResolver::class)->resolve($asset, $variant);
+        $resolver = app(AssetOptionResolver::class);
 
-        return response()->json(['options' => $options]);
+        if (! empty($validated['option_ids'])) {
+            $options = $resolver->resolveByIds($asset, $variant, $validated['option_ids']);
+
+            return response()->json(['options' => $options, 'global_options' => []]);
+        }
+
+        return response()->json([
+            'options' => $resolver->resolve($asset, $variant),
+            'global_options' => $resolver->resolveGlobal(),
+        ]);
     }
 
     public function syncAssignments(Request $request, RecordModel $assetOption): JsonResponse|Response
     {
         $validated = $request->validate([
-            'sync_all_brands' => ['required', 'boolean'],
             'brands' => ['nullable', 'array'],
             'brands.*.make_id' => ['required', 'integer', 'exists:boat_make,id'],
             'brands.*.apply_to_all_models' => ['required', 'boolean'],
@@ -212,7 +233,6 @@ class AssetOptionController extends RecordController
         try {
             app(SyncAssetOptionAssignments::class)(
                 $assetOption->id,
-                (bool) $validated['sync_all_brands'],
                 $validated['brands'] ?? [],
             );
         } catch (\Illuminate\Validation\ValidationException $e) {

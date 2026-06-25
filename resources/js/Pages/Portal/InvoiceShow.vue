@@ -12,6 +12,14 @@ const props = defineProps({
     logoUrl: { type: String, default: null },
     enumOptions: { type: Object, default: () => ({}) },
     canPayOnline: { type: Boolean, default: false },
+    payOnlineUi: {
+        type: Object,
+        default: () => ({ card: false, bank: false, codes: [] }),
+    },
+    contactForDetailsMethods: {
+        type: Array,
+        default: () => [],
+    },
     paymentConstraints: {
         type: Object,
         default: () => ({
@@ -72,6 +80,8 @@ const title = computed(() =>
                 :logo-url="logoUrl"
                 :enum-options="enumOptions"
                 :can-pay-online="canPayOnline"
+                :pay-online-ui="payOnlineUi"
+                :contact-for-details-methods="contactForDetailsMethods"
                 :payment-constraints="paymentConstraints"
                 :quickbooks="quickbooks"
                 :show-portal-promotion="false"

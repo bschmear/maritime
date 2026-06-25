@@ -263,6 +263,8 @@ class CustomerPortalController extends Controller
                 InvoiceStatus::class => InvoiceStatus::options(),
             ],
             'canPayOnline' => $canPayOnline,
+            'payOnlineUi' => InvoicePayOnline::payOnlineUiFlags($invoice),
+            'contactForDetailsMethods' => InvoicePayOnline::contactForDetailsMethodOptions($invoice),
             'paymentConstraints' => [
                 'allow_partial_payment' => (bool) $invoice->allow_partial_payment,
                 'minimum_partial_amount' => $invoice->minimum_partial_amount !== null

@@ -612,6 +612,8 @@ const contractForm = useForm({
     estimate_id: props.record.estimate_id ?? null,
     total_amount: 0,
     currency: props.record.currency || 'USD',
+    status: 1,
+    payment_status: 1,
     notes: '',
     signature_required: true,
 });

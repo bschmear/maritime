@@ -7,12 +7,14 @@
       "label": "Option",
       "fields": [
         { "key": "name", "required": true },
+        { "key": "category_id", "required": false },
         { "key": "input_type", "required": true },
         { "key": "is_required", "required": false },
         { "key": "allow_multiple", "required": false },
         { "key": "min_select", "required": false },
         { "key": "max_select", "required": false },
-        { "key": "active", "required": false }
+        { "key": "active", "required": false },
+        { "key": "is_global", "required": false }
       ]
     }
   }

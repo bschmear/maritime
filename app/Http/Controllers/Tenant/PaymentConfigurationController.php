@@ -163,10 +163,16 @@ class PaymentConfigurationController extends Controller
 
         $stripeConfig = PaymentConfiguration::forStripe($settings);
 
-        ProcessorPaymentMethod::query()
+        $pivot = ProcessorPaymentMethod::query()
             ->where('configuration_id', $stripeConfig->id)
             ->where('payment_method_code', $validated['code'])
-            ->update(['is_enabled' => $validated['is_enabled']]);
+            ->first();
+
+        if ($pivot === null) {
+            return back()->with('error', 'Unknown payment method.');
+        }
+
+        $pivot->update(['is_enabled' => $validated['is_enabled']]);
 
         return back()->with('success', 'Payment method updated.');
     }

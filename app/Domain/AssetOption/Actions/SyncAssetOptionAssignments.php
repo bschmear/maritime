@@ -8,7 +8,6 @@ use App\Domain\Asset\Models\Asset;
 use App\Domain\AssetOption\Models\AssetOptionAssignment;
 use App\Domain\AssetOption\Models\AssetOptionMakeAssignment;
 use App\Domain\AssetVariant\Models\AssetVariant;
-use App\Domain\BoatMake\Models\BoatMake;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -16,22 +15,19 @@ use Illuminate\Validation\ValidationException;
 class SyncAssetOptionAssignments
 {
     /**
-     * Replace all assignments for an option. Either apply to every active brand (all models),
-     * or configure per-brand rules (each brand is all-models or specific assets/variants).
+     * Replace all catalog assignments for an option (per-brand all-models or specific assets/variants).
      *
      * @param  array<int, array{make_id: int, apply_to_all_models: bool, rows?: array<int, array{asset_id: int, variant_id?: ?int}>}>  $brands
      */
-    public function __invoke(int $optionId, bool $syncAllBrands, array $brands): void
+    public function __invoke(int $optionId, array $brands): void
     {
         $validator = Validator::make(
             [
                 'option_id' => $optionId,
-                'sync_all_brands' => $syncAllBrands,
                 'brands' => $brands,
             ],
             [
                 'option_id' => ['required', 'integer', 'exists:asset_options,id'],
-                'sync_all_brands' => ['required', 'boolean'],
                 'brands' => ['array'],
                 'brands.*.make_id' => ['required', 'integer', 'exists:boat_make,id'],
                 'brands.*.apply_to_all_models' => ['required', 'boolean'],
@@ -52,25 +48,9 @@ class SyncAssetOptionAssignments
             ]);
         }
 
-        DB::transaction(function () use ($optionId, $syncAllBrands, $brands): void {
+        DB::transaction(function () use ($optionId, $brands): void {
             AssetOptionMakeAssignment::query()->where('option_id', $optionId)->delete();
             AssetOptionAssignment::query()->where('option_id', $optionId)->delete();
-
-            if ($syncAllBrands) {
-                BoatMake::query()
-                    ->where('active', true)
-                    ->orderBy('display_name')
-                    ->pluck('id')
-                    ->each(function ($makeId) use ($optionId): void {
-                        AssetOptionMakeAssignment::query()->create([
-                            'option_id' => $optionId,
-                            'make_id' => (int) $makeId,
-                            'active' => true,
-                        ]);
-                    });
-
-                return;
-            }
 
             foreach ($brands as $brand) {
                 $makeId = (int) $brand['make_id'];

@@ -19,6 +19,8 @@ use App\Enums\Entity\ContactTimePreference;
 use App\Enums\Entity\ContactType;
 use App\Models\Concerns\HasDocuments;
 use App\Models\Concerns\HasSystemLogs;
+use Illuminate\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail as MustVerifyEmailContract;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -29,10 +31,11 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class Contact extends Authenticatable
+class Contact extends Authenticatable implements MustVerifyEmailContract
 {
     use HasDocuments;
     use HasSystemLogs;
+    use MustVerifyEmail;
     use Notifiable;
 
     /**

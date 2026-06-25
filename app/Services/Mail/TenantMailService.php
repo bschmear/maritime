@@ -5,6 +5,7 @@ namespace App\Services\Mail;
 use App\Mail\AccountInvitation;
 use App\Mail\ContractSignedNotification;
 use App\Mail\EstimateApprovalNotification;
+use App\Mail\EstimateBoatOptionsSubmittedMail;
 use App\Mail\OpportunityFeatureRequestSubmittedMail;
 use App\Mail\ServiceTicketApprovalNotification;
 use App\Models\AccountSettings;
@@ -32,6 +33,7 @@ class TenantMailService
         AccountInvitation::class,
         ContractSignedNotification::class,
         EstimateApprovalNotification::class,
+        EstimateBoatOptionsSubmittedMail::class,
         OpportunityFeatureRequestSubmittedMail::class,
         ServiceTicketApprovalNotification::class,
     ];

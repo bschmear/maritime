@@ -47,6 +47,7 @@ class GeneralController extends BaseController
             'boatshowevent' => 'BoatShowEvent',
             'boatshowlayout' => 'BoatShowLayout',
             'assetoption' => 'AssetOption',
+            'assetoptioncategory' => 'AssetOptionCategory',
             'delivery_location' => 'DeliveryLocation',
             'deliverylocation' => 'DeliveryLocation',
             'maintenancetype' => 'MaintenanceType',
@@ -115,6 +116,9 @@ class GeneralController extends BaseController
                 $columns[] = 'name';
                 $columns[] = 'input_type';
                 $columns[] = 'active';
+            } elseif ($typeKey === 'assetoptioncategory') {
+                $columns[] = 'name';
+                $columns[] = 'active';
             }
         }
 
@@ -172,6 +176,10 @@ class GeneralController extends BaseController
         $query = $recordModel->select(array_unique($columns));
 
         if ($typeKey === 'assetoption') {
+            $query->where($recordModel->getTable().'.active', true);
+        }
+
+        if ($typeKey === 'assetoptioncategory') {
             $query->where($recordModel->getTable().'.active', true);
         }
 
@@ -348,6 +356,9 @@ class GeneralController extends BaseController
             } elseif ($typeKey === 'assetoption') {
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 $query->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
+            } elseif ($typeKey === 'assetoptioncategory') {
+                $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
+                $query->whereRaw('LOWER(name) LIKE ?', [$searchTerm]);
             } elseif ($typeKey === 'serviceitem') {
                 $searchTerm = '%'.strtolower(trim($searchQuery)).'%';
                 $query->where(function ($q) use ($searchTerm) {
@@ -417,6 +428,9 @@ class GeneralController extends BaseController
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
             } elseif ($typeKey === 'assetoption') {
+                $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
+                $query->orderBy('name', $dir);
+            } elseif ($typeKey === 'assetoptioncategory') {
                 $dir = strtolower($orderDirection) === 'desc' ? 'desc' : 'asc';
                 $query->orderBy('name', $dir);
             } elseif (in_array($typeKey, ['transaction', 'estimate', 'contract'], true)) {
@@ -519,6 +533,7 @@ class GeneralController extends BaseController
             'boatshowevent' => 'BoatShowEvent',
             'boatshowlayout' => 'BoatShowLayout',
             'assetoption' => 'AssetOption',
+            'assetoptioncategory' => 'AssetOptionCategory',
             'deliverylocation' => 'DeliveryLocation',
             'delivery_location' => 'DeliveryLocation',
             'maintenancetype' => 'MaintenanceType',
@@ -568,6 +583,7 @@ class GeneralController extends BaseController
             $recordType = match ($domainName) {
                 'ContactAddress' => 'contactaddresses',
                 'MaintenanceType' => 'maintenance-types',
+                'AssetOptionCategory' => 'asset-option-categories',
                 'DeliveryLocation' => 'delivery-locations',
                 'BoatShow' => 'boat-shows',
                 'BoatShowEvent' => 'boat-show-events',

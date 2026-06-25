@@ -95,6 +95,9 @@ class CreateOpportunity
                             'notes' => $item['notes'] ?? null,
                             'asset_variant_id' => ! empty($item['asset_variant_id']) ? (int) $item['asset_variant_id'] : null,
                             'asset_unit_id' => ! empty($item['asset_unit_id']) ? (int) $item['asset_unit_id'] : null,
+                            'customer_offered_option_ids' => is_array($item['customer_offered_option_ids'] ?? null)
+                                ? json_encode(array_values(array_unique(array_map('intval', $item['customer_offered_option_ids']))))
+                                : null,
                         ];
                     }
                     $record->assets()->sync($syncData);

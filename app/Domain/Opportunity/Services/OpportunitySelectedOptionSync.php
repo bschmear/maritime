@@ -62,7 +62,7 @@ class OpportunitySelectedOptionSync
                 ? AssetVariant::query()->whereKey($variantId)->where('asset_id', $asset->id)->first()
                 : null;
 
-            $resolved = $this->resolver->resolve($asset, $variant)->keyBy('option_id');
+            $assigned = $this->resolver->resolve($asset, $variant)->keyBy('option_id');
 
             $selections = $item['asset_option_selections'] ?? [];
             $selectedByOption = [];
@@ -79,7 +79,10 @@ class OpportunitySelectedOptionSync
                 $selectedByOption[$oid] = array_values($vids);
             }
 
-            foreach ($resolved as $optionPayload) {
+            $selectedOptionIds = array_keys($selectedByOption);
+            $globalAndSelected = $this->resolver->resolveByIds($asset, $variant, $selectedOptionIds)->keyBy('option_id');
+
+            foreach ($assigned as $optionPayload) {
                 $optionId = (int) $optionPayload['option_id'];
                 $valueIds = $selectedByOption[$optionId] ?? [];
 
@@ -115,7 +118,7 @@ class OpportunitySelectedOptionSync
                 $oid = (int) $sel['option_id'];
                 $vid = (int) $sel['option_value_id'];
 
-                $optionPayload = $resolved->get($oid);
+                $optionPayload = $globalAndSelected->get($oid);
                 if ($optionPayload === null) {
                     throw ValidationException::withMessages([
                         'assets' => 'Invalid option selection for this boat configuration.',

@@ -3,6 +3,7 @@
   "columns": [
     { "key": "name", "label": "Name", "sortable": true, "record_link": true },
     { "key": "input_type", "label": "Input type", "sortable": true },
+    { "key": "is_global", "label": "Global", "sortable": true },
     { "key": "active", "label": "Active", "sortable": true }
   ],
   "filters": [

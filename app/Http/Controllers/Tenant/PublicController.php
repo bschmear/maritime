@@ -13,6 +13,7 @@ use App\Domain\Contract\Models\Contract;
 use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Estimate\Models\EstimateCustomerOptionSignoff;
+use App\Domain\Estimate\Models\EstimateLineItem;
 use App\Domain\Estimate\Support\EstimateSyncPayloadFromVersion;
 use App\Domain\Estimate\Support\RecalculateEstimateVersionTotals;
 use App\Domain\FeatureRequest\Models\FeatureRequestInvite;
@@ -496,10 +497,6 @@ class PublicController extends Controller
             abort(404);
         }
 
-        if (($lineItem->asset_options_fill_mode ?? 'staff') !== 'customer') {
-            abort(403, 'Boat options are not open for customer selection on this line.');
-        }
-
         $account = AccountSettings::getCurrent();
         $logoUrl = $account->logo_url ?? null;
 
@@ -547,8 +544,15 @@ class PublicController extends Controller
             ]);
         }
 
+        $this->assertCustomerBoatOptionsLineOpen($lineItem);
+
         $resolver = app(AssetOptionResolver::class);
-        $options = $resolver->resolve($asset, $variant);
+        $offeredIds = array_map('intval', $lineItem->customer_offered_option_ids ?? []);
+        if ($offeredIds === []) {
+            $options = collect();
+        } else {
+            $options = $resolver->resolveByIds($asset, $variant, $offeredIds);
+        }
 
         $submitUrl = URL::temporarySignedRoute(
             'estimates.boat-options.submit',
@@ -609,12 +613,22 @@ class PublicController extends Controller
             abort(404);
         }
 
-        if (($lineItem->asset_options_fill_mode ?? 'staff') !== 'customer') {
-            abort(403, 'Boat options are not open for customer selection on this line.');
-        }
-
         if ($lineItem->customer_asset_options_completed_at) {
             return back()->withErrors(['error' => 'Options have already been submitted for this line.']);
+        }
+
+        $this->assertCustomerBoatOptionsLineOpen($lineItem);
+
+        $offeredIds = array_map('intval', $lineItem->customer_offered_option_ids ?? []);
+        if ($offeredIds !== []) {
+            foreach ($validated['selections'] as $sel) {
+                $oid = (int) ($sel['option_id'] ?? 0);
+                if (! in_array($oid, $offeredIds, true)) {
+                    throw ValidationException::withMessages([
+                        'selections' => 'One or more selected options are not available on this line.',
+                    ]);
+                }
+            }
         }
 
         $payload = EstimateSyncPayloadFromVersion::forSelectedOptionSync($estimate);
@@ -658,7 +672,7 @@ class PublicController extends Controller
             'asset_options_fill_mode' => 'staff',
         ]);
 
-        EstimateCustomerOptionSignoff::query()->create([
+        $signoff = EstimateCustomerOptionSignoff::query()->create([
             'estimate_id' => $estimate->id,
             'transaction_line_item_id' => $lineItem->id,
             'signer_name' => $validated['signer_name'],
@@ -667,11 +681,32 @@ class PublicController extends Controller
             'signed_at' => now(),
         ]);
 
+        $this->notifications->notifyEstimateBoatOptionsSubmitted(
+            $estimate->fresh(['user', 'customer']),
+            $signoff,
+            $lineItem->fresh(['selectedAssetOptions']),
+            AccountSettings::getCurrent(),
+        );
+
         return redirect()->to(URL::temporarySignedRoute(
             'estimates.boat-options',
             now()->addMinutes(30),
             ['uuid' => $estimate->uuid, 'line' => $line]
         ));
+    }
+
+    /**
+     * Signed boat-options links stay valid while options are offered to the customer, even if
+     * staff later saves the estimate in "staff selects" mode (fill mode flips after submit).
+     */
+    private function assertCustomerBoatOptionsLineOpen(EstimateLineItem $lineItem): void
+    {
+        $customerMode = ($lineItem->asset_options_fill_mode ?? 'staff') === 'customer';
+        $offeredIds = array_map('intval', $lineItem->customer_offered_option_ids ?? []);
+
+        if (! $customerMode && $offeredIds === []) {
+            abort(403, 'Boat options are not open for customer selection on this line.');
+        }
     }
 
     public function featureRequestInviteShow(Request $request, FeatureRequestInvite $invite): Response
@@ -779,7 +814,15 @@ class PublicController extends Controller
         }
 
         $resolver = app(AssetOptionResolver::class);
-        $options = $resolver->resolve($asset, $variant);
+        $offeredRaw = $pivot->customer_offered_option_ids ?? null;
+        $offeredIds = is_string($offeredRaw)
+            ? array_map('intval', json_decode($offeredRaw, true) ?: [])
+            : array_map('intval', is_array($offeredRaw) ? $offeredRaw : []);
+        if ($offeredIds === []) {
+            $options = collect();
+        } else {
+            $options = $resolver->resolveByIds($asset, $variant, $offeredIds);
+        }
 
         $addonsOffered = [];
         if ($includeAddons) {
@@ -1516,6 +1559,7 @@ class PublicController extends Controller
             ],
             'canPayOnline' => $canPayOnline,
             'payOnlineUi' => $payOnlineUi,
+            'contactForDetailsMethods' => InvoicePayOnline::contactForDetailsMethodOptions($invoice),
             'paymentConstraints' => [
                 'allow_partial_payment' => (bool) $invoice->allow_partial_payment,
                 'minimum_partial_amount' => $invoice->minimum_partial_amount !== null

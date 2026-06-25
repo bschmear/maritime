@@ -190,6 +190,63 @@ const customerFacingLineTotal = (item) => {
     if (isCoveredWarranty(item)) return 0;
     return item.total ?? item.line_total ?? 0;
 };
+
+const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+const itemPreTax = (item) => {
+    if (isCoveredWarranty(item)) return 0;
+    if (item.subtotal != null && item.subtotal !== '') {
+        return Number(item.subtotal);
+    }
+    const qty = Number(item.quantity ?? 1);
+    const price = Number(item.unit_price ?? item.price ?? 0);
+    const discount = Number(item.discount ?? 0);
+    return Math.max(0, qty * price - discount);
+};
+
+const itemTax = (item) => {
+    if (isCoveredWarranty(item)) return 0;
+    if (item.tax_amount != null && item.tax_amount !== '') {
+        return Number(item.tax_amount);
+    }
+    if (!item.taxable || !Number(item.tax_rate)) {
+        return 0;
+    }
+    return roundMoney(itemPreTax(item) * (Number(item.tax_rate) / 100));
+};
+
+const itemTotalWithTax = (item) => {
+    if (isCoveredWarranty(item)) return 0;
+    if (item.total != null && item.total !== '') {
+        return Number(item.total);
+    }
+    return roundMoney(itemPreTax(item) + itemTax(item));
+};
+
+const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+
+const optionPreTax = (opt) => Number(opt?.price ?? 0);
+
+const optionTax = (opt) => {
+    const rate = Number(opt?.tax_rate ?? props.record?.tax_rate ?? 0);
+    if (!optionRowTaxable(opt) || rate <= 0) {
+        return 0;
+    }
+    return roundMoney(optionPreTax(opt) * (rate / 100));
+};
+
+const optionTotalWithTax = (opt) => roundMoney(optionPreTax(opt) + optionTax(opt));
+
+const showLineTax = computed(() => {
+    if (Number(props.record?.tax_total ?? 0) > 0) {
+        return true;
+    }
+    return lineItems.value.some(
+        (item) => itemTax(item) > 0 || (item.taxable && Number(item.tax_rate) > 0),
+    );
+});
+
+const lineItemColspan = computed(() => (showLineTax.value ? 7 : 5));
 </script>
 
 <template>
@@ -213,7 +270,7 @@ const customerFacingLineTotal = (item) => {
                 <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`m-bo-${group.primary.id}-${gIdx}`">
                     <PublicDocumentLineItemCard
                         :title="itemPrimaryLabel(group.primary)"
-                        :amount="formatCurrency(customerFacingLineTotal(group.primary))"
+                        :amount="formatCurrency(showLineTax ? itemTotalWithTax(group.primary) : customerFacingLineTotal(group.primary))"
                     >
                         <span
                             v-if="itemableBadge(group.primary)"
@@ -240,16 +297,24 @@ const customerFacingLineTotal = (item) => {
                             <span v-if="isCoveredWarranty(group.primary)">—</span>
                             <span v-else>{{ discountCell(group.primary) }}</span>
                         </PublicDocumentLineItemField>
+                        <template v-if="showLineTax">
+                            <PublicDocumentLineItemField label="Pre-tax" :value="formatCurrency(itemPreTax(group.primary))" />
+                            <PublicDocumentLineItemField label="Tax" :value="formatCurrency(itemTax(group.primary))" />
+                        </template>
                         <template #children>
                             <PublicDocumentLineItemCard
                                 v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
                                 :key="`m-bo-opt-${group.primary.id}-${oi}`"
                                 accent="sky"
                                 :title="selectedOptionLabel(opt)"
-                                :amount="formatCurrency(opt.price)"
+                                :amount="formatCurrency(showLineTax ? optionTotalWithTax(opt) : opt.price)"
                             >
                                 <PublicDocumentLineItemField label="Qty" value="1" />
                                 <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(opt.price)" />
+                                <template v-if="showLineTax">
+                                    <PublicDocumentLineItemField label="Pre-tax" :value="formatCurrency(optionPreTax(opt))" />
+                                    <PublicDocumentLineItemField label="Tax" :value="formatCurrency(optionTax(opt))" />
+                                </template>
                             </PublicDocumentLineItemCard>
                             <PublicDocumentLineItemCard
                                 v-if="lineItemAddonsUiEnabled"
@@ -257,7 +322,7 @@ const customerFacingLineTotal = (item) => {
                                 :key="`m-bo-ad-${add.id}-${ai}`"
                                 muted
                                 :title="flatAddonDisplayName(group.primary.name, add)"
-                                :amount="formatCurrency(customerFacingLineTotal(add))"
+                                :amount="formatCurrency(showLineTax ? itemTotalWithTax(add) : customerFacingLineTotal(add))"
                             >
                                 <PublicDocumentLineItemField label="Qty" :value="add.quantity ?? 1" />
                                 <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(add.unit_price ?? add.price)" />
@@ -265,6 +330,10 @@ const customerFacingLineTotal = (item) => {
                                     <span v-if="isCoveredWarranty(add)">—</span>
                                     <span v-else>{{ discountCell(add) }}</span>
                                 </PublicDocumentLineItemField>
+                                <template v-if="showLineTax">
+                                    <PublicDocumentLineItemField label="Pre-tax" :value="formatCurrency(itemPreTax(add))" />
+                                    <PublicDocumentLineItemField label="Tax" :value="formatCurrency(itemTax(add))" />
+                                </template>
                             </PublicDocumentLineItemCard>
                         </template>
                     </PublicDocumentLineItemCard>
@@ -279,7 +348,9 @@ const customerFacingLineTotal = (item) => {
                         <th class="py-3 text-center text-sm font-semibold text-gray-900">Qty</th>
                         <th class="py-3 text-right text-sm font-semibold text-gray-900">Unit price</th>
                         <th class="py-3 text-center text-sm font-semibold text-gray-900">Discount</th>
-                        <th class="py-3 text-right text-sm font-semibold text-gray-900">Line total</th>
+                        <th v-if="showLineTax" class="py-3 text-right text-sm font-semibold text-gray-900">Pre-tax</th>
+                        <th v-if="showLineTax" class="py-3 text-right text-sm font-semibold text-gray-900">Tax</th>
+                        <th class="py-3 text-right text-sm font-semibold text-gray-900">{{ showLineTax ? 'Total' : 'Line total' }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -316,7 +387,9 @@ const customerFacingLineTotal = (item) => {
                                     <span v-if="isCoveredWarranty(group.primary)">—</span>
                                     <span v-else>{{ discountCell(group.primary) }}</span>
                                 </td>
-                                <td class="py-3 text-right align-top font-medium text-gray-900">{{ formatCurrency(customerFacingLineTotal(group.primary)) }}</td>
+                                <td v-if="showLineTax" class="py-3 text-right align-top text-gray-900">{{ formatCurrency(itemPreTax(group.primary)) }}</td>
+                                <td v-if="showLineTax" class="py-3 text-right align-top text-gray-900">{{ formatCurrency(itemTax(group.primary)) }}</td>
+                                <td class="py-3 text-right align-top font-medium text-gray-900">{{ formatCurrency(showLineTax ? itemTotalWithTax(group.primary) : customerFacingLineTotal(group.primary)) }}</td>
                             </tr>
                             <tr
                                 v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
@@ -329,7 +402,9 @@ const customerFacingLineTotal = (item) => {
                                 <td class="py-2 text-center text-sm text-gray-800">1</td>
                                 <td class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(opt.price) }}</td>
                                 <td class="py-2 text-center text-sm text-gray-500">—</td>
-                                <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(opt.price) }}</td>
+                                <td v-if="showLineTax" class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(optionPreTax(opt)) }}</td>
+                                <td v-if="showLineTax" class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(optionTax(opt)) }}</td>
+                                <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(showLineTax ? optionTotalWithTax(opt) : opt.price) }}</td>
                             </tr>
                             <tr
                                 v-if="lineItemAddonsUiEnabled"
@@ -346,12 +421,14 @@ const customerFacingLineTotal = (item) => {
                                     <span v-if="isCoveredWarranty(add)">—</span>
                                     <span v-else>{{ discountCell(add) }}</span>
                                 </td>
-                                <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(customerFacingLineTotal(add)) }}</td>
+                                <td v-if="showLineTax" class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(itemPreTax(add)) }}</td>
+                                <td v-if="showLineTax" class="py-2 text-right text-sm text-gray-800">{{ formatCurrency(itemTax(add)) }}</td>
+                                <td class="py-2 text-right text-sm font-medium text-gray-900">{{ formatCurrency(showLineTax ? itemTotalWithTax(add) : customerFacingLineTotal(add)) }}</td>
                             </tr>
                         </template>
                     </template>
                     <tr v-else>
-                        <td colspan="5" class="py-8 text-center text-sm text-gray-500">No line items</td>
+                        <td :colspan="lineItemColspan" class="py-8 text-center text-sm text-gray-500">No line items</td>
                     </tr>
                 </tbody>
             </table>
@@ -533,7 +610,7 @@ const customerFacingLineTotal = (item) => {
                 <template v-for="(group, gIdx) in groupedInvoiceLineItems" :key="`m-inv-${group.primary.id}-${gIdx}`">
                     <PublicDocumentLineItemCard
                         :title="itemPrimaryLabel(group.primary)"
-                        :amount="formatCurrency(customerFacingLineTotal(group.primary))"
+                        :amount="formatCurrency(showLineTax ? itemTotalWithTax(group.primary) : customerFacingLineTotal(group.primary))"
                     >
                         <span
                             v-if="itemableBadge(group.primary)"
@@ -560,16 +637,24 @@ const customerFacingLineTotal = (item) => {
                             <span v-if="isCoveredWarranty(group.primary)">—</span>
                             <span v-else>{{ discountCell(group.primary) }}</span>
                         </PublicDocumentLineItemField>
+                        <template v-if="showLineTax">
+                            <PublicDocumentLineItemField label="Pre-tax" :value="formatCurrency(itemPreTax(group.primary))" />
+                            <PublicDocumentLineItemField label="Tax" :value="formatCurrency(itemTax(group.primary))" />
+                        </template>
                         <template #children>
                             <PublicDocumentLineItemCard
                                 v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
                                 :key="`m-inv-opt-${group.primary.id}-${oi}`"
                                 accent="sky"
                                 :title="selectedOptionLabel(opt)"
-                                :amount="formatCurrency(opt.price)"
+                                :amount="formatCurrency(showLineTax ? optionTotalWithTax(opt) : opt.price)"
                             >
                                 <PublicDocumentLineItemField label="Qty" value="1" />
                                 <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(opt.price)" />
+                                <template v-if="showLineTax">
+                                    <PublicDocumentLineItemField label="Pre-tax" :value="formatCurrency(optionPreTax(opt))" />
+                                    <PublicDocumentLineItemField label="Tax" :value="formatCurrency(optionTax(opt))" />
+                                </template>
                             </PublicDocumentLineItemCard>
                             <PublicDocumentLineItemCard
                                 v-if="lineItemAddonsUiEnabled"
@@ -577,7 +662,7 @@ const customerFacingLineTotal = (item) => {
                                 :key="`m-inv-ad-${add.id}-${ai}`"
                                 muted
                                 :title="flatAddonDisplayName(group.primary.name, add)"
-                                :amount="formatCurrency(customerFacingLineTotal(add))"
+                                :amount="formatCurrency(showLineTax ? itemTotalWithTax(add) : customerFacingLineTotal(add))"
                             >
                                 <PublicDocumentLineItemField label="Qty" :value="add.quantity ?? 1" />
                                 <PublicDocumentLineItemField label="Unit price" :value="formatCurrency(add.unit_price ?? add.price)" />
@@ -585,6 +670,10 @@ const customerFacingLineTotal = (item) => {
                                     <span v-if="isCoveredWarranty(add)">—</span>
                                     <span v-else>{{ discountCell(add) }}</span>
                                 </PublicDocumentLineItemField>
+                                <template v-if="showLineTax">
+                                    <PublicDocumentLineItemField label="Pre-tax" :value="formatCurrency(itemPreTax(add))" />
+                                    <PublicDocumentLineItemField label="Tax" :value="formatCurrency(itemTax(add))" />
+                                </template>
                             </PublicDocumentLineItemCard>
                         </template>
                     </PublicDocumentLineItemCard>
@@ -600,7 +689,9 @@ const customerFacingLineTotal = (item) => {
                             <th class="px-4 py-3 font-semibold sm:px-6">Qty</th>
                             <th class="px-4 py-3 font-semibold sm:px-6">Unit price</th>
                             <th class="px-4 py-3 font-semibold sm:px-6">Discount</th>
-                            <th class="whitespace-nowrap px-4 py-3 text-right font-semibold sm:px-6">Line total</th>
+                            <th v-if="showLineTax" class="px-4 py-3 text-right font-semibold sm:px-6">Pre-tax</th>
+                            <th v-if="showLineTax" class="px-4 py-3 text-right font-semibold sm:px-6">Tax</th>
+                            <th class="whitespace-nowrap px-4 py-3 text-right font-semibold sm:px-6">{{ showLineTax ? 'Total' : 'Line total' }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -637,7 +728,9 @@ const customerFacingLineTotal = (item) => {
                                         <span v-if="isCoveredWarranty(group.primary)">—</span>
                                         <span v-else>{{ discountCell(group.primary) }}</span>
                                     </td>
-                                    <td class="px-4 py-4 text-right align-top font-medium sm:px-6">{{ formatCurrency(customerFacingLineTotal(group.primary)) }}</td>
+                                    <td v-if="showLineTax" class="px-4 py-4 text-right align-top sm:px-6">{{ formatCurrency(itemPreTax(group.primary)) }}</td>
+                                    <td v-if="showLineTax" class="px-4 py-4 text-right align-top sm:px-6">{{ formatCurrency(itemTax(group.primary)) }}</td>
+                                    <td class="px-4 py-4 text-right align-top font-medium sm:px-6">{{ formatCurrency(showLineTax ? itemTotalWithTax(group.primary) : customerFacingLineTotal(group.primary)) }}</td>
                                 </tr>
                                 <tr
                                     v-for="(opt, oi) in invoiceLineBoatOptions(group.primary)"
@@ -650,7 +743,9 @@ const customerFacingLineTotal = (item) => {
                                     <td class="px-4 py-2 text-center text-sm text-gray-800 sm:px-6">1</td>
                                     <td class="px-4 py-2 text-right text-sm text-gray-800 sm:px-6">{{ formatCurrency(opt.price) }}</td>
                                     <td class="px-4 py-2 text-center text-sm text-gray-500 sm:px-6">—</td>
-                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 sm:px-6">{{ formatCurrency(opt.price) }}</td>
+                                    <td v-if="showLineTax" class="px-4 py-2 text-right text-sm text-gray-800 sm:px-6">{{ formatCurrency(optionPreTax(opt)) }}</td>
+                                    <td v-if="showLineTax" class="px-4 py-2 text-right text-sm text-gray-800 sm:px-6">{{ formatCurrency(optionTax(opt)) }}</td>
+                                    <td class="px-4 py-2 text-right text-sm font-medium text-gray-900 sm:px-6">{{ formatCurrency(showLineTax ? optionTotalWithTax(opt) : opt.price) }}</td>
                                 </tr>
                                 <tr
                                     v-if="lineItemAddonsUiEnabled"
@@ -667,12 +762,14 @@ const customerFacingLineTotal = (item) => {
                                         <span v-if="isCoveredWarranty(add)">—</span>
                                         <span v-else>{{ discountCell(add) }}</span>
                                     </td>
-                                    <td class="px-4 py-2 text-right text-sm font-medium sm:px-6">{{ formatCurrency(customerFacingLineTotal(add)) }}</td>
+                                    <td v-if="showLineTax" class="px-4 py-2 text-right text-sm sm:px-6">{{ formatCurrency(itemPreTax(add)) }}</td>
+                                    <td v-if="showLineTax" class="px-4 py-2 text-right text-sm sm:px-6">{{ formatCurrency(itemTax(add)) }}</td>
+                                    <td class="px-4 py-2 text-right text-sm font-medium sm:px-6">{{ formatCurrency(showLineTax ? itemTotalWithTax(add) : customerFacingLineTotal(add)) }}</td>
                                 </tr>
                             </template>
                         </template>
                         <tr v-else>
-                            <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">No line items</td>
+                            <td :colspan="lineItemColspan" class="px-6 py-8 text-center text-sm text-gray-500">No line items</td>
                         </tr>
                     </tbody>
                 </table>

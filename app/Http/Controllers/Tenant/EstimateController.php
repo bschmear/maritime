@@ -24,6 +24,7 @@ use App\Mail\EstimateBoatOptionsInvite;
 use App\Models\AccountSettings;
 use App\Services\Mail\TenantMailService;
 use App\Services\SMS\SmsService;
+use App\Services\TenantStaffResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\URL;
@@ -503,6 +504,13 @@ class EstimateController extends RecordController
                 continue;
             }
 
+            $offeredIds = $li->customer_offered_option_ids ?? [];
+            if (! is_array($offeredIds) || $offeredIds === []) {
+                return back()->withErrors([
+                    'error' => 'Configure which options the customer should fill before sending (line '.(((int) $li->position) + 1).').',
+                ]);
+            }
+
             $label = trim(($li->name ?: 'Boat').' (line '.(((int) $li->position) + 1).')');
             $url = URL::temporarySignedRoute(
                 'estimates.boat-options',
@@ -520,13 +528,14 @@ class EstimateController extends RecordController
 
         $account = AccountSettings::getCurrent();
         $mailable = new EstimateBoatOptionsInvite($estimate, $account, $lines, $customMessage);
+        $mailActor = TenantStaffResolver::webUserForMail($request->user());
 
-        if (! $tenantMail->canSend($customerEmail, $mailable, $request->user())) {
+        if (! $tenantMail->canSend($customerEmail, $mailable, $mailActor)) {
             return back()->withErrors(['error' => $tenantMail->validationErrorMessage($mailable)]);
         }
 
         try {
-            $tenantMail->send($customerEmail, $mailable, $request->user());
+            $tenantMail->send($customerEmail, $mailable, $mailActor);
         } catch (\Exception $e) {
             \Log::error('Failed to send boat options invite email', [
                 'estimate_id' => $estimate->id,
@@ -536,7 +545,7 @@ class EstimateController extends RecordController
             return back()->withErrors(['error' => 'Failed to send email. Please try again.']);
         }
 
-        return back()->with('success', 'Boat options link(s) sent to '.$tenantMail->displayRecipient($customerEmail, $mailable, $request->user()).'.');
+        return back()->with('success', 'Boat options link(s) sent to '.$tenantMail->displayRecipient($customerEmail, $mailable, $mailActor).'.');
     }
 
     public function createRevision(Request $request, $id)

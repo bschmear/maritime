@@ -1,0 +1,14 @@
+{
+    "fields": {
+        "name": {
+            "label": "Name",
+            "type": "text",
+            "required": true
+        },
+        "active": {
+            "label": "Active",
+            "type": "boolean",
+            "default": true
+        }
+    }
+}

@@ -27,6 +27,7 @@ class UpdateAssetOption
             'min_select' => ['nullable', 'integer', 'min:0'],
             'max_select' => ['nullable', 'integer', 'min:0'],
             'active' => ['sometimes', 'boolean'],
+            'is_global' => ['sometimes', 'boolean'],
             'values' => ['nullable', 'array'],
             'values.*.id' => ['nullable', 'integer'],
             'values.*.label' => ['required', 'string', 'max:255'],

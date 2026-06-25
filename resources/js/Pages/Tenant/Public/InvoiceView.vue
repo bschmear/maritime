@@ -35,6 +35,10 @@ const props = defineProps({
         type: Object,
         default: () => ({ card: false, bank: false, codes: [] }),
     },
+    contactForDetailsMethods: {
+        type: Array,
+        default: () => [],
+    },
     paymentConstraints: {
         type: Object,
         default: () => ({
@@ -108,6 +112,7 @@ const title = computed(() =>
                 :enum-options="enumOptions"
                 :can-pay-online="canPayOnline"
                 :pay-online-ui="payOnlineUi"
+                :contact-for-details-methods="contactForDetailsMethods"
                 :payment-constraints="paymentConstraints"
                 :quickbooks="quickbooks"
                 show-portal-promotion

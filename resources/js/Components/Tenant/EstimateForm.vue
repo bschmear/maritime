@@ -11,15 +11,10 @@ import { computed, ref, watch, onMounted } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
 import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocationAutofill';
 import {
-    clearAssetOptionSingle,
-    hasAssetOptionAnySelection,
-    isAssetOptionSelected,
-    isAssetOptionToggleOn,
-    setAssetOptionSingle,
-    toggleAssetOptionMulti,
-    toggleAssetOptionToggle,
-} from '@/Utils/assetOptionSelections';
-import AssetOptionRadioChoices from '@/Components/Tenant/AssetOptionRadioChoices.vue';
+    hydrateAddedGlobalOptionIds,
+    lineOptionsForDisplay,
+} from '@/Utils/assetLineBoatOptions.js';
+import AssetLineBoatOptionsPanel from '@/Components/Tenant/AssetLineBoatOptionsPanel.vue';
 import { LINE_ITEM_ADDONS_UI_ENABLED, lineItemTableColspan } from '@/config/lineItemFeatures';
 
 const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
@@ -442,6 +437,8 @@ const emptyAssetForm = () => ({
     line_position: null,
     asset_option_selections: [],
     asset_options_fill_mode: 'staff',
+    added_global_option_ids: [],
+    customer_offered_option_ids: [],
 });
 
 const assetForm = ref(emptyAssetForm());
@@ -451,7 +448,8 @@ const assetBaseLineTotal = (item) =>
 
 const assetOptionPremiumForLine = (item, index) => {
     if (item.asset_options_fill_mode === 'customer') return 0;
-    const choices = assetOptionChoices.value[index] || [];
+    const ctx = assetOptionChoices.value[index] || {};
+    const choices = lineOptionsForDisplay(ctx.assigned, ctx.global, item.added_global_option_ids);
     let sum = 0;
     for (const s of item.asset_option_selections || []) {
         const opt = choices.find((o) => Number(o.option_id) === Number(s.option_id));
@@ -622,6 +620,22 @@ const splitLineNotesFromStoredDescription = (storedFull, catalogDesc) => {
 
 const assetOptionChoices = ref({});
 
+const assignedOptionsForLine = (index) => assetOptionChoices.value[index]?.assigned ?? [];
+const globalOptionsForLine = (index) => assetOptionChoices.value[index]?.global ?? [];
+
+const showBoatOptionsRow = (index, item) => {
+    const ctx = assetOptionChoices.value[index];
+    const assigned = ctx?.assigned ?? [];
+    const global = ctx?.global ?? [];
+    const onLine = lineOptionsForDisplay(assigned, global, item.added_global_option_ids);
+    return (
+        onLine.length > 0 ||
+        global.length > 0 ||
+        (item.asset_option_selections ?? []).length > 0 ||
+        item.asset_options_fill_mode === 'customer'
+    );
+};
+
 const refreshAssetOptionChoices = async () => {
     const next = { ...assetOptionChoices.value };
     for (let i = 0; i < assetItems.value.length; i++) {
@@ -641,7 +655,11 @@ const refreshAssetOptionChoices = async () => {
                     variant_id: item.asset_variant_id || undefined,
                 },
             });
-            next[i] = data.options || [];
+            next[i] = {
+                assigned: data.options || [],
+                global: data.global_options || [],
+            };
+            hydrateAddedGlobalOptionIds(item, next[i].assigned, next[i].global);
         } catch {
             delete next[i];
         }
@@ -654,10 +672,6 @@ const debouncedRefreshAssetOptions = debounce(() => {
 }, 350);
 
 watch(assetItems, () => debouncedRefreshAssetOptions(), { deep: true });
-
-const setAssetOptionsFillMode = (item, mode) => {
-    item.asset_options_fill_mode = mode;
-};
 
 // ==============================
 // Load initial data
@@ -782,6 +796,8 @@ onMounted(() => {
                 lineData.line_position = lineItem.position;
                 lineData.asset_options_fill_mode =
                     lineItem.asset_options_fill_mode === 'customer' ? 'customer' : 'staff';
+                lineData.customer_offered_option_ids = lineItem.customer_offered_option_ids ?? [];
+                lineData.added_global_option_ids = lineItem.added_global_option_ids ?? [];
                 const match = (props.initialSelectedAssetOptions || []).find((g) => g.line_position === lineItem.position);
                 lineData.asset_option_selections = match?.selections ? [...match.selections] : [];
                 lineData.notes = splitLineNotesFromStoredDescription(
@@ -818,6 +834,8 @@ const submit = () => {
         asset_variant_id: item.asset_variant_id || null,
         asset_unit_id: item.asset_unit_id || null,
         asset_options_fill_mode: item.asset_options_fill_mode === 'customer' ? 'customer' : 'staff',
+        customer_offered_option_ids: (item.customer_offered_option_ids ?? []).map(Number),
+        added_global_option_ids: (item.added_global_option_ids ?? []).map(Number),
         addons: (item.addons || []).map((addon) => ({
             addon_id: addon.addon_id,
             name: addon.name,
@@ -1366,105 +1384,19 @@ const handleCancel = () => emit('cancelled');
                                             </td>
                                         </tr>
                                         <tr
-                                            v-if="mode !== 'view' && (assetOptionChoices[index] || []).length > 0"
+                                            v-if="showBoatOptionsRow(index, item)"
                                             class="bg-slate-50/90 dark:bg-slate-900/30"
                                         >
                                             <td :colspan="assetLineBoatOptionsColspan" class="px-4 py-4 border-t border-gray-100 dark:border-gray-700">
-                                                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                                                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                                                        Boat options
-                                                    </div>
-                                                    <div
-                                                        class="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 bg-white dark:bg-gray-800 shadow-sm"
-                                                        role="group"
-                                                        aria-label="Who selects boat options"
-                                                    >
-                                                        <button
-                                                            type="button"
-                                                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
-                                                            :class="
-                                                                (item.asset_options_fill_mode || 'staff') !== 'customer'
-                                                                    ? 'bg-primary-600 text-white'
-                                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                                                            "
-                                                            @click="setAssetOptionsFillMode(item, 'staff')"
-                                                        >
-                                                            Staff selects here
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
-                                                            :class="
-                                                                (item.asset_options_fill_mode || 'staff') === 'customer'
-                                                                    ? 'bg-primary-600 text-white'
-                                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                                                            "
-                                                            @click="setAssetOptionsFillMode(item, 'customer')"
-                                                        >
-                                                            Email customer
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <template v-if="(item.asset_options_fill_mode || 'staff') !== 'customer'">
-                                                    <div v-for="opt in assetOptionChoices[index]" :key="opt.option_id" class="mb-4 last:mb-0">
-                                                        <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                                            {{ opt.name }}
-                                                            <span v-if="opt.is_required" class="text-red-500">*</span>
-                                                        </div>
-                                                        <div v-if="opt.input_type === 'multi_select'" class="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                                                            <label
-                                                                v-for="v in opt.values"
-                                                                :key="v.id"
-                                                                class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    :checked="isAssetOptionSelected(item, opt.option_id, v.id)"
-                                                                    @change="toggleAssetOptionMulti(item, opt.option_id, v.id, $event.target.checked)"
-                                                                />
-                                                                <span>{{ v.label }}</span>
-                                                                <span class="text-gray-500 tabular-nums">{{ formatCurrency(v.price) }}</span>
-                                                            </label>
-                                                        </div>
-                                                        <div v-else-if="opt.input_type === 'toggle'" class="mt-2">
-                                                            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    :checked="isAssetOptionToggleOn(item, opt)"
-                                                                    @change="toggleAssetOptionToggle(item, opt, $event.target.checked)"
-                                                                />
-                                                                <span>Yes</span>
-                                                                <span
-                                                                    v-if="opt.values?.[0]?.price"
-                                                                    class="text-gray-500 tabular-nums"
-                                                                >
-                                                                    {{ formatCurrency(opt.values[0].price) }}
-                                                                </span>
-                                                            </label>
-                                                        </div>
-                                                        <AssetOptionRadioChoices
-                                                            v-else
-                                                            :opt="opt"
-                                                            :input-name="`est-ao-${index}-${opt.option_id}`"
-                                                            :format-price="formatCurrency"
-                                                            :is-selected="(valueId) => isAssetOptionSelected(item, opt.option_id, valueId)"
-                                                            :has-any-selection="() => hasAssetOptionAnySelection(item, opt.option_id)"
-                                                            @select="(valueId) => setAssetOptionSingle(item, opt.option_id, valueId)"
-                                                            @clear="clearAssetOptionSingle(item, opt.option_id)"
-                                                        />
-                                                    </div>
-                                                </template>
-                                                <div
-                                                    v-else
-                                                    class="rounded-lg border border-dashed border-amber-200 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-950 dark:text-amber-100"
-                                                >
-                                                    <p>
-                                                        The customer will choose options on a secure link. Save this estimate, then open it and use
-                                                        <strong class="font-semibold">Email boat options</strong>
-                                                        to send the form. Estimate totals exclude option prices until they submit and sign off.
-                                                    </p>
-                                                </div>
+                                                <AssetLineBoatOptionsPanel
+                                                    :item="item"
+                                                    :index="index"
+                                                    :assigned-options="assignedOptionsForLine(index)"
+                                                    :global-options="globalOptionsForLine(index)"
+                                                    :format-price="formatCurrency"
+                                                    :editable="mode !== 'view'"
+                                                    input-name-prefix="est"
+                                                />
                                             </td>
                                         </tr>
                                         <!-- Add-ons sub-rows -->

@@ -2,6 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetOptionForm from '@/Components/Tenant/AssetOptionForm.vue';
+import FormFixedActionBar from '@/Components/Tenant/FormComponents/FormFixedActionBar.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
@@ -130,12 +131,14 @@ const { validationSubmitOptions } = useFormValidationToast(() => props.fieldsSch
 
 const form = useForm({
     name: '',
+    category_id: null,
     input_type: 'select',
     is_required: false,
     allow_multiple: false,
     min_select: 0,
     max_select: 1,
     active: true,
+    is_global: false,
     values: [],
 });
 
@@ -151,6 +154,8 @@ const submit = () => {
             out.is_required = boolVal(out.is_required);
             out.allow_multiple = boolVal(out.allow_multiple);
             out.active = boolVal(out.active);
+            out.is_global = boolVal(out.is_global);
+            out.category_id = out.category_id ? Number(out.category_id) : null;
             out.min_select = Number(out.min_select) || 0;
             out.max_select = Number(out.max_select) || 0;
             delete out.slug;
@@ -175,28 +180,22 @@ const cancel = () => router.visit(route('asset-options.index'));
             </div>
         </template>
 
-        <div class="mx-auto w-full max-w-4xl px-4 py-6">
-            <form class="space-y-6" @submit.prevent="submit">
-                <AssetOptionForm :form="form" :field-error="fieldError" :input-type-options="inputTypeOptions" />
-
-                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button
-                        type="button"
-                        class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                        :disabled="form.processing"
-                        @click="cancel"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="inline-flex justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                        :disabled="form.processing"
-                    >
-                        {{ form.processing ? 'Creating…' : 'Create option' }}
-                    </button>
-                </div>
+        <div class="mx-auto w-full px-4 py-6">
+            <form id="asset-option-form" class="space-y-6 pb-28" @submit.prevent="submit">
+                <AssetOptionForm
+                    :form="form"
+                    :field-error="fieldError"
+                    :input-type-options="inputTypeOptions"
+                />
             </form>
         </div>
+
+        <FormFixedActionBar
+            form-id="asset-option-form"
+            :processing="form.processing"
+            submit-label="Create option"
+            processing-label="Creating…"
+            @cancel="cancel"
+        />
     </TenantLayout>
 </template>

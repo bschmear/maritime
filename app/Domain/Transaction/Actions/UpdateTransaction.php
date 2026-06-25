@@ -288,6 +288,9 @@ class UpdateTransaction
                 'total' => $preliminaryLineTotal,
                 'position' => $itemData['position'] ?? $position,
                 'asset_options_fill_mode' => (($itemData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
+                'customer_offered_option_ids' => is_array($itemData['customer_offered_option_ids'] ?? null)
+                    ? array_values(array_unique(array_map('intval', $itemData['customer_offered_option_ids'])))
+                    : null,
             ];
 
             // Only touch FK columns when the client sent those keys; omitting them avoids overwriting with null
@@ -343,6 +346,9 @@ class UpdateTransaction
                     'itemable_id' => $itemData['itemable_id'] ?? null,
                     'asset_variant_id' => $itemData['asset_variant_id'] ?? null,
                     'asset_options_fill_mode' => (($itemData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
+                    'customer_offered_option_ids' => is_array($itemData['customer_offered_option_ids'] ?? null)
+                        ? array_values(array_unique(array_map('intval', $itemData['customer_offered_option_ids'])))
+                        : null,
                 ];
                 app(PersistAssetOptionSelectionsForLineItem::class)(
                     $item,

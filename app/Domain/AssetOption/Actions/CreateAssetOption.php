@@ -27,6 +27,7 @@ class CreateAssetOption
             'min_select' => ['nullable', 'integer', 'min:0'],
             'max_select' => ['nullable', 'integer', 'min:0'],
             'active' => ['sometimes', 'boolean'],
+            'is_global' => ['sometimes', 'boolean'],
             'values' => ['nullable', 'array'],
             'values.*.label' => ['required', 'string', 'max:255'],
             'values.*.value' => ['nullable', 'string', 'max:255'],

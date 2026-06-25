@@ -6,9 +6,8 @@ import ContractPreview from '@/Components/Tenant/ContractPreview.vue';
 import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
-    lineAssetSelectedOptions,
-    lineItemPreTaxTotal,
     resolveLineItemsForContract,
+    resolveLineItemsGrandTotalWithTax,
     taxRateForResolvedLines,
 } from '@/Utils/lineItemsFromEstimate';
 import { ref, computed, getCurrentInstance, onMounted } from 'vue';
@@ -261,46 +260,9 @@ const taxRate = computed(() =>
     ),
 );
 
-const roundMoney = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-
-const lineBaseTotal = (item) => lineItemPreTaxTotal(item);
-
-const taxOnItemBase = (item) => {
-    if (taxRate.value <= 0) return 0;
-    const taxable = item.taxable !== false && item.taxable !== 0 && item.taxable !== '0';
-    if (!taxable) return 0;
-    return roundMoney(lineBaseTotal(item) * (taxRate.value / 100));
-};
-
-const addonPreTaxTotal = (a) => Number(a.price || 0) * Number(a.quantity || 1);
-
-const taxOnAddon = (addon) => {
-    if (taxRate.value <= 0) return 0;
-    const taxable = addon.taxable !== false && addon.taxable !== 0 && addon.taxable !== '0';
-    if (!taxable) return 0;
-    return roundMoney(addonPreTaxTotal(addon) * (taxRate.value / 100));
-};
-
-const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
-
-const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
-
-const taxOnAssetOption = (opt) =>
-    taxOnAddon({ price: selectedOptionUnitPrice(opt), quantity: 1, taxable: optionRowTaxable(opt) });
-
-const lineItemsSubtotal = computed(() => {
-    let total = 0;
-    for (const item of transactionItems.value) {
-        total += lineBaseTotal(item) + taxOnItemBase(item);
-        for (const opt of lineAssetSelectedOptions(item)) {
-            total += selectedOptionUnitPrice(opt) + taxOnAssetOption(opt);
-        }
-        for (const addon of (item.addons ?? [])) {
-            total += addonPreTaxTotal(addon) + taxOnAddon(addon);
-        }
-    }
-    return roundMoney(total);
-});
+const lineItemsSubtotal = computed(() =>
+    resolveLineItemsGrandTotalWithTax(transactionItems.value, taxRate.value),
+);
 
 const showPreview = ref(false);
 const openPreview = () => { showPreview.value = true; };
@@ -632,6 +594,8 @@ onMounted(() => {
                                 :show-summary="true"
                                 :summary-tax-rate-percent="taxRate"
                                 :summary-grand-total="lineItemsSubtotal"
+                                :show-per-line-deal-tax="taxRate > 0"
+                                :deal-tax-rate-percent="taxRate"
                             />
 
                             <div v-else class="text-center py-10 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">

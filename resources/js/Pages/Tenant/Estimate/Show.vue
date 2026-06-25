@@ -5,6 +5,16 @@ import Modal from '@/Components/Modal.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, getCurrentInstance } from 'vue';
 import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
+import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
+import {
+    enrichLineItemsWithRecordSelectedOptions,
+    lineAssetOptionsPreTaxSum,
+    lineItemPreTaxTotal,
+    lineTotalWithAddons,
+    partitionLineItemsByCatalogType,
+    resolveLineItemsGrandTotalWithTax,
+    resolveLineItemsPreTaxSubtotal,
+} from '@/Utils/lineItemsFromEstimate';
 
 const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
 
@@ -131,6 +141,21 @@ const pendingBoatOptionLines = computed(() =>
 
 const boatOptionsCustomerEmail = computed(() => props.record?.customer?.email ?? '');
 
+/** Live: customer email. Sandbox: signed-in user email (matches server routing). */
+const boatOptionsEmailPreview = computed(() => {
+    if (page.props.tenant_sandbox_mode) {
+        return page.props.auth?.user?.email ?? '';
+    }
+
+    return boatOptionsCustomerEmail.value;
+});
+
+const boatOptionsModalSubtitle = computed(() =>
+    page.props.tenant_sandbox_mode
+        ? 'Sandbox is on: the email goes to you for testing, not the customer.'
+        : 'Choose which boat lines to include and optionally add a personal message for the customer.',
+);
+
 const openBoatOptionsModal = () => {
     boatOptionsSelectedPositions.value = pendingBoatOptionLines.value.map((line) => line.position);
     sendBoatOptionsForm.message = '';
@@ -216,11 +241,19 @@ const primaryVersion = computed(() =>
 
 const lineItems = computed(() => primaryVersion.value?.line_items ?? primaryVersion.value?.lineItems ?? []);
 
-const assetLines = computed(() =>
-    lineItems.value.filter(
-        (li) => li.itemable_type === 'App\\Domain\\Asset\\Models\\Asset'
-    )
+const selectedAssetOptionsRows = computed(
+    () => props.record?.selected_asset_options ?? props.record?.selectedAssetOptions ?? [],
 );
+
+const displayLineItems = computed(() =>
+    enrichLineItemsWithRecordSelectedOptions(lineItems.value, selectedAssetOptionsRows.value),
+);
+
+const partitionedLineItems = computed(() => partitionLineItemsByCatalogType(displayLineItems.value));
+
+const assetLines = computed(() => partitionedLineItems.value.assetLines);
+
+const inventoryLines = computed(() => partitionedLineItems.value.inventoryLines);
 
 /** Inertia may serialize `asset_variant` (snake) or `assetVariant` (camel). */
 const assetLineVariant = (item) => item.asset_variant ?? item.assetVariant;
@@ -254,39 +287,6 @@ const assetLineUnitDisplay = (item) => {
     }
     const uid = assetLineUnitId(item);
     return uid ? `Unit #${uid}` : '—';
-};
-
-/** Polymorphic catalog asset id (snake or camel). */
-const assetLineAssetId = (item) => item.itemable_id ?? item.itemable?.id ?? null;
-
-const inventoryLines = computed(() =>
-    lineItems.value.filter(
-        (li) => li.itemable_type === 'App\\Domain\\InventoryItem\\Models\\InventoryItem'
-    )
-);
-
-const lineBaseTotal = (item) =>
-    Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
-
-/** Boat/catalog line total including option premiums (addons excluded — same as stored line_total). */
-const assetLineCatalogTotal = (item) => {
-    const stored = item.line_total;
-    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
-        return Number(stored);
-    }
-    return lineBaseTotal(item);
-};
-
-const lineTotal = (item) => {
-    const addonsTotal = (item.addons || []).reduce(
-        (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
-        0
-    );
-    const stored = item.line_total;
-    if (stored != null && stored !== '' && !Number.isNaN(Number(stored))) {
-        return Number(stored) + addonsTotal;
-    }
-    return lineBaseTotal(item) + addonsTotal;
 };
 
 const lineItemKey = (item) => {
@@ -331,15 +331,6 @@ const selectedOptionsForLine = (item) => {
     return key != null ? (selectedOptionsByLineItemId.value[key] ?? []) : [];
 };
 
-const selectedOptionLabel = (opt) => {
-    const name = String(opt.option_name ?? '').trim();
-    const val = String(opt.value_label ?? '').trim();
-    if (name && val) {
-        return `${name}: ${val}`;
-    }
-    return name || val || 'Option';
-};
-
 const customerBoatOptionSignoffsList = computed(() =>
     props.record?.customer_boat_option_signoffs ?? props.record?.customerBoatOptionSignoffs ?? [],
 );
@@ -366,43 +357,37 @@ const boatOptionCustomerSubmissions = computed(() => {
 });
 
 const assetOptionPremiumSubtotal = computed(() =>
-    assetLines.value.reduce((sum, item) => {
-        const stored = item.line_total;
-        if (stored == null || stored === '' || Number.isNaN(Number(stored))) {
-            return sum;
-        }
-        return sum + Math.max(0, Number(stored) - lineBaseTotal(item));
-    }, 0));
+    assetLines.value.reduce((sum, item) => sum + lineAssetOptionsPreTaxSum(item), 0));
 
 const addonSubtotalForItems = (items) =>
     items.reduce((sum, item) =>
         sum + (item.addons ?? []).reduce((s, a) => s + Number(a.price || 0) * Number(a.quantity || 1), 0), 0);
 
 const assetBaseSubtotal = computed(() =>
-    assetLines.value.reduce((sum, item) => sum + lineBaseTotal(item), 0));
+    assetLines.value.reduce((sum, item) => sum + lineItemPreTaxTotal(item), 0));
 
 const assetAddonSubtotal = computed(() => addonSubtotalForItems(assetLines.value));
 
 const inventoryBaseSubtotal = computed(() =>
-    inventoryLines.value.reduce((sum, item) => sum + lineBaseTotal(item), 0));
+    inventoryLines.value.reduce((sum, item) => sum + lineItemPreTaxTotal(item), 0));
 
 const inventoryAddonSubtotal = computed(() => addonSubtotalForItems(inventoryLines.value));
 
-const assetSubtotal = computed(() =>
-    assetLines.value.reduce((sum, item) => sum + lineTotal(item), 0)
+const taxRate = computed(() => {
+    const r = Number(props.record?.tax_rate ?? primaryVersion.value?.tax_rate ?? 0);
+    return Number.isNaN(r) ? 0 : r;
+});
+
+const showLineTax = computed(() => taxRate.value > 0);
+
+const combinedSubtotal = computed(() => resolveLineItemsPreTaxSubtotal(displayLineItems.value));
+
+const grandTotal = computed(() =>
+    resolveLineItemsGrandTotalWithTax(displayLineItems.value, taxRate.value),
 );
 
-const inventorySubtotal = computed(() =>
-    inventoryLines.value.reduce((sum, item) => sum + lineTotal(item), 0)
-);
-
-const combinedSubtotal = computed(() => assetSubtotal.value + inventorySubtotal.value);
 const taxAmount = computed(() =>
-    combinedSubtotal.value * (Number(props.record?.tax_rate || primaryVersion.value?.tax_rate || 0) / 100)
-);
-const grandTotal = computed(() => combinedSubtotal.value + taxAmount.value);
-const taxRate = computed(() =>
-    props.record?.tax_rate ?? primaryVersion.value?.tax_rate ?? 0
+    Math.round((grandTotal.value - combinedSubtotal.value + Number.EPSILON) * 100) / 100,
 );
 
 const formatCurrency = (value) =>
@@ -907,228 +892,14 @@ const confirmDelete = () => {
                         </div>
                     </div>
 
-                    <!-- ============================
-                         Assets
-                         ============================ -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Assets</h2>
-                        </div>
-
-                        <!-- Mobile: asset cards -->
-                        <div v-if="assetLines.length > 0" class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700">
-                            <div
-                                v-for="(item, index) in assetLines"
-                                :key="`asset-m-${item.id}-${index}`"
-                                class="p-4 space-y-3"
-                            >
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <Link
-                                            v-if="assetLineAssetId(item)"
-                                            :href="route('assets.show', assetLineAssetId(item))"
-                                            class="font-semibold text-base text-primary-600 dark:text-primary-400 hover:underline"
-                                        >
-                                            {{ item.name }}
-                                        </Link>
-                                        <div v-else class="font-semibold text-base text-gray-900 dark:text-white">{{ item.name }}</div>
-                                        <div v-if="item.itemable?.make?.display_name" class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ item.itemable.make.display_name }}
-                                        </div>
-                                    </div>
-                                    <div class="text-right shrink-0">
-                                        <div class="font-semibold text-base text-gray-900 dark:text-white tabular-nums">
-                                            {{ formatCurrency(assetLineCatalogTotal(item)) }}
-                                        </div>
-                                        <div class="text-sm text-gray-500 dark:text-gray-400">Line total</div>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Variant</div>
-                                        <div class="text-base text-gray-900 dark:text-white">
-                                            <span v-if="assetLineVariantId(item)">{{ assetLineVariantDisplay(item) }}</span>
-                                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit</div>
-                                        <div class="text-base text-gray-900 dark:text-white">
-                                            <span v-if="assetLineUnitId(item)">{{ assetLineUnitDisplay(item) }}</span>
-                                            <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Year</div>
-                                        <div class="text-base text-gray-900 dark:text-white">{{ item.itemable?.year || '—' }}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit price</div>
-                                        <div class="text-base text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(item.unit_price) }}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Discount</div>
-                                        <div
-                                            class="text-base tabular-nums"
-                                            :class="item.discount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'"
-                                        >
-                                            {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Qty</div>
-                                        <div class="text-base text-gray-900 dark:text-white">{{ item.quantity }}</div>
-                                    </div>
-                                </div>
-                                <div
-                                    v-if="selectedOptionsForLine(item).length > 0"
-                                    class="pl-3 space-y-2 border-l-2 border-sky-200 dark:border-sky-700"
-                                >
-                                    <div
-                                        v-for="(opt, optIdx) in selectedOptionsForLine(item)"
-                                        :key="`asset-m-opt-${item.id}-${optIdx}`"
-                                        class="flex flex-wrap items-center justify-between gap-2 text-sm text-gray-700 dark:text-gray-300"
-                                    >
-                                        <span><span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}</span>
-                                        <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">{{ formatCurrency(opt.price) }}</span>
-                                    </div>
-                                </div>
-                                <div
-                                    v-if="lineItemAddonsUiEnabled && item.addons && item.addons.length > 0"
-                                    class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
-                                >
-                                    <div
-                                        v-for="(addon, addonIdx) in item.addons"
-                                        :key="`asset-m-addon-${item.id}-${addonIdx}`"
-                                        class="flex flex-wrap items-center justify-between gap-2 text-sm"
-                                    >
-                                        <div class="text-gray-600 dark:text-gray-400 italic min-w-0">
-                                            ↳ {{ addon.name }} (× {{ addon.quantity }})
-                                        </div>
-                                        <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">
-                                            {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
-                                <div class="flex justify-between text-base">
-                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</span>
-                                    <span class="font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(assetSubtotal) }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Desktop: assets table -->
-                        <div v-if="assetLines.length > 0" class="hidden lg:block overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Unit</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <template v-for="(item, index) in assetLines" :key="index">
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                            <td class="px-4 py-3">
-                                                <Link
-                                                    v-if="assetLineAssetId(item)"
-                                                    :href="route('assets.show', assetLineAssetId(item))"
-                                                    class="font-medium text-primary-600 dark:text-primary-400 hover:underline"
-                                                >
-                                                    {{ item.name }}
-                                                </Link>
-                                                <div v-else class="font-medium text-gray-900 dark:text-white">{{ item.name }}</div>
-                                                <div v-if="item.itemable?.make?.display_name" class="text-sm text-gray-400 dark:text-gray-500">
-                                                    {{ item.itemable.make.display_name }}
-                                                </div>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                                                <span
-                                                    v-if="assetLineVariantId(item)"
-                                                    class="font-medium text-gray-800 dark:text-gray-200"
-                                                >
-                                                    {{ assetLineVariantDisplay(item) }}
-                                                </span>
-                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm">
-                                                <span
-                                                    v-if="assetLineUnitId(item)"
-                                                    class="font-medium text-gray-800 dark:text-gray-200"
-                                                >
-                                                    {{ assetLineUnitDisplay(item) }}
-                                                </span>
-                                                <span v-else class="text-gray-400 dark:text-gray-500">—</span>
-                                            </td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.itemable?.year || '—' }}</td>
-                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
-                                            <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
-                                                {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
-                                            </td>
-                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLineCatalogTotal(item)) }}</td>
-                                        </tr>
-                                        <tr
-                                            v-for="(opt, optIdx) in selectedOptionsForLine(item)"
-                                            :key="`asset-opt-${item.id}-${optIdx}`"
-                                            class="bg-sky-50/70 dark:bg-sky-900/20"
-                                        >
-                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300" colspan="4">
-                                                <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
-                                            </td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatCurrency(opt.price) }}</td>
-                                        </tr>
-                                        <!-- Add-on sub-rows -->
-                                        <template v-if="lineItemAddonsUiEnabled">
-                                        <tr
-                                            v-for="(addon, addonIdx) in (item.addons || [])"
-                                            :key="`asset-addon-${index}-${addonIdx}`"
-                                            class="bg-primary-50/40 dark:bg-primary-900/10"
-                                        >
-                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="4">
-                                                ↳ {{ addon.name }}
-                                            </td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
-                                            </td>
-                                        </tr>
-                                        </template>
-                                    </template>
-                                </tbody>
-                                <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
-                                    <tr>
-                                        <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                            Assets Subtotal
-                                        </td>
-                                        <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">
-                                            {{ formatCurrency(assetSubtotal) }}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <div v-else class="flex flex-col items-center justify-center py-12 text-center px-6">
-                            <svg class="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                            <p class="text-sm text-gray-400 dark:text-gray-500">No assets on this estimate</p>
-                        </div>
-                    </div>
+                    <ResolvedLineItemsEstimateStyle
+                        :items="displayLineItems"
+                        variant="tenant"
+                        :format-money="formatCurrency"
+                        :show-per-line-deal-tax="showLineTax"
+                        :deal-tax-rate-percent="taxRate"
+                        empty-message="No line items on this estimate."
+                    />
 
                     <!-- Customer boat option submissions (secure form — same idea as Opportunity feature requests) -->
                     <div
@@ -1213,147 +984,6 @@ const confirmDelete = () => {
                             </div>
                         </div>
                     </div>
-
-                    <!-- ============================
-                         Parts & Accessories
-                         ============================ -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Parts &amp; Accessories</h2>
-                        </div>
-
-                        <!-- Mobile: parts cards -->
-                        <div v-if="inventoryLines.length > 0" class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700">
-                            <div
-                                v-for="(item, index) in inventoryLines"
-                                :key="`inv-m-${item.id}-${index}`"
-                                class="p-4 space-y-3"
-                            >
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <div class="font-semibold text-base text-gray-900 dark:text-white">{{ item.name }}</div>
-                                        <div v-if="item.itemable?.sku" class="text-sm font-mono text-gray-500 dark:text-gray-400 mt-1">
-                                            SKU {{ item.itemable.sku }}
-                                        </div>
-                                    </div>
-                                    <div class="text-right shrink-0">
-                                        <div class="font-semibold text-base text-gray-900 dark:text-white tabular-nums">
-                                            {{ formatCurrency(lineBaseTotal(item)) }}
-                                        </div>
-                                        <div class="text-sm text-gray-500 dark:text-gray-400">Line total</div>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Unit price</div>
-                                        <div class="text-base text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(item.unit_price) }}</div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Discount</div>
-                                        <div
-                                            class="text-base tabular-nums"
-                                            :class="item.discount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'"
-                                        >
-                                            {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Qty</div>
-                                        <div class="text-base text-gray-900 dark:text-white">{{ item.quantity }}</div>
-                                    </div>
-                                </div>
-                                <div
-                                    v-if="lineItemAddonsUiEnabled && item.addons && item.addons.length > 0"
-                                    class="pl-3 space-y-2 border-l-2 border-primary-200 dark:border-primary-700"
-                                >
-                                    <div
-                                        v-for="(addon, addonIdx) in item.addons"
-                                        :key="`inv-m-addon-${item.id}-${addonIdx}`"
-                                        class="flex flex-wrap items-start justify-between gap-2 text-sm"
-                                    >
-                                        <div class="text-gray-600 dark:text-gray-400 italic min-w-0">
-                                            ↳ {{ addon.name }} (× {{ addon.quantity }})
-                                        </div>
-                                        <span class="font-medium text-gray-900 dark:text-white tabular-nums shrink-0">
-                                            {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4">
-                                <div class="flex justify-between text-base">
-                                    <span class="font-semibold text-gray-700 dark:text-gray-300">Parts &amp; Accessories Subtotal</span>
-                                    <span class="font-bold text-gray-900 dark:text-white tabular-nums">{{ formatCurrency(inventorySubtotal) }}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Desktop: parts table -->
-                        <div v-if="inventoryLines.length > 0" class="hidden lg:block overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead class="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Item</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">SKU</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Unit Price</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
-                                        <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                                    <template v-for="(item, index) in inventoryLines" :key="index">
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
-                                            <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ item.name }}</td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400 font-mono text-sm">{{ item.itemable?.sku || '—' }}</td>
-                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
-                                            <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
-                                                {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
-                                            </td>
-                                            <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(lineBaseTotal(item)) }}</td>
-                                        </tr>
-                                        <!-- Add-on sub-rows -->
-                                        <template v-if="lineItemAddonsUiEnabled">
-                                        <tr
-                                            v-for="(addon, addonIdx) in (item.addons || [])"
-                                            :key="`inv-addon-${index}-${addonIdx}`"
-                                            class="bg-primary-50/40 dark:bg-primary-900/10"
-                                        >
-                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="2">
-                                                ↳ {{ addon.name }}
-                                            </td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
-                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ addon.quantity }}</td>
-                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                {{ formatCurrency(Number(addon.price) * Number(addon.quantity)) }}
-                                            </td>
-                                        </tr>
-                                        </template>
-                                    </template>
-                                </tbody>
-                                <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
-                                    <tr>
-                                        <td colspan="5" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                            Parts &amp; Accessories Subtotal
-                                        </td>
-                                        <td class="px-4 py-3 text-right text-base font-bold text-gray-900 dark:text-white">
-                                            {{ formatCurrency(inventorySubtotal) }}
-                                        </td>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-
-                        <div v-else class="flex flex-col items-center justify-center py-12 text-center px-6">
-                            <svg class="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                            <p class="text-sm text-gray-400 dark:text-gray-500">No parts or accessories on this estimate</p>
-                        </div>
-                    </div>
-
 
                 </div>
 
@@ -1633,11 +1263,19 @@ const confirmDelete = () => {
             <div class="p-6">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Email boat options</h3>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Choose which boat lines to include and optionally add a personal message for the customer.
+                    {{ boatOptionsModalSubtitle }}
                 </p>
-                <p v-if="boatOptionsCustomerEmail" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Email goes to
-                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ boatOptionsCustomerEmail }}</span>
+                <p
+                    v-if="page.props.tenant_sandbox_mode"
+                    class="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    <span class="material-icons shrink-0 text-base text-amber-600 dark:text-amber-400" aria-hidden="true">science</span>
+                    <span>Uses your login email for the message so you can test the boat-options links safely.</span>
+                </p>
+                <p v-if="boatOptionsEmailPreview" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <template v-if="page.props.tenant_sandbox_mode">Email will be sent to you at </template>
+                    <template v-else>Email goes to </template>
+                    <span class="font-medium text-gray-800 dark:text-gray-200">{{ boatOptionsEmailPreview }}</span>
                 </p>
                 <p v-if="sendBoatOptionsForm.errors.error" class="mt-2 text-sm text-red-600 dark:text-red-400">
                     {{ sendBoatOptionsForm.errors.error }}

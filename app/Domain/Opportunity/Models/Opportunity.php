@@ -89,7 +89,7 @@ class Opportunity extends Model
             'asset_opportunity',
             'opportunity_id',
             'asset_id'
-        )->withPivot('id', 'quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id', 'asset_unit_id')->withTimestamps();
+        )->withPivot('id', 'quantity', 'unit_price', 'estimated_cost', 'notes', 'asset_variant_id', 'asset_unit_id', 'customer_offered_option_ids')->withTimestamps();
     }
 
     /**

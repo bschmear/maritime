@@ -11,6 +11,12 @@
       "required": false,
       "description": "Leave blank to generate from name when creating."
     },
+    "category_id": {
+      "label": "Category",
+      "type": "record",
+      "typeDomain": "AssetOptionCategory",
+      "create": true
+    },
     "input_type": {
       "label": "Input type",
       "type": "select",
@@ -39,6 +45,12 @@
       "label": "Active",
       "type": "boolean",
       "default": true
+    },
+    "is_global": {
+      "label": "Global option",
+      "type": "boolean",
+      "default": false,
+      "description": "Available on any line via Add Global Option; no catalog assignment needed."
     },
     "created_at": {
       "label": "Created",

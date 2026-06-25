@@ -104,7 +104,7 @@ const submit = () => {
                     <!-- Info box -->
                     <div class="p-3 bg-primary-50 border border-primary-100 rounded-lg">
                         <p class="text-xs text-primary-700 leading-relaxed">
-                            <span class="font-semibold">Note:</span> Your email must match an existing customer record. If you don't have access, please contact your service provider.
+                            <span class="font-semibold">Note:</span> Your email must match an existing customer record. After creating your account, you will need to verify your email before accessing the portal.
                         </p>
                     </div>
 

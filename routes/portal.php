@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\Portal\CustomerAuthController;
+use App\Http\Controllers\Portal\CustomerEmailVerificationController;
 use App\Http\Controllers\Portal\CustomerPortalController;
 use App\Http\Controllers\Portal\CustomerRegistrationController;
 use App\Http\Controllers\Portal\VendorAuthController;
 use App\Http\Controllers\Portal\VendorEmailVerificationController;
 use App\Http\Controllers\Portal\VendorPortalController;
 use App\Http\Controllers\Portal\VendorRegistrationController;
+use App\Http\Controllers\Portal\VerifyCustomerEmailController;
 use App\Http\Controllers\Portal\VerifyVendorEmailController;
 use App\Http\Controllers\Tenant\PortalController;
+use App\Http\Middleware\EnsureCustomerContactEmailVerified;
 use App\Http\Middleware\EnsureVendorContactEmailVerified;
 use App\Http\Middleware\EnsureVendorHasManufacturerPortalAccess;
 use Illuminate\Support\Facades\Route;
@@ -39,8 +42,20 @@ Route::middleware([
         Route::post('/register', [CustomerRegistrationController::class, 'store'])->middleware('throttle:5,1');
     });
 
-    // Authenticated customer portal
+    Route::get('/portal/email/verify/{id}/{hash}', VerifyCustomerEmailController::class)
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('portal.verification.verify');
+
     Route::middleware('auth:customer')->prefix('portal')->name('portal.')->group(function () {
+        Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
+        Route::get('/email/verify', [CustomerEmailVerificationController::class, 'show'])->name('verification.notice');
+        Route::post('/email/verification-notification', [CustomerEmailVerificationController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('verification.send');
+    });
+
+    // Authenticated customer portal (email must be verified)
+    Route::middleware(['auth:customer', EnsureCustomerContactEmailVerified::class])->prefix('portal')->name('portal.')->group(function () {
         Route::get('/', [CustomerPortalController::class, 'index'])->name('index');
         Route::get('/estimates', [CustomerPortalController::class, 'estimates'])->name('estimates');
         Route::get('/estimates/{id}', [CustomerPortalController::class, 'estimateShow'])->name('estimate.show');
@@ -57,7 +72,6 @@ Route::middleware([
         Route::get('/spec-sheets', [CustomerPortalController::class, 'specSheets'])->name('specSheets.index');
         Route::get('/spec-sheets/{uuid}', [CustomerPortalController::class, 'specSheetShow'])->name('specSheet.show');
         Route::post('/spec-sheets/{uuid}/options', [CustomerPortalController::class, 'storeSpecSheetOptionSelections'])->name('specSheet.options.save');
-        Route::post('/logout', [CustomerAuthController::class, 'destroy'])->name('logout');
     });
 
     Route::get('/vendor/portal/email/verify/{id}/{hash}', VerifyVendorEmailController::class)

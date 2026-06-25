@@ -816,8 +816,7 @@ const confirmQboUpdate = (updateQuickbooks) => {
 
 const performSubmit = (updateQuickbooks, updateLinkedTransaction) => {
     form.transform((data) => {
-        const statusOpt = statusOptions.value.find((o) => o.id == data.status);
-        const next = { ...data, status: statusOpt?.value ?? data.status };
+        const next = { ...data };
         if (sourceType.value === 'work_order' && !next.work_order_id && props.workOrder?.id) {
             next.work_order_id = props.workOrder.id;
         }

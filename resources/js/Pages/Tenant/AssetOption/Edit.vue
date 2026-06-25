@@ -3,6 +3,7 @@ import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetOptionForm from '@/Components/Tenant/AssetOptionForm.vue';
 import AssetOptionAssignmentsPanel from '@/Components/Tenant/AssetOptionAssignmentsPanel.vue';
+import FormFixedActionBar from '@/Components/Tenant/FormComponents/FormFixedActionBar.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { computed, getCurrentInstance } from 'vue';
 
@@ -147,12 +148,14 @@ function buildValuesPayload(inputType, rows, mode) {
 
 const form = useForm({
     name: props.record.name ?? '',
+    category_id: props.record.category_id ?? null,
     input_type: props.record.input_type ?? 'select',
     is_required: !!props.record.is_required,
     allow_multiple: !!props.record.allow_multiple,
     min_select: props.record.min_select ?? 0,
     max_select: props.record.max_select ?? 1,
     active: props.record.active !== false,
+    is_global: !!props.record.is_global,
     values: mapRecordValues(props.record),
 });
 
@@ -174,6 +177,8 @@ const submit = () => {
             out.is_required = boolVal(out.is_required);
             out.allow_multiple = boolVal(out.allow_multiple);
             out.active = boolVal(out.active);
+            out.is_global = boolVal(out.is_global);
+            out.category_id = out.category_id ? Number(out.category_id) : null;
             out.min_select = Number(out.min_select) || 0;
             out.max_select = Number(out.max_select) || 0;
             delete out.slug;
@@ -190,6 +195,8 @@ const submit = () => {
 };
 
 const cancel = () => router.visit(route('asset-options.show', { assetOption: props.record.id }));
+
+const isGlobal = computed(() => form.is_global || props.record.is_global);
 </script>
 
 <template>
@@ -205,30 +212,35 @@ const cancel = () => router.visit(route('asset-options.show', { assetOption: pro
             </div>
         </template>
 
-        <div class="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
-            <form class="space-y-6" @submit.prevent="submit">
-                <AssetOptionForm :form="form" :field-error="fieldError" :input-type-options="inputTypeOptions" />
+        <div class="mx-auto flex w-full flex-col space-y-6 px-4 py-6 pb-28">
+            <div
+                v-if="isGlobal"
+                class="overflow-hidden rounded-xl border border-sky-200 bg-sky-50/80 p-5 shadow-sm dark:border-sky-800 dark:bg-sky-900/20"
+            >
+                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Global option</h3>
+                <p class="mt-1.5 text-sm text-gray-600 dark:text-gray-400">
+                    Global options do not use catalog assignments. Save changes, then staff can add this option on transaction lines via
+                    <strong>Add global option</strong>.
+                </p>
+            </div>
 
-                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-                    <button
-                        type="button"
-                        class="inline-flex justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                        :disabled="form.processing"
-                        @click="cancel"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        class="inline-flex justify-center rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                        :disabled="form.processing"
-                    >
-                        {{ form.processing ? 'Saving…' : 'Save changes' }}
-                    </button>
-                </div>
+            <form id="asset-option-form" class="space-y-6" @submit.prevent="submit">
+                <AssetOptionForm
+                    :form="form"
+                    :field-error="fieldError"
+                    :input-type-options="inputTypeOptions"
+                    :category-record="record"
+                />
             </form>
 
-            <AssetOptionAssignmentsPanel :option-id="record.id" :record="record" />
+            <AssetOptionAssignmentsPanel v-if="!isGlobal" :option-id="record.id" :record="record" />
         </div>
+
+        <FormFixedActionBar
+            form-id="asset-option-form"
+            :processing="form.processing"
+            submit-label="Save changes"
+            @cancel="cancel"
+        />
     </TenantLayout>
 </template>

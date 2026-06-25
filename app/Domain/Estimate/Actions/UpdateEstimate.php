@@ -108,6 +108,9 @@ class UpdateEstimate
                             'line_total' => $lineTotal,
                             'position' => $position,
                             'asset_options_fill_mode' => (($lineData['asset_options_fill_mode'] ?? 'staff') === 'customer') ? 'customer' : 'staff',
+                            'customer_offered_option_ids' => is_array($lineData['customer_offered_option_ids'] ?? null)
+                                ? array_values(array_unique(array_map('intval', $lineData['customer_offered_option_ids'])))
+                                : null,
                         ]);
 
                         if (($lineData['itemable_type'] ?? '') === Asset::class) {
