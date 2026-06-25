@@ -113,11 +113,10 @@ class SurveyController extends Controller
         $ratingQuestionIds = DB::table('survey_questions')->where('type', 'rating')->pluck('id');
 
         $avgSatisfaction = $ratingQuestionIds->isNotEmpty()
-            ? round(DB::table('survey_response_answers')
-                ->whereIn('survey_question_id', $ratingQuestionIds)
-                ->whereMonth('created_at', now()->month)
-                ->whereYear('created_at', now()->year)
-                ->avg('answer') ?? 0, 1)
+            ? round($this->averageRatingAnswers($ratingQuestionIds, function ($query) {
+                $query->whereMonth('created_at', now()->month)
+                    ->whereYear('created_at', now()->year);
+            }), 1)
             : 0;
 
         $topUserRow = DB::table('surveys')
@@ -196,11 +195,8 @@ class SurveyController extends Controller
         $avgRating = null;
         $ratingQIds = $survey->questions()->where('type', 'rating')->pluck('id');
         if ($ratingQIds->isNotEmpty()) {
-            $raw = DB::table('survey_response_answers')
-                ->whereIn('survey_question_id', $ratingQIds)
-                ->whereNotNull('answer')
-                ->avg('answer');
-            $avgRating = $raw ? number_format($raw, 1) : null;
+            $raw = $this->averageRatingAnswers($ratingQIds);
+            $avgRating = $raw > 0 ? number_format($raw, 1) : null;
         }
 
         $survey->setAttribute('public_url', route('surveysPublicShow', ['id' => $survey->uuid], absolute: true));
@@ -888,6 +884,35 @@ class SurveyController extends Controller
             'success' => true,
             'message' => 'Cancelled invitation removed.',
         ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, int>|array<int, int>  $questionIds
+     */
+    private function averageRatingAnswers($questionIds, ?callable $constraint = null): float
+    {
+        $ids = collect($questionIds)->filter()->values();
+        if ($ids->isEmpty()) {
+            return 0.0;
+        }
+
+        $query = DB::table('survey_response_answers')
+            ->whereIn('survey_question_id', $ids)
+            ->whereNotNull('answer')
+            ->where('answer', '!=', '');
+
+        if ($constraint !== null) {
+            $constraint($query);
+        }
+
+        $averageExpression = match (DB::connection()->getDriverName()) {
+            'pgsql' => "avg(NULLIF(answer, '')::numeric)",
+            default => 'avg(CAST(NULLIF(answer, \'\') AS DECIMAL(10,2)))',
+        };
+
+        $raw = $query->selectRaw("{$averageExpression} as aggregate")->value('aggregate');
+
+        return $raw !== null ? (float) $raw : 0.0;
     }
 
     /**
