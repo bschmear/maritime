@@ -120,7 +120,8 @@
       "field": "make_id",
       "label": "Brand",
       "type": "record",
-      "typeDomain": "BoatMake"
+      "typeDomain": "BoatMake",
+      "sublist": false
     }
   ]
 }

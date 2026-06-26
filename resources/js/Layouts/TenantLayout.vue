@@ -258,17 +258,13 @@ const secondaryNavItems = ref([
     {
         name: 'Inventory',
         children: [
-            { name: 'Assets', href: 'assets.index',
-                children: [
-                    { name: 'All Assets', href: 'assets.index' },
-                    { name: 'All Units', href: 'assets.units.global-index' },
-                    { name: 'Financing', href: 'financings.index' },
-                    { name: 'Consignment agreements', href: 'consignmentagreements.index' },
-                    { name: 'Asset Brands', href: 'boatmakes.index' },
-                    { name: 'Asset Options', href: 'asset-options.index' },
-                    { name: 'Asset Specifications', href: 'asset-specs.index' },
-                ] 
-            },
+            { name: 'All Assets', href: 'assets.index' },
+            { name: 'All Units', href: 'assets.units.global-index' },
+            { name: 'Financing', href: 'financings.index' },
+            { name: 'Consignment agreements', href: 'consignmentagreements.index' },
+            { name: 'Asset Brands', href: 'boatmakes.index' },
+            { name: 'Asset Options', href: 'asset-options.index' },
+            { name: 'Asset Specifications', href: 'asset-specs.index' },
             // { name: 'Add-Ons', href: 'addons.index' },
             { name: 'Parts & Accessories', href: 'inventoryitems.index' }
         ]

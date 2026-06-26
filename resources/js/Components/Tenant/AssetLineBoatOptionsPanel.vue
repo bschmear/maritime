@@ -75,8 +75,11 @@ function openGlobalModal() {
     showGlobalModal.value = true;
 }
 
-function onGlobalAdd(opt) {
-    addGlobalOptionToLine(props.item, opt.option_id, !isStaffMode.value);
+function onGlobalAdd(opts) {
+    const list = Array.isArray(opts) ? opts : [opts];
+    for (const opt of list) {
+        addGlobalOptionToLine(props.item, opt.option_id, !isStaffMode.value);
+    }
     showGlobalModal.value = false;
 }
 

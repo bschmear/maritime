@@ -22,7 +22,9 @@ const props = defineProps({
 });
 
 const isDeleting = ref(false);
+const isDeactivating = ref(false);
 const showDeleteModal = ref(false);
+const showInactiveOfferModal = ref(false);
 
 const INPUT_TYPE_ENUM_KEY = 'App\\Enums\\AssetOption\\AssetOptionInputType';
 
@@ -159,10 +161,50 @@ const deleteValue = async (v) => {
 const confirmDelete = async () => {
     isDeleting.value = true;
     try {
-        await router.delete(route('asset-options.destroy', { assetOption: props.record.id }));
+        await axios.delete(route('asset-options.destroy', { assetOption: props.record.id }), {
+            headers: {
+                'X-CSRF-TOKEN': csrf(),
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        showDeleteModal.value = false;
+        router.visit(route('asset-options.index'));
+    } catch (error) {
+        if (error?.response?.status === 422 && error?.response?.data?.offer_inactive) {
+            showDeleteModal.value = false;
+            showInactiveOfferModal.value = true;
+            return;
+        }
+
+        const message = error?.response?.data?.message ?? 'Could not delete this asset option.';
+        window.alert(message);
     } finally {
         isDeleting.value = false;
-        showDeleteModal.value = false;
+    }
+};
+
+const setInactive = async () => {
+    isDeactivating.value = true;
+    try {
+        await axios.put(
+            route('asset-options.update', { assetOption: props.record.id }),
+            { active: false },
+            {
+                headers: {
+                    'X-CSRF-TOKEN': csrf(),
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            },
+        );
+        showInactiveOfferModal.value = false;
+        router.reload({ only: ['record'] });
+    } catch (error) {
+        const message = error?.response?.data?.message ?? 'Could not set this option to inactive.';
+        window.alert(message);
+    } finally {
+        isDeactivating.value = false;
     }
 };
 </script>
@@ -469,7 +511,40 @@ const confirmDelete = async () => {
                         class="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
                         :disabled="isDeleting"
                         @click="confirmDelete"
-                    >Delete</button>
+                    >{{ isDeleting ? 'Deleting…' : 'Delete' }}</button>
+                </div>
+            </div>
+        </Modal>
+
+        <Modal :show="showInactiveOfferModal" max-width="md" @close="showInactiveOfferModal = false">
+            <div class="p-6">
+                <div class="flex items-start gap-3">
+                    <span class="material-icons shrink-0 text-2xl text-amber-500 dark:text-amber-400">info</span>
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">Cannot delete option</h3>
+                        <p class="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+                            This option has been used on deals, estimates, or opportunities and cannot be deleted.
+                            Would you like to set it to inactive instead? Inactive options remain on existing line items but won't be offered for new selections.
+                        </p>
+                    </div>
+                </div>
+                <div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-300"
+                        :disabled="isDeactivating"
+                        @click="showInactiveOfferModal = false"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        :disabled="isDeactivating"
+                        @click="setInactive"
+                    >
+                        {{ isDeactivating ? 'Saving…' : 'Set to inactive' }}
+                    </button>
                 </div>
             </div>
         </Modal>

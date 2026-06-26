@@ -12,6 +12,7 @@ use App\Domain\AssetOption\Actions\SyncAssetOptionAssignments;
 use App\Domain\AssetOption\Actions\UpdateAssetOption as UpdateAction;
 use App\Domain\AssetOption\Models\AssetOption as RecordModel;
 use App\Domain\AssetOption\Models\AssetOptionValue;
+use App\Domain\AssetOption\Support\AssetOptionLineUsageGuard;
 use App\Domain\AssetVariant\Models\AssetVariant;
 use App\Domain\BoatMake\Models\BoatMake;
 use App\Services\AssetOptionResolver;
@@ -19,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Inertia\Response as InertiaResponse;
@@ -337,6 +339,33 @@ class AssetOptionController extends RecordController
         $value->delete();
 
         return response()->noContent();
+    }
+
+    public function destroy($id)
+    {
+        $recordId = $id instanceof RecordModel ? $id->getKey() : (int) $id;
+        $result = ($this->deleteAction)($recordId);
+
+        if ($result['success'] ?? false) {
+            return redirect()
+                ->route('asset-options.index')
+                ->with('success', $this->domainName.' deleted successfully');
+        }
+
+        if ($result['offer_inactive'] ?? false) {
+            $request = request();
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'offer_inactive' => true,
+                    'message' => $result['message'] ?? AssetOptionLineUsageGuard::MESSAGE,
+                ], HttpResponse::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            return back()->with('error', $result['message'] ?? AssetOptionLineUsageGuard::MESSAGE);
+        }
+
+        return back()->with('error', $result['message'] ?? 'Failed to delete '.$this->recordTitle);
     }
 
     /**

@@ -14,9 +14,10 @@ class TenantDatabaseSeeder extends Seeder
     // php artisan tenants:seed --tenants=eb486884-8d2a-46cf-949c-f243c54c61d5 --force
     // php artisan tenants:seed --class=Database\\Seeders\\AccountSetupStepSeeder --force
     //
-    // Tenant-specific data (boat options, etc.):
-    // php artisan tenants:seed-data boat-options --tenant=8b091aa9-ecbb-49a6-b57a-a98a2b4eca5a
-    // php artisan tenants:seed-data boat-options --tenant=2
+    // Shared tenant data seeders (boat options, etc.):
+    // php artisan tenants:seed-data boat-options --tenant=eb486884-8d2a-46cf-949c-f243c54c61d5
+    // php artisan tenants:seed-data boat-options --tenant=1
+    // php artisan tenants:seed --tenants=eb486884-8d2a-46cf-949c-f243c54c61d5 --class="Database\\Seeders\\BoatOptionsSeeder"
     // php artisan tenants:seed-data --list
 
     public function run(): void

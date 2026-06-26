@@ -444,6 +444,7 @@ trait HasSchemaSupport
      * Opt-in:
      * - `apply_as_default`: true
      * - `default_value`: present and not false (use true for unary ops; scalars/arrays for operands)
+     * - `sublist`: false — hide this quick filter on parent record sublists (still shown on index)
      */
     protected function defaultFiltersFromTableSchema(array $tableSchema): array
     {

@@ -16,7 +16,7 @@ class TenantSeedDataCommand extends Command
                             {--tenant= : Tenant UUID or 1-based account number (e.g. 2)}
                             {--list : List available tenant seed files}';
 
-    protected $description = 'Run a tenant-specific data seeder from database/seeders/tenants/{tenant-id}/{seed}.php';
+    protected $description = 'Run a tenant data seeder from database/seeders/tenants/{tenant-id}/{seed}.php or tenants/_shared/{seed}.php';
 
     public function handle(): int
     {
@@ -45,7 +45,7 @@ class TenantSeedDataCommand extends Command
             ?? $this->resolveSeedPath($tenant->getTenantKey(), $seed);
 
         if ($seedPath === null || ! is_readable($seedPath)) {
-            $this->error("Seed file not found for tenant {$tenantKey}: database/seeders/tenants/{tenant}/{$seed}.php");
+            $this->error("Seed file not found: database/seeders/tenants/{tenant}/{$seed}.php or tenants/_shared/{$seed}.php");
 
             return self::FAILURE;
         }
@@ -81,10 +81,17 @@ class TenantSeedDataCommand extends Command
         }
 
         $rows = [];
+        $seen = [];
         foreach (File::directories($root) as $tenantDir) {
             $tenantId = basename($tenantDir);
             foreach (File::glob($tenantDir.'/*.php') as $file) {
-                $rows[] = [$tenantId, basename($file, '.php')];
+                $seedName = basename($file, '.php');
+                $key = $tenantId.'|'.$seedName;
+                if (isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $rows[] = [$tenantId, $seedName];
             }
         }
 
@@ -96,7 +103,8 @@ class TenantSeedDataCommand extends Command
 
         $this->table(['Tenant folder', 'Seed'], $rows);
         $this->newLine();
-        $this->line('Run: php artisan tenants:seed-data {seed} --tenant={tenant-folder}');
+        $this->line('Run: php artisan tenants:seed-data {seed} --tenant={uuid-or-account-number}');
+        $this->line('Shared seeds (tenants/_shared/) run for any tenant when no tenant-specific file exists.');
 
         return self::SUCCESS;
     }
@@ -123,8 +131,13 @@ class TenantSeedDataCommand extends Command
 
     private function resolveSeedPath(string $tenantKey, string $seed): ?string
     {
-        $path = database_path("seeders/tenants/{$tenantKey}/{$seed}.php");
+        $tenantPath = database_path("seeders/tenants/{$tenantKey}/{$seed}.php");
+        if (is_readable($tenantPath)) {
+            return $tenantPath;
+        }
 
-        return is_readable($path) ? $path : null;
+        $sharedPath = database_path("seeders/tenants/_shared/{$seed}.php");
+
+        return is_readable($sharedPath) ? $sharedPath : null;
     }
 }

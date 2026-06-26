@@ -10,6 +10,7 @@ import Documentables from '@/Components/Tenant/FormComponents/Documentables.vue'
 import DocumentRequestPanel from '@/Components/Tenant/DocumentRequestPanel.vue';
 import CommunicationPanel from '@/Components/Tenant/CommunicationPanel.vue';
 import AssetUnitMsoCreateModal from '@/Components/Tenant/AssetUnitMsoCreateModal.vue';
+import SchemaQuickFilters from '@/Components/Tenant/SchemaQuickFilters.vue';
 import { ref, computed, onMounted, watch, getCurrentInstance } from 'vue';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -58,7 +59,34 @@ const isLoadingSublist = ref(false);
 const activeFilters = ref([]);
 const showFiltersModal = ref(false);
 const updatingItems = ref(new Set()); // Track which items are being updated
-const defaultFiltersLoaded = ref(false); // Track if default filters have been loaded
+const defaultFiltersLoaded = ref(false);
+const sublistHiddenFilterFields = computed(() => new Set(
+    (sublistTableSchema.value?.filters ?? [])
+        .filter((f) => f?.sublist === false)
+        .map((f) => f.field ?? f.key)
+        .filter(Boolean),
+));
+const sublistQuickFilterDefs = computed(() =>
+    (sublistTableSchema.value?.filters ?? []).filter((f) => f?.sublist !== false),
+);
+
+const ensureSublistDefaultFilters = async (sublist) => {
+    if (defaultFiltersLoaded.value) {
+        return;
+    }
+
+    await ensureSublistTableSchema(sublist);
+    defaultFiltersLoaded.value = true;
+
+    if (activeFilters.value.length > 0 || !sublistTableSchema.value) {
+        return;
+    }
+
+    const defaults = defaultFiltersFromTableSchema(sublistTableSchema.value);
+    if (defaults.length > 0) {
+        activeFilters.value = defaults;
+    }
+};
 /** When true, sublist rows came from the API and must not be overwritten by stale parent eager-loads. */
 const sublistUsesApiSource = ref(false);
 const rowActionPostingKey = ref(null); // `${contactId}-${routeName}` while Inertia POST row action runs
@@ -625,8 +653,20 @@ const recordOptionLabelSublist = (filter, fieldConfig) => {
 };
 
 const getFilterLabel = (filter) => {
+    const quickFilterDef = sublistQuickFilterDefs.value.find(
+        (qf) => (qf.field ?? qf.key) === filter.field,
+    );
     const fieldConfig = getFieldDef(filter.field) || {};
-    const fieldLabel = fieldConfig.label || filter.field;
+    const fieldLabel = quickFilterDef?.label || fieldConfig.label || filter.field;
+
+    if (filter.operator === 'is_true' || filter.operator === 'is_false') {
+        const underlyingLabel = fieldConfig.label || filter.field;
+        if (quickFilterDef?.label && quickFilterDef.label !== underlyingLabel) {
+            return filter.operator === 'is_false' ? quickFilterDef.label : underlyingLabel;
+        }
+
+        return filter.operator === 'is_true' ? underlyingLabel : `Not ${underlyingLabel}`;
+    }
     
     let valueLabel = '';
     if (filter.operator === 'between') {
@@ -691,6 +731,15 @@ const getFilterLabel = (filter) => {
 // Computed property for table columns
 const tableColumns = computed(() => {
     return sublistTableSchema.value?.columns || [];
+});
+
+const sublistFilterColumns = computed(() => {
+    const hidden = sublistHiddenFilterFields.value;
+    if (!hidden.size) {
+        return tableColumns.value;
+    }
+
+    return tableColumns.value.filter((col) => !hidden.has(col.key));
 });
 
 /** Optional pivot columns (e.g. vendor ↔ contact manufacturer portal access). */
@@ -800,6 +849,11 @@ const shouldUseEagerRelationshipData = (sublist, forceApiFetch) => (
 
 const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
     if (!sublist) return;
+
+    await ensureSublistDefaultFilters(sublist);
+    if (activeFilters.value.length > 0) {
+        forceApiFetch = true;
+    }
 
     // Skip data fetching for image galleries only (they handle their own data)
     if (sublist.modelRelationship && sublist.domain === 'InventoryImage') {
@@ -1001,17 +1055,6 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
         sublistFieldsSchema.value = response.data.fieldsSchema || {}; // Fields schema for data types
         sublistPagination.value = response.data.meta;
         sublistUsesApiSource.value = true;
-        
-        // Load explicit default filters only (default_value / apply_as_default), not quick-filter defs
-        if (!defaultFiltersLoaded.value && activeFilters.value.length === 0 && sublistTableSchema.value) {
-            defaultFiltersLoaded.value = true;
-            const defaults = defaultFiltersFromTableSchema(sublistTableSchema.value);
-            if (defaults.length > 0) {
-                activeFilters.value = defaults;
-                await fetchSublistData(sublist, page, true);
-                return;
-            }
-        }
 
     } catch (error) {
         console.error('Error fetching sublist data:', error);
@@ -2061,25 +2104,35 @@ watch(
                 <!-- Data Table -->
                 <div v-else-if="sublistData.length > 0 || activeFilters.length > 0">
                     <!-- Toolbar -->
-                    <div v-if="!activeTab?.readOnly" class="flex flex-col gap-3 p-4 sm:p-5 ">
-                        <!-- Action Buttons -->
-                        <div class="flex justify-between items-center">
-                            <button
-                                @click="showFiltersModal = true"
-                                class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                            >
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                </svg>
-                                Filters
-                                <span v-if="activeFilters.length > 0" class="ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded-full">
-                                    {{ activeFilters.length }}
-                                </span>
-                            </button>
-                            
+                    <div v-if="!activeTab?.readOnly" class="flex flex-col gap-3 p-4 sm:p-5">
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex min-w-0 flex-wrap items-center gap-2">
+                                <button
+                                    @click="showFiltersModal = true"
+                                    class="inline-flex shrink-0 items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+                                >
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
+                                    Filters
+                                    <span v-if="activeFilters.length > 0" class="ml-2 px-1.5 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 rounded-full">
+                                        {{ activeFilters.length }}
+                                    </span>
+                                </button>
+
+                                <SchemaQuickFilters
+                                    v-if="sublistQuickFilterDefs.length"
+                                    :filter-defs="sublistQuickFilterDefs"
+                                    :fields-schema="sublistFieldsSchema"
+                                    :enum-options="sublistCreateFormData?.enumOptions ?? {}"
+                                    :model-value="activeFilters"
+                                    @update:model-value="applyFilters"
+                                />
+                            </div>
+
                             <button
                                 @click="openSublistCreateModal"
-                                class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                class="inline-flex shrink-0 items-center self-start px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 sm:self-auto"
                             >
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -2089,7 +2142,7 @@ watch(
                         </div>
 
                         <!-- Active Filters -->
-                        <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center gap-2 mt-2">
+                        <div v-if="activeFilters.length > 0" class="flex flex-wrap items-center gap-2">
                             <span
                                 v-for="(filter, index) in activeFilters"
                                 :key="index"
@@ -2509,7 +2562,7 @@ watch(
                 v-if="sublistFieldsSchema && Object.keys(sublistFieldsSchema).length > 0"
                 :fields-schema="sublistFieldsSchema"
                 :enum-options="sublistCreateFormData?.enumOptions || {}"
-                :columns="tableColumns"
+                :columns="sublistFilterColumns"
                 :active-filters="activeFilters"
                 @apply="applyFilters"
                 @close="showFiltersModal = false"
