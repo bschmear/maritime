@@ -1,11 +1,10 @@
 <script setup>
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, onBeforeUnmount } from 'vue';
 
 const page = usePage();
 const appName = computed(() => page.props.app.name);
-import ApexCharts from 'apexcharts';
 import { getColorClasses, getPrimaryColor, getSecondaryColor, getTertiaryColor } from '@/Utils/colorHelpers';
 
 const props = defineProps({
@@ -153,31 +152,36 @@ const getTotalSalesChartOptions = () => {
 };
 
 let chart = null;
+let handleDarkMode = null;
 
-onMounted(() => {
-    if (document.getElementById("total-sales-chart")) {
-        chart = new ApexCharts(
-            document.querySelector("#total-sales-chart"),
-            getTotalSalesChartOptions()
-        );
-        chart.render();
+onMounted(async () => {
+    if (!document.getElementById('total-sales-chart')) {
+        return;
+    }
 
-        // Listen for dark mode changes
-        const handleDarkMode = () => {
-            if (chart) {
-                chart.updateOptions(getTotalSalesChartOptions());
-            }
-        };
+    const { default: ApexCharts } = await import('apexcharts');
+    chart = new ApexCharts(
+        document.querySelector('#total-sales-chart'),
+        getTotalSalesChartOptions(),
+    );
+    chart.render();
 
-        document.addEventListener("rerender-charts", handleDarkMode);
+    handleDarkMode = () => {
+        if (chart) {
+            chart.updateOptions(getTotalSalesChartOptions());
+        }
+    };
 
-        // Cleanup
-        return () => {
-            document.removeEventListener("rerender-charts", handleDarkMode);
-            if (chart) {
-                chart.destroy();
-            }
-        };
+    document.addEventListener('rerender-charts', handleDarkMode);
+});
+
+onBeforeUnmount(() => {
+    if (handleDarkMode) {
+        document.removeEventListener('rerender-charts', handleDarkMode);
+    }
+    if (chart) {
+        chart.destroy();
+        chart = null;
     }
 });
 </script>

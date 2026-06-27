@@ -2,7 +2,7 @@
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import Modal from '@/Components/Modal.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Deferred, Head, Link, router } from '@inertiajs/vue3';
 import { useTenantPermissions } from '@/composables/useTenantPermissions';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 

@@ -18,6 +18,7 @@ use App\Enums\Tasks\Status as TaskStatus;
 use App\Models\AccountSettings;
 use App\Support\Dashboard\DashboardFilters;
 use App\Support\Tenant\LeadPipelineCountCache;
+use App\Support\Tenant\TenantDashboardCache;
 use App\Tenancy\CurrentTenantProfile;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,6 +52,28 @@ class TenantDashboardDataService
     public function build(Request $request, ?DashboardFilters $filters = null): array
     {
         $filters ??= DashboardFilters::validated(null, null);
+        $tenantUserId = $this->tenantProfile->profile()?->getKey();
+
+        return TenantDashboardCache::remember(
+            $request,
+            $filters,
+            $tenantUserId !== null ? (int) $tenantUserId : null,
+            fn () => $this->buildUncached($request, $filters),
+        );
+    }
+
+    /**
+     * @return array{
+     *   actionCenter: array,
+     *   risk: array,
+     *   revenue: array,
+     *   operations: array,
+     *   activity: array,
+     *   meta: array
+     * }
+     */
+    private function buildUncached(Request $request, DashboardFilters $filters): array
+    {
         $cap = max(1, (int) config('dashboard.list_cap', 10));
         $activityFetchCap = max(15, (int) config('dashboard.activity_fetch_cap', 45));
         $activityPerPage = max(10, (int) config('dashboard.activity_per_page', 10));

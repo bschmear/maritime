@@ -1,6 +1,16 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
-import ApexCharts from 'apexcharts';
+
+let ApexChartsConstructor = null;
+
+const loadApexCharts = async () => {
+    if (!ApexChartsConstructor) {
+        const module = await import('apexcharts');
+        ApexChartsConstructor = module.default;
+    }
+
+    return ApexChartsConstructor;
+};
 
 const props = defineProps({
     categories: {
@@ -189,6 +199,7 @@ const renderChart = async () => {
         return;
     }
 
+    const ApexCharts = await loadApexCharts();
     chart = new ApexCharts(chartEl.value, full);
     await chart.render();
 };

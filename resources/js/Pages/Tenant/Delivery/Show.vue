@@ -387,6 +387,16 @@ const showTravelComputeButton = computed(
         && props.record?.estimated_travel_duration_seconds == null,
 );
 
+const canRecalculateTravel = computed(
+    () => ['scheduled', 'rescheduled'].includes(props.record?.status),
+);
+
+const travelComputeButtonLabel = computed(
+    () => (props.record?.estimated_travel_duration_seconds == null
+        ? 'Calculate driving times'
+        : 'Recalculate driving times'),
+);
+
 const isPendingRequest = computed(() => props.record?.pending_request === true);
 const isDeniedRequest = computed(() => props.record?.review_decision === 'denied');
 const isCancelled = computed(
@@ -1768,15 +1778,30 @@ const googleMapsDirectionsUrl = computed(() => {
   </div>
 
   <div v-if="googleMapsDirectionsUrl" class="mt-4 border-t border-gray-200 pt-4 dark:border-gray-700">
-    <a
-      :href="googleMapsDirectionsUrl"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="inline-flex max-w-full flex-wrap items-center gap-2 rounded-lg bg-[#4285F4] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3367d6]"
-    >
-      <span class="material-icons text-xl" aria-hidden="true">map</span>
-      Open delivery route in Google Maps
-    </a>
+    <div class="flex flex-wrap items-center gap-3">
+      <a
+        :href="googleMapsDirectionsUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="inline-flex max-w-full flex-wrap items-center gap-2 rounded-lg bg-[#4285F4] px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#3367d6]"
+      >
+        <span class="material-icons text-xl" aria-hidden="true">map</span>
+        Open delivery route in Google Maps
+      </a>
+      <button
+        v-if="canRecalculateTravel && canPerformDeliveryActions"
+        type="button"
+        :title="travelComputeDisabledTitle"
+        :disabled="!travelComputeReady || computeTravelLoading"
+        class="inline-flex max-w-full flex-wrap items-center gap-2 rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm font-medium text-primary-700 shadow-sm transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50"
+        @click="computeTravel"
+      >
+        <span class="material-icons text-xl" :class="{ 'animate-spin': computeTravelLoading }" aria-hidden="true">
+          {{ computeTravelLoading ? 'sync' : 'route' }}
+        </span>
+        {{ travelComputeButtonLabel }}
+      </button>
+    </div>
     <p class="mt-2 break-words text-xs text-gray-500 dark:text-gray-400">
       Opens Google Maps directions from your <strong>depart</strong> location to the <strong>delivery</strong> address (outbound leg). Estimated return time is computed separately for scheduling.
     </p>

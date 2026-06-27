@@ -8,11 +8,11 @@ use App\Domain\Delivery\Actions\ComputeDeliveryTravelEstimates;
 use App\Domain\Delivery\Actions\CreateDelivery as CreateAction;
 use App\Domain\Delivery\Actions\DeleteDelivery as DeleteAction;
 use App\Domain\Delivery\Actions\MarkDeliveryItemDelivered;
+use App\Domain\Delivery\Actions\ReviewDeliveryRequest;
 use App\Domain\Delivery\Actions\SwapDeliveryFleetAssignments;
 use App\Domain\Delivery\Actions\UpdateDelivery as UpdateAction;
 use App\Domain\Delivery\Models\Delivery as RecordModel;
 use App\Domain\Delivery\Models\DeliveryItem;
-use App\Domain\Delivery\Actions\ReviewDeliveryRequest;
 use App\Domain\Delivery\Support\DeliveryApproverResolver;
 use App\Domain\Delivery\Support\DeliveryFleetFieldValidator;
 use App\Domain\Delivery\Support\DeliveryFleetOccupancy;
@@ -94,30 +94,75 @@ class DeliveryController extends RecordController
 
         $statusesForQuery = $this->resolveDeliveryIndexStatuses($request, $allowedStatuses, $defaultStatuses);
         $tz = $this->deliveryIndexTimezone();
+        [$monthStart, $scheduleDay] = $this->deliveryIndexCalendarDates($request, $tz);
 
         $deliveryIndexWith = $this->deliveryIndexEagerLoads();
 
-        $calendarMonthParam = $request->input('calendar_month');
-        $monthStart = now($tz)->copy()->startOfMonth();
-        if (is_string($calendarMonthParam) && preg_match('/^\d{4}-\d{2}$/', $calendarMonthParam)) {
-            try {
-                $monthStart = Carbon::createFromFormat('Y-m', $calendarMonthParam, $tz)->startOfMonth();
-            } catch (\Throwable) {
-                $monthStart = now($tz)->copy()->startOfMonth();
-            }
-        }
-        [$monthRangeStartUtc, $monthRangeEndUtc] = $this->localCalendarMonthUtcRange($monthStart, $tz);
+        $query = RecordModel::with($deliveryIndexWith);
+        $this->applyDeliveryIndexSubsidiaryLocationFilters($query, $request);
+        $query
+            ->when($request->search, function ($q, $s) {
+                $like = '%'.addcslashes($s, '%_\\').'%';
+                $q->where(function ($q) use ($like) {
+                    $q->whereHas('customer', fn ($q) => $q->where('name', 'like', $like))
+                        ->orWhereHas('assetUnit', fn ($q) => $q->where('name', 'like', $like))
+                        ->orWhereHas('items', fn ($q) => $q->where('name', 'like', $like));
+                });
+            })
+            ->when($statusesForQuery !== null, fn ($q) => $q->whereIn('status', $statusesForQuery))
+            ->latest('scheduled_at');
 
-        $scheduleDay = now($tz)->copy()->startOfDay();
-        $scheduleDateParam = $request->input('schedule_date');
-        if (is_string($scheduleDateParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $scheduleDateParam)) {
-            try {
-                $scheduleDay = Carbon::createFromFormat('Y-m-d', $scheduleDateParam, $tz)->startOfDay();
-            } catch (\Throwable) {
-                $scheduleDay = now($tz)->copy()->startOfDay();
-            }
-        }
+        $locations = Location::query()
+            ->orderBy('display_name')
+            ->get(['id', 'display_name']);
+
+        $subsidiaries = Subsidiary::query()
+            ->orderBy('display_name')
+            ->get(['id', 'display_name']);
+
+        $paginationAppends = array_merge($request->query(), [
+            'calendar_month' => $monthStart->format('Y-m'),
+            'schedule_date' => $scheduleDay->format('Y-m-d'),
+        ]);
+
+        return Inertia::render('Tenant/Delivery/Index', [
+            'deliveries' => $query->paginate(15)->appends($paginationAppends),
+            'sidebar' => Inertia::defer(fn () => $this->deliveryIndexSidebarPayload($request), 'delivery-sidebar'),
+            'filters' => [
+                'search' => $request->input('search'),
+                'status' => $statusesForQuery === null ? 'all' : $statusesForQuery,
+                'subsidiary_id' => $request->input('subsidiary_id') ? (int) $request->input('subsidiary_id') : null,
+                'location_id' => $request->input('location_id') ? (int) $request->input('location_id') : null,
+                'calendar_month' => $monthStart->format('Y-m'),
+                'schedule_date' => $scheduleDay->format('Y-m-d'),
+                'schedule_is_today' => $scheduleDay->isToday(),
+                'schedule_display' => $scheduleDay->format('D, M j, Y'),
+            ],
+            'locationOptions' => $locations,
+            'subsidiaryOptions' => $subsidiaries,
+            'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
+            'enumOptions' => Inertia::defer(fn () => $this->getEnumOptions(), 'delivery-sidebar'),
+            'canCreateDelivery' => tenant_has_permission('delivery.create'),
+            'pendingRequestCount' => RecordModel::query()->where('pending_request', true)->count(),
+        ]);
+    }
+
+    /**
+     * @return array{
+     *   stats: array<string, int>,
+     *   todayDeliveries: Collection<int, RecordModel>,
+     *   upcomingDeliveries: Collection<int, RecordModel>,
+     *   calendarMonthDeliveries: Collection<int, RecordModel>
+     * }
+     */
+    private function deliveryIndexSidebarPayload(Request $request): array
+    {
+        $tz = $this->deliveryIndexTimezone();
+        [$monthStart, $scheduleDay] = $this->deliveryIndexCalendarDates($request, $tz);
+        [$monthRangeStartUtc, $monthRangeEndUtc] = $this->localCalendarMonthUtcRange($monthStart, $tz);
         [$scheduleDayStartUtc, $scheduleDayEndUtc] = $this->localCalendarDayUtcRange($scheduleDay, $tz);
+
+        $deliveryIndexWith = $this->deliveryIndexEagerLoads();
 
         $calendarMonthQuery = RecordModel::with($deliveryIndexWith);
         $this->applyDeliveryIndexSubsidiaryLocationFilters($calendarMonthQuery, $request);
@@ -137,20 +182,6 @@ class DeliveryController extends RecordController
                     && $local->month === (int) $monthStart->month;
             })
             ->values();
-
-        $query = RecordModel::with($deliveryIndexWith);
-        $this->applyDeliveryIndexSubsidiaryLocationFilters($query, $request);
-        $query
-            ->when($request->search, function ($q, $s) {
-                $like = '%'.addcslashes($s, '%_\\').'%';
-                $q->where(function ($q) use ($like) {
-                    $q->whereHas('customer', fn ($q) => $q->where('name', 'like', $like))
-                        ->orWhereHas('assetUnit', fn ($q) => $q->where('name', 'like', $like))
-                        ->orWhereHas('items', fn ($q) => $q->where('name', 'like', $like));
-                });
-            })
-            ->when($statusesForQuery !== null, fn ($q) => $q->whereIn('status', $statusesForQuery))
-            ->latest('scheduled_at');
 
         $scheduleInViewedMonth = (int) $scheduleDay->year === (int) $monthStart->year
             && (int) $scheduleDay->month === (int) $monthStart->month;
@@ -194,44 +225,40 @@ class DeliveryController extends RecordController
                 ->get();
         }
 
-        $stats = $this->deliveryIndexStatusStats($request);
-
-        $locations = Location::query()
-            ->orderBy('display_name')
-            ->get(['id', 'display_name']);
-
-        $subsidiaries = Subsidiary::query()
-            ->orderBy('display_name')
-            ->get(['id', 'display_name']);
-
-        $paginationAppends = array_merge($request->query(), [
-            'calendar_month' => $monthStart->format('Y-m'),
-            'schedule_date' => $scheduleDay->format('Y-m-d'),
-        ]);
-
-        return Inertia::render('Tenant/Delivery/Index', [
-            'deliveries' => $query->paginate(15)->appends($paginationAppends),
+        return [
+            'stats' => $this->deliveryIndexStatusStats($request),
             'todayDeliveries' => $todayDeliveries,
             'upcomingDeliveries' => $upcomingDeliveries,
-            'stats' => $stats,
-            'filters' => [
-                'search' => $request->input('search'),
-                'status' => $statusesForQuery === null ? 'all' : $statusesForQuery,
-                'subsidiary_id' => $request->input('subsidiary_id') ? (int) $request->input('subsidiary_id') : null,
-                'location_id' => $request->input('location_id') ? (int) $request->input('location_id') : null,
-                'calendar_month' => $monthStart->format('Y-m'),
-                'schedule_date' => $scheduleDay->format('Y-m-d'),
-                'schedule_is_today' => $scheduleDay->isToday(),
-                'schedule_display' => $scheduleDay->format('D, M j, Y'),
-            ],
             'calendarMonthDeliveries' => $calendarMonthDeliveries,
-            'locationOptions' => $locations,
-            'subsidiaryOptions' => $subsidiaries,
-            'fieldsSchema' => $this->getUnwrappedFieldsSchema(),
-            'enumOptions' => $this->getEnumOptions(),
-            'canCreateDelivery' => tenant_has_permission('delivery.create'),
-            'pendingRequestCount' => RecordModel::query()->where('pending_request', true)->count(),
-        ]);
+        ];
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    private function deliveryIndexCalendarDates(Request $request, string $tz): array
+    {
+        $calendarMonthParam = $request->input('calendar_month');
+        $monthStart = now($tz)->copy()->startOfMonth();
+        if (is_string($calendarMonthParam) && preg_match('/^\d{4}-\d{2}$/', $calendarMonthParam)) {
+            try {
+                $monthStart = Carbon::createFromFormat('Y-m', $calendarMonthParam, $tz)->startOfMonth();
+            } catch (\Throwable) {
+                $monthStart = now($tz)->copy()->startOfMonth();
+            }
+        }
+
+        $scheduleDay = now($tz)->copy()->startOfDay();
+        $scheduleDateParam = $request->input('schedule_date');
+        if (is_string($scheduleDateParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $scheduleDateParam)) {
+            try {
+                $scheduleDay = Carbon::createFromFormat('Y-m-d', $scheduleDateParam, $tz)->startOfDay();
+            } catch (\Throwable) {
+                $scheduleDay = now($tz)->copy()->startOfDay();
+            }
+        }
+
+        return [$monthStart, $scheduleDay];
     }
 
     private function deliveryIndexTimezone(): string

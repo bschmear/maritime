@@ -11,4 +11,10 @@ return [
 
     /** Rows shown per page in the activity feed (client-side pagination). */
     'activity_per_page' => (int) env('DASHBOARD_ACTIVITY_PER_PAGE', 10),
+
+    /** Cache assembled dashboard sections in Redis (per user + filters). */
+    'cache_enabled' => (bool) env('DASHBOARD_CACHE_ENABLED', true),
+
+    /** Seconds before dashboard cache expires (repeat visits within this window skip ~15 DB queries). */
+    'cache_ttl_seconds' => (int) env('DASHBOARD_CACHE_TTL_SECONDS', 90),
 ];

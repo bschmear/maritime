@@ -14,6 +14,34 @@ export default defineConfig(({ mode }) => {
         appName.length > 12 ? appName.replace(/\s+/g, ' ').slice(0, 12).trim() : appName;
 
     return {
+        build: {
+            rollupOptions: {
+                output: {
+                    manualChunks(id) {
+                        if (!id.includes('node_modules')) {
+                            return undefined;
+                        }
+                        if (id.includes('apexcharts')) {
+                            return 'apexcharts';
+                        }
+                        if (id.includes('pdfjs-dist')) {
+                            return 'pdfjs';
+                        }
+                        if (id.includes('maplibre-gl')) {
+                            return 'maplibre';
+                        }
+                        if (id.includes('@tiptap')) {
+                            return 'tiptap';
+                        }
+                        if (id.includes('interactjs')) {
+                            return 'interactjs';
+                        }
+
+                        return undefined;
+                    },
+                },
+            },
+        },
         plugins: [
             laravel({
                 input: 'resources/js/app.js',

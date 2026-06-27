@@ -2,13 +2,14 @@
 import MsoBuilderToolbar from '@/Components/Tenant/Mso/MsoBuilderToolbar.vue';
 import MsoFieldInspector from '@/Components/Tenant/Mso/MsoFieldInspector.vue';
 import MsoFieldPalette from '@/Components/Tenant/Mso/MsoFieldPalette.vue';
-import MsoPdfCanvas from '@/Components/Tenant/Mso/MsoPdfCanvas.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import { formatMsoCustomerAddress, msoSignatureFieldPatch } from '@/Utils/msoAddressFormat';
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, getCurrentInstance, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
+const MsoPdfCanvas = defineAsyncComponent(() => import('@/Components/Tenant/Mso/MsoPdfCanvas.vue'));
 
 const props = defineProps({
     transaction: { type: Object, required: true },
