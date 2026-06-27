@@ -12,6 +12,7 @@ use App\Domain\InventoryCatalog\Enums\CatalogImportDuplicateStrategy;
 use App\Domain\InventoryCatalog\Services\CatalogImportService;
 use App\Jobs\ProcessBoatMakeModelImportJob;
 use App\Services\BoatMetaAIService;
+use App\Domain\BoatMake\Support\BrandLogoCatalogSync;
 use App\Support\ManufacturerCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,6 +50,16 @@ class BoatMakeController extends RecordController
             ->all();
 
         return $props;
+    }
+
+    protected function getRelationshipsToLoad($fieldsSchema)
+    {
+        $relationships = parent::getRelationshipsToLoad($fieldsSchema);
+        $relationships['customLogo'] = function ($query) {
+            $query->select(['id', 'file']);
+        };
+
+        return $relationships;
     }
 
     protected function showPageExtraProps($record): array
@@ -372,5 +383,37 @@ class BoatMakeController extends RecordController
         }
 
         return back()->with('success', $msg);
+    }
+
+    public function refreshLogoFromCatalog(string $id, UpdateAction $update)
+    {
+        $record = RecordModel::query()->findOrFail($id);
+
+        if (! $record->brand_key) {
+            return back()->withErrors([
+                'brand' => 'This brand is not linked to the inventory catalog.',
+            ]);
+        }
+
+        $defaultLogo = BrandLogoCatalogSync::defaultLogoForBrandKey($record->brand_key);
+
+        if ($defaultLogo === null) {
+            return back()->withErrors([
+                'brand' => 'No catalog logo is available for this brand yet.',
+            ]);
+        }
+
+        $result = $update((int) $record->id, [
+            'default_brand_image' => $defaultLogo,
+            'use_default_logo' => true,
+        ]);
+
+        if (($result['success'] ?? false) !== true) {
+            return back()->withErrors([
+                'brand' => $result['message'] ?? 'Could not refresh catalog logo.',
+            ]);
+        }
+
+        return back()->with('success', 'Catalog logo refreshed.');
     }
 }

@@ -18,6 +18,29 @@
           "key": "vendor_id"
         }
       ]
+    },
+    "branding": {
+      "label": "Brand logo",
+      "fields": [
+        {
+          "key": "default_brand_image"
+        },
+        {
+          "key": "use_default_logo",
+          "conditional": {
+            "key": "default_brand_image",
+            "operator": "is_not_empty"
+          }
+        },
+        {
+          "key": "custom_logo_id",
+          "conditional": {
+            "key": "use_default_logo",
+            "value": false,
+            "operator": "equals"
+          }
+        }
+      ]
     }
   },
   "sublists": [

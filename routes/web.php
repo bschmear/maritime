@@ -10,6 +10,7 @@ use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\GoogleOAuthController;
 use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\Kiosk\AccountController as KioskAccountController;
+use App\Http\Controllers\Kiosk\InventoryBrandController;
 use App\Http\Controllers\Kiosk\CategoryController;
 use App\Http\Controllers\Kiosk\DashboardController as KioskDashboardController;
 use App\Http\Controllers\Kiosk\FaqController;
@@ -40,6 +41,12 @@ Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.')->group(function () {
     Route::middleware([EnsureKioskAdmin::class])->group(function () {
         Route::get('/', [KioskDashboardController::class, 'index'])->name('dashboard');
+
+        Route::post('inventory-brands/{inventoryBrand}/logo', [InventoryBrandController::class, 'uploadLogo'])
+            ->name('inventory-brands.upload-logo');
+        Route::delete('inventory-brands/{inventoryBrand}/logo', [InventoryBrandController::class, 'removeLogo'])
+            ->name('inventory-brands.remove-logo');
+        Route::resource('inventory-brands', InventoryBrandController::class);
 
         Route::post('posts/cover-image', [PostController::class, 'uploadCover'])->name('posts.upload-cover');
         Route::resource('posts', PostController::class);

@@ -28,11 +28,22 @@
     "type": "boolean",
     "help": "Check if this is a custom boat make"
   },
-  "logo": {
-    "label": "Logo",
+  "use_default_logo": {
+    "label": "Use catalog logo",
+    "type": "boolean",
+    "help": "When enabled, uses the shared inventory brand logo for this manufacturer."
+  },
+  "default_brand_image": {
+    "label": "Catalog logo URL",
+    "type": "text",
+    "disabled": true,
+    "hidden": true
+  },
+  "custom_logo_id": {
+    "label": "Custom logo",
     "type": "image",
     "validation": "nullable|image|max:2048",
-    "help": "Upload a logo for custom makes (max 2MB, JPG, PNG, GIF)",
+    "help": "Upload your own brand logo (max 2MB, JPG, PNG, GIF, WebP)",
     "meta": {
       "directory": "boat_makes",
       "private": false,

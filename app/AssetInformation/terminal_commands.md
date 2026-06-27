@@ -15,6 +15,14 @@ php artisan inventory:seed-asset-catalog --keep-orphan-variants
 Prerequisites
 Inventory migrations must be applied on the inventory connection (your INVENTORY_DATABASE in .env):
 
+php artisan inventory:migrate
+
+Fresh reset (drops all inventory tables, then re-migrates):
+
+php artisan inventory:migrate --fresh
+
+Equivalent manual command:
+
 php artisan migrate --database=inventory --path=database/migrations/inventory
 Optional — refresh make rows from the manufacturer list:
 

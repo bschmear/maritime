@@ -1549,6 +1549,20 @@ defineExpose({
                                         </span>
                                     </div>
                                 </template>
+                                <!-- Image / logo thumbnail -->
+                                <template v-else-if="col.type === 'image' || col.key === 'logo_url'">
+                                    <div
+                                        v-if="record[col.key]"
+                                        class="inline-flex h-10 w-16 items-center justify-center dark:rounded-md dark:border dark:border-gray-200 dark:bg-white dark:p-1"
+                                    >
+                                        <img
+                                            :src="record[col.key]"
+                                            :alt="`${record.display_name ?? 'Brand'} logo`"
+                                            class="max-h-full max-w-full object-contain"
+                                        />
+                                    </div>
+                                    <span v-else class="text-gray-400 dark:text-gray-500 text-xs">—</span>
+                                </template>
                                 <!-- Enum with color dot -->
                                 <template v-else-if="hasEnumColor(col, record)">
                                     <div class="flex items-center gap-1.5">

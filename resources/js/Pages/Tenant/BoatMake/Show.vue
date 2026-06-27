@@ -56,6 +56,13 @@ const page = usePage();
 /** Set true to show AI catalog generate (modal, overlay, AI-oriented copy). */
 const boatMakeAiCatalogUiEnabled = false;
 
+const refreshCatalogLogo = () => {
+    router.post(route(`${props.recordType}.refresh-catalog-logo`, props.record.id), {}, {
+        preserveScroll: true,
+        only: ['record', 'imageUrls', 'flash'],
+    });
+};
+
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
 
 const aiModelLabelError = computed(() => {
@@ -275,8 +282,45 @@ function importSelectedLibraryModels() {
         :breadcrumb-parent-label="'Brands'"
         :breadcrumb-parent-href="route(`${recordType}.index`)"
     >
-        <template v-if="record.brand_key" #prepend>
+        <template #prepend>
             <div
+                v-if="record.logo_url || record.default_brand_image || record.brand_key"
+                class="mb-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+            >
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Brand logo</h3>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            <template v-if="record.use_default_logo && record.default_brand_image">
+                                Using the shared catalog logo. Turn off “Use catalog logo” in the form below to upload your own.
+                            </template>
+                            <template v-else-if="record.logo_url">
+                                Using a custom uploaded logo.
+                            </template>
+                            <template v-else>
+                                No logo yet. Upload one in the Brand logo section below, or refresh from the catalog if available.
+                            </template>
+                        </p>
+                    </div>
+                    <button
+                        v-if="record.brand_key"
+                        type="button"
+                        class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        @click="refreshCatalogLogo"
+                    >
+                        Refresh logo from catalog
+                    </button>
+                </div>
+                <div v-if="record.logo_url" class="mt-4">
+                    <img
+                        :src="record.logo_url"
+                        :alt="`${record.display_name} logo`"
+                        class="max-h-24 max-w-xs object-contain"
+                    />
+                </div>
+            </div>
+            <div
+                v-if="record.brand_key"
                 id="boat-make-models-panel"
                 class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
             >

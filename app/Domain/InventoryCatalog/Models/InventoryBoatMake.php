@@ -18,6 +18,7 @@ class InventoryBoatMake extends Model
         'display_name',
         'slug',
         'active',
+        'logo_url',
         'boat_type_id',
         'hull_type_id',
         'hull_material_id',

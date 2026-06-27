@@ -1,6 +1,12 @@
 {
   "columns": [
     {
+      "key": "logo_url",
+      "label": "Logo",
+      "type": "image",
+      "sortable": false
+    },
+    {
       "key": "display_name",
       "label": "Brand",
       "sortable": true,
