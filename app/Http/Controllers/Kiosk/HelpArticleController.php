@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Kiosk;
 use App\Http\Controllers\Controller;
 use App\Models\HelpArticle;
 use App\Models\HelpCategory;
+use App\Support\Help\HelpPortalCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,6 +72,8 @@ class HelpArticleController extends Controller
             (int) ($validated['sort_order'] ?? 0),
         );
 
+        HelpPortalCache::forget();
+
         return redirect()->route('kiosk.help-articles.index')
             ->with('success', 'Article created.');
     }
@@ -119,6 +122,8 @@ class HelpArticleController extends Controller
             HelpArticle::query()->whereKey($id)->update(['sort_order' => $index]);
         }
 
+        HelpPortalCache::forget();
+
         return back();
     }
 
@@ -148,6 +153,8 @@ class HelpArticleController extends Controller
             (int) ($validated['sort_order'] ?? $help_article->sort_order),
         );
 
+        HelpPortalCache::forget();
+
         return redirect()->route('kiosk.help-articles.index')
             ->with('success', 'Article updated.');
     }
@@ -155,6 +162,8 @@ class HelpArticleController extends Controller
     public function destroy(HelpArticle $help_article): RedirectResponse
     {
         $help_article->delete();
+
+        HelpPortalCache::forget();
 
         return redirect()->route('kiosk.help-articles.index')
             ->with('success', 'Article deleted.');

@@ -1,5 +1,5 @@
 <script setup>
-import { Link, router, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage, Deferred } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch, onMounted, onUnmounted, getCurrentInstance } from 'vue';
 import axios from 'axios';
 import Modal from '@/Components/Modal.vue';
@@ -1153,6 +1153,12 @@ defineExpose({
 </script>
 
 <template>
+    <Deferred data="enumOptions">
+        <template #fallback>
+            <div class="rounded-lg border border-gray-200 bg-white px-6 py-16 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                Loading table…
+            </div>
+        </template>
     <section class="flex w-full min-w-0 max-w-full flex-col space-y-4 grow">
         <!-- Optional stat cards (defined in table.json schema.stats; values from page props stats) -->
         <div
@@ -1790,4 +1796,5 @@ defineExpose({
             </div>
         </Modal>
     </section>
+    </Deferred>
 </template>

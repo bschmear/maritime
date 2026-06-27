@@ -23,7 +23,8 @@
   "sublists": [
     {
       "label": "Models",
-      "domain": "Asset"
+      "domain": "Asset",
+      "per_page": 25
     }
   ]
 }

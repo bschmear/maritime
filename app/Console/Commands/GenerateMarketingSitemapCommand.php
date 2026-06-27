@@ -9,15 +9,14 @@ class GenerateMarketingSitemapCommand extends Command
 {
     protected $signature = 'sitemap:generate';
 
-    protected $description = 'Generate public/sitemap.xml for marketing and blog pages';
+    protected $description = 'Warm the cached marketing sitemap XML';
 
     public function handle(MarketingSitemapGenerator $generator): int
     {
-        $path = $generator->generate();
-        $xml = (string) file_get_contents($path);
+        $xml = $generator->warmCache();
         $urlCount = substr_count($xml, '<loc>');
 
-        $this->components->info('Sitemap written to '.$path);
+        $this->components->info('Sitemap cache warmed.');
         $this->line('Base URL: '.config('app.url'));
         $this->line('URL entries: '.$urlCount);
 

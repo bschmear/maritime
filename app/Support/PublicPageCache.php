@@ -17,6 +17,8 @@ final class PublicPageCache
 
     public const WELCOME_BLOG_POSTS = 'welcome.blog_posts';
 
+    public const MARKETING_SITEMAP = 'marketing.sitemap';
+
     public static function forgetPricingPlans(): void
     {
         Cache::forget(self::WELCOME_PRICING_PLANS);
@@ -31,5 +33,10 @@ final class PublicPageCache
     public static function forgetWelcomeBlogPosts(): void
     {
         Cache::forget(self::WELCOME_BLOG_POSTS);
+    }
+
+    public static function forgetSitemap(): void
+    {
+        Cache::forget(self::MARKETING_SITEMAP);
     }
 }

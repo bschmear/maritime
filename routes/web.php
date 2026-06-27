@@ -27,12 +27,14 @@ use App\Http\Controllers\MailchimpOAuthController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuickBooksOAuthController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\StripeConnectWebhookController;
 use App\Http\Controllers\WelcomeController;
 use App\Http\Middleware\EnsureKioskAdmin;
 use Illuminate\Support\Facades\Route;
 
 Route::get('favicon.ico', FaviconController::class);
+Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 
 // Kiosk Subdomain Routes (kiosk.example.com)
 Route::domain('kiosk.'.config('app.domain'))->middleware(['auth'])->name('kiosk.')->group(function () {

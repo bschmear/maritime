@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Category;
+use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -39,6 +40,8 @@ class CategoryController extends Controller
 
         Category::create($validated);
 
+        PublicPageCache::forgetSitemap();
+
         return redirect()->route('kiosk.categories.index')
             ->with('success', 'Category created successfully.');
     }
@@ -73,6 +76,8 @@ class CategoryController extends Controller
 
         $category->update($validated);
 
+        PublicPageCache::forgetSitemap();
+
         return redirect()->route('kiosk.categories.index')
             ->with('success', 'Category updated successfully.');
     }
@@ -80,6 +85,8 @@ class CategoryController extends Controller
     public function destroy(Category $category): RedirectResponse
     {
         $category->delete();
+
+        PublicPageCache::forgetSitemap();
 
         return redirect()->route('kiosk.categories.index')
             ->with('success', 'Category deleted successfully.');

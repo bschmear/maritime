@@ -3,49 +3,63 @@
 namespace Tests\Unit;
 
 use App\Support\MarketingSitemapGenerator;
+use App\Support\PublicPageCache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class MarketingSitemapGeneratorTest extends TestCase
 {
     use RefreshDatabase;
 
-    private ?string $generatedPath = null;
-
     protected function tearDown(): void
     {
-        if ($this->generatedPath !== null && is_file($this->generatedPath)) {
-            @unlink($this->generatedPath);
-        }
+        PublicPageCache::forgetSitemap();
 
         parent::tearDown();
     }
 
-    public function test_generate_writes_sitemap_with_marketing_home_url(): void
+    public function test_build_sitemap_includes_marketing_home_url(): void
     {
-        $this->generatedPath = app(MarketingSitemapGenerator::class)->generate();
+        $xml = app(MarketingSitemapGenerator::class)->buildSitemap();
 
-        $this->assertFileExists($this->generatedPath);
-
-        $xml = file_get_contents($this->generatedPath);
-
-        $this->assertIsString($xml);
         $this->assertStringContainsString(route('home', [], true), $xml);
         $this->assertStringContainsString(route('blog', [], true), $xml);
+        $this->assertStringContainsString('<loc>', $xml);
     }
 
-    public function test_generate_overwrites_existing_sitemap_file(): void
+    public function test_cached_sitemap_is_stored_and_reused(): void
     {
-        $path = public_path(MarketingSitemapGenerator::OUTPUT_PATH);
-        $this->generatedPath = $path;
+        Cache::flush();
 
-        file_put_contents($path, '<?xml version="1.0"?><urlset><url><loc>https://stale.example.test</loc></url></urlset>');
+        $generator = app(MarketingSitemapGenerator::class);
 
-        app(MarketingSitemapGenerator::class)->generate();
+        $first = $generator->cached();
+        $second = $generator->cached();
 
-        $xml = (string) file_get_contents($path);
+        $this->assertSame($first, $second);
+        $this->assertTrue(Cache::has(PublicPageCache::MARKETING_SITEMAP));
+    }
 
-        $this->assertStringNotContainsString('stale.example.test', $xml);
-        $this->assertStringContainsString(route('home', [], true), $xml);
+    public function test_forget_cache_clears_cached_sitemap(): void
+    {
+        $generator = app(MarketingSitemapGenerator::class);
+
+        $generator->cached();
+        MarketingSitemapGenerator::forgetCache();
+
+        $this->assertFalse(Cache::has(PublicPageCache::MARKETING_SITEMAP));
+    }
+
+    public function test_warm_cache_rebuilds_after_invalidation(): void
+    {
+        $generator = app(MarketingSitemapGenerator::class);
+
+        $original = $generator->cached();
+        MarketingSitemapGenerator::forgetCache();
+        $warmed = $generator->warmCache();
+
+        $this->assertSame(substr_count($original, '<loc>'), substr_count($warmed, '<loc>'));
+        $this->assertTrue(Cache::has(PublicPageCache::MARKETING_SITEMAP));
     }
 }

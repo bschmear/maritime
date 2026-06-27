@@ -8,10 +8,11 @@ import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
     deliveries: { type: Object, default: () => ({ data: [] }) },
+    sidebar: { type: Object, default: () => null },
+    stats: { type: Object, default: () => ({ scheduled: 0, en_route: 0, delivered: 0, cancelled: 0 }) },
     todayDeliveries: { type: Array, default: () => [] },
     upcomingDeliveries: { type: Array, default: () => [] },
     calendarMonthDeliveries: { type: Array, default: () => [] },
-    stats: { type: Object, default: () => ({ scheduled: 0, en_route: 0, delivered: 0, cancelled: 0 }) },
     filters: { type: Object, default: () => ({}) },
     locationOptions: { type: Array, default: () => [] },
     subsidiaryOptions: { type: Array, default: () => [] },
@@ -20,6 +21,11 @@ const props = defineProps({
     canCreateDelivery: { type: Boolean, default: true },
     pendingRequestCount: { type: Number, default: 0 },
 });
+
+const sidebarStats = computed(() => props.sidebar?.stats ?? props.stats);
+const todayDeliveries = computed(() => props.sidebar?.todayDeliveries ?? props.todayDeliveries);
+const upcomingDeliveries = computed(() => props.sidebar?.upcomingDeliveries ?? props.upcomingDeliveries);
+const calendarMonthDeliveries = computed(() => props.sidebar?.calendarMonthDeliveries ?? props.calendarMonthDeliveries);
 
 const { can } = useTenantPermissions();
 const canCreateDeliveryEffective = computed(() => props.canCreateDelivery || can('delivery.create'));
@@ -363,7 +369,7 @@ const calendarDays = computed(() => {
     const days = [];
     for (let i = 0; i < startPad; i++) days.push({ day: null });
     const deliveryDays = {};
-    (props.calendarMonthDeliveries ?? []).forEach((d) => {
+    (calendarMonthDeliveries.value ?? []).forEach((d) => {
         const dt = d.scheduled_at ? new Date(d.scheduled_at) : null;
         if (dt && dt.getMonth() === month && dt.getFullYear() === year) {
             const day = dt.getDate();
@@ -420,7 +426,7 @@ const dayModalTitle = computed(() => {
 const dayModalDeliveries = computed(() => {
     const target = dayModalAnchorDate.value;
     if (!target) return [];
-    return [...(props.calendarMonthDeliveries ?? [])]
+    return [...(calendarMonthDeliveries.value ?? [])]
         .filter((d) => {
             if (!d.scheduled_at) return false;
             const dt = new Date(d.scheduled_at);
@@ -513,6 +519,13 @@ onUnmounted(() => {
 
         <div class="space-y-6">
 
+            <Deferred :data="['sidebar', 'enumOptions']">
+                <template #fallback>
+                    <div class="rounded-lg border border-gray-200 bg-white px-6 py-16 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                        Loading schedule and stats…
+                    </div>
+                </template>
+
             <!-- ── Stat Cards ──────────────────────────────────────── -->
             <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
 
@@ -520,7 +533,7 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-md font-medium text-gray-500 dark:text-gray-400">Scheduled</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.scheduled }}</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ sidebarStats.scheduled }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-blue-600 dark:text-blue-400">schedule</span>
@@ -535,7 +548,7 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-md font-medium text-gray-500 dark:text-gray-400">En Route</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.en_route }}</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ sidebarStats.en_route }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-yellow-100 dark:bg-yellow-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-yellow-600 dark:text-yellow-400">local_shipping</span>
@@ -550,7 +563,7 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-md font-medium text-gray-500 dark:text-gray-400">Delivered</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.delivered }}</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ sidebarStats.delivered }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-green-600 dark:text-green-400">inventory</span>
@@ -565,7 +578,7 @@ onUnmounted(() => {
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-md font-medium text-gray-500 dark:text-gray-400">Cancelled</p>
-                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ stats.cancelled }}</p>
+                            <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">{{ sidebarStats.cancelled }}</p>
                         </div>
                         <div class="h-12 w-12 rounded-lg bg-red-100 dark:bg-red-900/20 flex items-center justify-center">
                             <span class="material-icons text-2xl text-red-600 dark:text-red-400">cancel</span>
@@ -831,6 +844,8 @@ onUnmounted(() => {
                     </div>
                 </div>
             </div>
+
+            </Deferred>
 
             <!-- ── Filters & All Deliveries Table ──────────────────── -->
             <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">

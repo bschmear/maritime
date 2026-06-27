@@ -102,6 +102,7 @@ class PostController extends Controller
         }
 
         PublicPageCache::forgetWelcomeBlogPosts();
+        PublicPageCache::forgetSitemap();
 
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post created successfully.');
@@ -143,6 +144,7 @@ class PostController extends Controller
         }
 
         PublicPageCache::forgetWelcomeBlogPosts();
+        PublicPageCache::forgetSitemap();
 
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post updated successfully.');
@@ -155,6 +157,7 @@ class PostController extends Controller
         $post->delete();
 
         PublicPageCache::forgetWelcomeBlogPosts();
+        PublicPageCache::forgetSitemap();
 
         return redirect()->route('kiosk.posts.index')
             ->with('success', 'Post deleted successfully.');

@@ -3,11 +3,13 @@
 namespace App\Support;
 
 use App\Models\Category;
+use App\Models\HelpArticle;
+use App\Models\HelpCategory;
 use App\Models\Post;
 use App\Models\Tag;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL as UrlGenerator;
-use RuntimeException;
 use Spatie\Sitemap\Sitemap;
 use Spatie\Sitemap\Tags\Url;
 
@@ -15,10 +17,24 @@ class MarketingSitemapGenerator
 {
     public const OUTPUT_PATH = 'sitemap.xml';
 
+    public function cached(): string
+    {
+        return Cache::remember(
+            PublicPageCache::MARKETING_SITEMAP,
+            now()->addHours(24),
+            fn () => $this->buildSitemap(),
+        );
+    }
+
+    public static function forgetCache(): void
+    {
+        PublicPageCache::forgetSitemap();
+    }
+
     /**
-     * Build and write public/sitemap.xml. Returns the absolute file path.
+     * Build sitemap XML without writing to disk.
      */
-    public function generate(): string
+    public function buildSitemap(): string
     {
         UrlGenerator::forceRootUrl(rtrim((string) config('app.url'), '/'));
 
@@ -28,64 +44,19 @@ class MarketingSitemapGenerator
         $this->addBlogPosts($sitemap);
         $this->addBlogCategories($sitemap);
         $this->addBlogTags($sitemap);
+        $this->addHelpDocumentation($sitemap);
 
-        $path = public_path(self::OUTPUT_PATH);
-        $directory = dirname($path);
-
-        if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-            throw new RuntimeException("Cannot create public directory: {$directory}");
-        }
-
-        if (! is_writable($directory)) {
-            throw new RuntimeException("Public directory is not writable: {$directory}");
-        }
-
-        $tempPath = $directory.'/'.self::OUTPUT_PATH.'.'.getmypid().'.tmp';
-
-        try {
-            if (is_file($tempPath)) {
-                unlink($tempPath);
-            }
-
-            $sitemap->writeToFile($tempPath);
-
-            if (! is_file($tempPath) || filesize($tempPath) === 0) {
-                throw new RuntimeException('Sitemap generation produced an empty file.');
-            }
-
-            if (is_file($path)) {
-                unlink($path);
-            }
-
-            rename($tempPath, $path);
-        } catch (\Throwable $exception) {
-            if (is_file($tempPath)) {
-                @unlink($tempPath);
-            }
-
-            throw $exception;
-        }
-
-        $this->updateRobotsTxt();
-
-        return $path;
+        return $sitemap->render();
     }
 
-    private function updateRobotsTxt(): void
+    /**
+     * Warm the sitemap cache. Returns the cached XML.
+     */
+    public function warmCache(): string
     {
-        $robotsPath = public_path('robots.txt');
-        $sitemapUrl = rtrim((string) config('app.url'), '/').'/'.self::OUTPUT_PATH;
-        $line = 'Sitemap: '.$sitemapUrl;
+        self::forgetCache();
 
-        $contents = is_file($robotsPath) ? (string) file_get_contents($robotsPath) : "User-agent: *\nDisallow:\n";
-
-        if (preg_match('/^Sitemap:\s*.+$/mi', $contents)) {
-            $contents = preg_replace('/^Sitemap:\s*.+$/mi', $line, $contents) ?? $contents;
-        } else {
-            $contents = rtrim($contents)."\n\n".$line."\n";
-        }
-
-        file_put_contents($robotsPath, $contents);
+        return $this->cached();
     }
 
     private function addStaticPages(Sitemap $sitemap): void
@@ -185,6 +156,54 @@ class MarketingSitemapGenerator
                         ->setPriority(0.5)
                 );
             });
+    }
+
+    private function addHelpDocumentation(Sitemap $sitemap): void
+    {
+        $helpPortal = rtrim((string) config('app.help_portal'), '/');
+
+        if ($helpPortal === '') {
+            return;
+        }
+
+        $sitemap->add(
+            Url::create($helpPortal)
+                ->setChangeFrequency(Url::CHANGE_FREQUENCY_WEEKLY)
+                ->setPriority(0.8)
+        );
+
+        try {
+            HelpCategory::query()
+                ->active()
+                ->orderBy('sort_order')
+                ->get(['slug', 'updated_at'])
+                ->each(function (HelpCategory $category) use ($sitemap, $helpPortal) {
+                    $sitemap->add(
+                        Url::create($helpPortal.'/c/'.$category->slug)
+                            ->setLastModificationDate($category->updated_at ?? now())
+                            ->setChangeFrequency(Url::CHANGE_FREQUENCY_WEEKLY)
+                            ->setPriority(0.6)
+                    );
+                });
+
+            HelpArticle::query()
+                ->active()
+                ->published()
+                ->orderBy('sort_order')
+                ->get(['slug', 'updated_at', 'published_at'])
+                ->each(function (HelpArticle $article) use ($sitemap, $helpPortal) {
+                    $lastMod = $article->updated_at ?? $article->published_at ?? now();
+
+                    $sitemap->add(
+                        Url::create($helpPortal.'/a/'.$article->slug)
+                            ->setLastModificationDate($lastMod)
+                            ->setChangeFrequency(Url::CHANGE_FREQUENCY_WEEKLY)
+                            ->setPriority(0.7)
+                    );
+                });
+        } catch (\Throwable) {
+            // Help docs use a separate Postgres database; skip detail URLs when unavailable.
+        }
     }
 
     private function blogCategoryUrl(string $slug): string

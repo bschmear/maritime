@@ -187,6 +187,11 @@ const getDomainPlural = (domain) => {
     return lowercase.endsWith('s') ? lowercase : lowercase + 's';
 };
 
+const sublistPerPage = (sublist) => {
+    const perPage = Number(sublist?.per_page);
+    return Number.isFinite(perPage) && perPage > 0 ? perPage : 10;
+};
+
 const getDomainSingular = (pluralDomain) => {
     const irregularSingulars = {
         'subsidiaries': 'subsidiary',
@@ -996,7 +1001,7 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
             response = await axios.get(route(sublist.routes.index, parentKey), {
                 params: {
                     page: page,
-                    per_page: 10
+                    per_page: sublistPerPage(sublist),
                 },
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -1041,7 +1046,7 @@ const fetchSublistData = async (sublist, page = 1, forceApiFetch = false) => {
                 params: {
                     filters: JSON.stringify(allFilters),
                     page: page,
-                    per_page: 10
+                    per_page: sublistPerPage(sublist),
                 },
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',

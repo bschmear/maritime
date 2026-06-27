@@ -9,6 +9,7 @@ import ApexPieChart from '@/Components/Charts/ApexPieChart.vue';
 import ApexLineChart from '@/Components/Charts/ApexLineChart.vue';
 import LeadPriorityKanban from '@/Components/Tenant/LeadPriorityKanban.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
+import { Deferred } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import axios from 'axios';
 
@@ -337,7 +338,16 @@ function switchToTable() {
         </template>
 
         <!-- Dashboard view -->
-        <div v-if="currentView === 'dashboard'" class="space-y-6">
+        <Deferred
+            v-if="currentView === 'dashboard'"
+            :data="['stats', 'charts', 'openLeads', 'kanbanLeads', 'assignableUsers', 'enumOptions']"
+        >
+            <template #fallback>
+                <div class="rounded-lg border border-gray-200 bg-white px-6 py-16 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                    Loading lead dashboard…
+                </div>
+            </template>
+        <div class="space-y-6">
             <div
                 v-if="statCardDefs.length"
                 class="grid grid-cols-2 gap-4 lg:grid-cols-4"
@@ -728,6 +738,7 @@ function switchToTable() {
                 </div>
             </div>
         </div>
+        </Deferred>
 
         <!-- Table view -->
         <Table

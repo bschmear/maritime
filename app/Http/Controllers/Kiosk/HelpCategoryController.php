@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Models\HelpCategory;
+use App\Support\Help\HelpPortalCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -53,6 +54,8 @@ class HelpCategoryController extends Controller
             HelpCategory::query()->whereKey($id)->update(['sort_order' => $index]);
         }
 
+        HelpPortalCache::forget();
+
         return back();
     }
 
@@ -80,6 +83,8 @@ class HelpCategoryController extends Controller
         }
 
         HelpCategory::create($validated);
+
+        HelpPortalCache::forget();
 
         return redirect()->route('kiosk.help-categories.index')
             ->with('success', 'Category created.');
@@ -110,6 +115,8 @@ class HelpCategoryController extends Controller
 
         $help_category->update($validated);
 
+        HelpPortalCache::forget();
+
         return redirect()->route('kiosk.help-categories.index')
             ->with('success', 'Category updated.');
     }
@@ -117,6 +124,8 @@ class HelpCategoryController extends Controller
     public function destroy(HelpCategory $help_category): RedirectResponse
     {
         $help_category->delete();
+
+        HelpPortalCache::forget();
 
         return redirect()->route('kiosk.help-categories.index')
             ->with('success', 'Category deleted.');

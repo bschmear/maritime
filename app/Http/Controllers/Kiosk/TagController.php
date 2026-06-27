@@ -1,8 +1,10 @@
 <?php
+
 namespace App\Http\Controllers\Kiosk;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tag;
+use App\Support\PublicPageCache;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -38,6 +40,8 @@ class TagController extends Controller
 
         Tag::create($validated);
 
+        PublicPageCache::forgetSitemap();
+
         return redirect()->route('kiosk.tags.index')
             ->with('success', 'Tag created successfully.');
     }
@@ -67,13 +71,15 @@ class TagController extends Controller
     public function update(Request $request, Tag $tag): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:tags,name,' . $tag->id,
+            'name' => 'required|string|max:255|unique:tags,name,'.$tag->id,
         ]);
 
         // Regenerate slug when name changes
         $validated['slug'] = Str::slug($validated['name']);
 
         $tag->update($validated);
+
+        PublicPageCache::forgetSitemap();
 
         return redirect()->route('kiosk.tags.index')
             ->with('success', 'Tag updated successfully.');
@@ -82,6 +88,8 @@ class TagController extends Controller
     public function destroy(Tag $tag): RedirectResponse
     {
         $tag->delete();
+
+        PublicPageCache::forgetSitemap();
 
         return redirect()->route('kiosk.tags.index')
             ->with('success', 'Tag deleted successfully.');

@@ -52,7 +52,8 @@
   "filters": [
     {
       "field": "make_id",
-      "label": "Brand"
+      "label": "Brand",
+      "sublist": false
     },
     {
       "field": "type",

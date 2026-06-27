@@ -176,10 +176,12 @@ const openNotificationDropdown = () => {
 };
 
 onMounted(() => {
-    // Clear old notification cache format
-    localStorage.removeItem(NOTIFICATIONS_CACHE_KEY);
-
     initTheme();
+    const cached = getCachedNotifications();
+    if (cached) {
+        notifications.value = cached;
+        return;
+    }
     fetchNotifications();
 });
 </script>
