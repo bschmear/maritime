@@ -1029,7 +1029,8 @@ class RecordController extends BaseController
                 }
             }
 
-            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema);
+            $partialUpdate = $request->ajax() && ! $request->header('X-Inertia');
+            $schemaFailure = $this->validateSchemaFormInput($data, $this->getFormSchema(), $fieldsSchema, $partialUpdate);
             if ($schemaFailure !== null) {
                 return $this->actionFailureResponse($request, $schemaFailure, $fieldsSchema, 'update');
             }

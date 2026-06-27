@@ -1320,12 +1320,12 @@ trait HasSchemaSupport
      * @param  array<string, mixed>  $data
      * @return array{success: false, message: string, errors: array<string, array<int, string>>}|null
      */
-    protected function validateSchemaFormInput(array $data, ?array $formSchema = null, ?array $fieldsSchema = null): ?array
+    protected function validateSchemaFormInput(array $data, ?array $formSchema = null, ?array $fieldsSchema = null, bool $partial = false): ?array
     {
         $fieldsSchema ??= $this->getUnwrappedFieldsSchema();
         $formSchema ??= $this->getFormSchema();
 
-        return SchemaFormValidator::validate($data, $formSchema, $fieldsSchema);
+        return SchemaFormValidator::validate($data, $formSchema, $fieldsSchema, $partial);
     }
 
     /**

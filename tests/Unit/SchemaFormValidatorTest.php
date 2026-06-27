@@ -229,4 +229,61 @@ class SchemaFormValidatorTest extends TestCase
         $this->assertNotNull($invalid);
         $this->assertArrayHasKey('status', $invalid['errors']);
     }
+
+    public function test_partial_update_only_validates_submitted_required_fields(): void
+    {
+        $fieldsSchema = [
+            'display_name' => [
+                'label' => 'Title',
+                'type' => 'text',
+                'required' => true,
+            ],
+            'status_id' => [
+                'label' => 'Status',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\Task\\TaskStatus',
+                'required' => true,
+            ],
+            'priority_id' => [
+                'label' => 'Priority',
+                'type' => 'select',
+                'enum' => 'App\\Enums\\Task\\TaskPriority',
+                'required' => true,
+            ],
+        ];
+
+        $formSchema = [
+            'form' => [
+                'task_details' => [
+                    'fields' => [
+                        ['key' => 'display_name', 'required' => true],
+                    ],
+                ],
+                'management' => [
+                    'fields' => [
+                        ['key' => 'status_id', 'required' => true],
+                        ['key' => 'priority_id', 'required' => true],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->assertNull(SchemaFormValidator::validate(
+            ['status_id' => 1],
+            $formSchema,
+            $fieldsSchema,
+            partial: true,
+        ));
+
+        $missingStatus = SchemaFormValidator::validate(
+            ['display_name' => ''],
+            $formSchema,
+            $fieldsSchema,
+            partial: true,
+        );
+
+        $this->assertNotNull($missingStatus);
+        $this->assertArrayHasKey('display_name', $missingStatus['errors']);
+        $this->assertArrayNotHasKey('priority_id', $missingStatus['errors']);
+    }
 }

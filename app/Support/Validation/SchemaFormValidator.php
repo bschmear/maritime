@@ -15,8 +15,9 @@ final class SchemaFormValidator
      * @param  array<string, array<string, mixed>>  $fieldsSchema
      * @return array{success: false, message: string, errors: array<string, array<int, string>>}|null
      */
-    public static function validate(array $data, ?array $formSchema, array $fieldsSchema): ?array
+    public static function validate(array $data, ?array $formSchema, array $fieldsSchema, bool $partial = false): ?array
     {
+        $originalData = $data;
         $data = self::mergeFieldDefaults($data, $formSchema, $fieldsSchema);
 
         $requiredKeys = self::collectRequiredKeys($formSchema, $fieldsSchema);
@@ -28,12 +29,20 @@ final class SchemaFormValidator
         $messages = [];
 
         foreach ($requiredKeys as $key) {
+            if ($partial && ! self::shouldValidatePartialKey($key, $originalData, $data, $fieldsSchema)) {
+                continue;
+            }
+
             $def = $fieldsSchema[$key] ?? [];
             $label = $def['label'] ?? Str::headline(str_replace('_', ' ', $key));
             $rules[$key] = self::rulesForRequired($def);
             $message = self::requiredMessage($label, $def);
             $messages["{$key}.required"] = $message;
             $messages["{$key}.filled"] = $message;
+        }
+
+        if ($rules === []) {
+            return null;
         }
 
         $validator = Validator::make($data, $rules, $messages);
@@ -72,6 +81,24 @@ final class SchemaFormValidator
         }
 
         return $data;
+    }
+
+    /**
+     * On partial updates, only validate required fields present in the request or filled from schema defaults.
+     *
+     * @param  array<string, mixed>  $originalData
+     * @param  array<string, mixed>  $data
+     * @param  array<string, array<string, mixed>>  $fieldsSchema
+     */
+    private static function shouldValidatePartialKey(string $key, array $originalData, array $data, array $fieldsSchema): bool
+    {
+        if (array_key_exists($key, $originalData)) {
+            return true;
+        }
+
+        $def = $fieldsSchema[$key] ?? [];
+
+        return array_key_exists('default', $def) && self::isPresentValue($data[$key] ?? null);
     }
 
     private static function isPresentValue(mixed $value): bool
