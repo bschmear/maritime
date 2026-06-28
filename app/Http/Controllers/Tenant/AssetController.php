@@ -22,12 +22,13 @@ use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Mail\CustomerAssetSpecSheetShareMail;
 use App\Models\AccountSettings;
-use App\Services\Asset\BoatSpecFillerService;
+// AI spec autofill (disabled — re-enable when ready)
+// use App\Services\Asset\BoatSpecFillerService;
 use App\Services\AssetDetailsAiService;
 use App\Services\AssetOptionResolver;
 use App\Services\Mail\TenantMailService;
-use App\Support\Asset\ApplyBoatSpecFillerResult;
-use App\Support\Asset\BoatSpecFillerContextBuilder;
+// use App\Support\Asset\ApplyBoatSpecFillerResult;
+// use App\Support\Asset\BoatSpecFillerContextBuilder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -730,6 +731,9 @@ class AssetController extends RecordController
         }
     }
 
+    /*
+     * AI spec autofill (disabled — re-enable routes + imports when ready)
+     *
     public function aiAutofillSpecs(Request $request, RecordModel $asset): JsonResponse
     {
         if ($asset->has_variants) {
@@ -842,6 +846,7 @@ class AssetController extends RecordController
             return response()->json(['message' => $e->getMessage()], 422);
         }
     }
+    */
 
     public function variantsDestroy(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse
     {

@@ -8,6 +8,8 @@ use App\Domain\AssetSpec\Models\AssetSpecDefinition;
 use App\Enums\Inventory\BoatType;
 use App\Enums\Inventory\HullMaterial;
 use App\Enums\Inventory\HullType;
+use App\Support\Asset\AssetInformationSpecLookup;
+use App\Support\Asset\BoatSpecFillerCache;
 use App\Support\Asset\BoatSpecFillerContextBuilder;
 use App\Support\OpenAi\OpenAiModelResolver;
 use App\Support\OpenAi\OpenAiRequestType;
@@ -36,13 +38,20 @@ final class BoatSpecFillerService
         $modelName = (string) $context['model_name'];
         $schemaHash = (string) $context['schema_hash'];
 
-        if (! $refresh) {
-            $cached = BoatSpecFillerCache::get($tenantId, $modelName, $schemaHash);
-            if (is_array($cached)) {
-                return $this->finalize($cached, $context, true);
-            }
-        } else {
+        if ($refresh) {
             BoatSpecFillerCache::forget($tenantId, $modelName, $schemaHash);
+        } else {
+            $cached = BoatSpecFillerCache::get($tenantId, $modelName, $schemaHash);
+            if (is_array($cached) && AssetInformationSpecLookup::resultHasValues($cached)) {
+                return $this->finalize($cached, $context, true, 'cache');
+            }
+
+            $catalogResult = AssetInformationSpecLookup::resolve($context);
+            if (is_array($catalogResult)) {
+                BoatSpecFillerCache::put($tenantId, $modelName, $schemaHash, $catalogResult);
+
+                return $this->finalize($catalogResult, $context, false, 'catalog');
+            }
         }
 
         $apiKey = config('openai.api_key') ?? env('OPENAI_API_KEY');
@@ -52,6 +61,8 @@ final class BoatSpecFillerService
 
         $userPayload = [
             'tenant_id' => $tenantId,
+            'make' => $context['make_label'] ?? null,
+            'model' => $context['model_label'] ?? null,
             'model_name' => $modelName,
             'spec_fields' => $context['spec_fields'],
         ];
@@ -59,7 +70,7 @@ final class BoatSpecFillerService
         $model = OpenAiModelResolver::resolve(OpenAiRequestType::BoatSpecs);
 
         try {
-            $response = OpenAI::chat()->create([
+            $response = OpenAI::chat()->create(OpenAiModelResolver::sanitizeChatPayload([
                 'model' => $model,
                 'response_format' => [
                     'type' => 'json_schema',
@@ -73,7 +84,7 @@ final class BoatSpecFillerService
                     ['role' => 'system', 'content' => $this->systemPrompt()],
                     ['role' => 'user', 'content' => json_encode($userPayload, JSON_THROW_ON_ERROR)],
                 ],
-            ]);
+            ]));
         } catch (\Throwable $e) {
             Log::error('BoatSpecFillerService OpenAI call failed', [
                 'model_name' => $modelName,
@@ -90,9 +101,11 @@ final class BoatSpecFillerService
         /** @var array<string, mixed> $decoded */
         $decoded = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
 
-        BoatSpecFillerCache::put($tenantId, $modelName, $schemaHash, $decoded);
+        if (AssetInformationSpecLookup::resultHasValues($decoded)) {
+            BoatSpecFillerCache::put($tenantId, $modelName, $schemaHash, $decoded);
+        }
 
-        return $this->finalize($decoded, $context, false);
+        return $this->finalize($decoded, $context, false, 'openai');
     }
 
     private function systemPrompt(): string
@@ -100,22 +113,18 @@ final class BoatSpecFillerService
         return <<<'PROMPT'
 You are agent "boat_spec_filler" v1.0.
 
-Rules (strict):
-- no_hallucination: true
-- no_guessing: true
-- no_external_inference: true
-- only_return_known_data: true
-- unknown_values: null
-- strict_schema_compliance: true
+Fill manufacturer-published specifications for the exact make and model in the user message.
 
-For each requested spec field in spec_fields:
-- Find verified manufacturer-level data only for the given model_name.
-- If not explicitly known from authoritative manufacturer/product documentation, return null.
-- Do NOT estimate, approximate, or infer from similar models.
-- If unit mismatch occurs, return null instead of converting.
-- If multiple conflicting values exist, return null.
+Rules:
+- Use official or widely published manufacturer specifications when available.
+- Return null for any field you cannot support with reasonable confidence.
+- Do not invent precise numbers; prefer null over guessing.
+- Numeric values must use the unit on each spec_fields entry (length and width are millimeters).
+- For fields with allowed_values, return the integer id from that list only.
+- For select fields with options, return the option value string exactly.
+- Convert published imperial measurements to the requested unit when the conversion is unambiguous.
 
-Set confidence 0-1 based on data certainty.
+Set confidence 0-1 based on certainty.
 Set data_source_type to manufacturer_verified, partial_knowledge, or unknown.
 
 Return JSON matching the output schema exactly.
@@ -163,7 +172,7 @@ PROMPT;
      * @param  array<string, mixed>  $context
      * @return array<string, mixed>
      */
-    private function finalize(array $aiResult, array $context, bool $cached): array
+    private function finalize(array $aiResult, array $context, bool $cached, string $source = 'openai'): array
     {
         /** @var array<string, mixed> $rawSpecs */
         $rawSpecs = is_array($aiResult['specs'] ?? null) ? $aiResult['specs'] : [];
@@ -190,6 +199,7 @@ PROMPT;
             'confidence' => (float) ($aiResult['confidence'] ?? 0),
             'data_source_type' => (string) ($aiResult['data_source_type'] ?? 'unknown'),
             'cached' => $cached,
+            'source' => $source,
             'preview_rows' => $previewRows,
             'spec_updates' => $specUpdates,
             'static_updates' => $staticUpdates,

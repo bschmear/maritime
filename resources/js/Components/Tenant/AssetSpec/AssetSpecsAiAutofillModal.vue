@@ -44,8 +44,11 @@ const reset = () => {
 const fetchSuggestions = async (refresh = false) => {
     loading.value = true;
     errorMessage.value = '';
+    if (refresh) {
+        result.value = null;
+    }
     try {
-        const { data } = await axios.post(props.suggestUrl, refresh ? { refresh: true } : {});
+        const { data } = await axios.post(props.suggestUrl, refresh ? { refresh: 1 } : {});
         result.value = data;
     } catch (e) {
         errorMessage.value = e.response?.data?.message ?? 'Could not autofill specifications.';
@@ -142,6 +145,18 @@ const handleApply = async () => {
                         class="inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
                     >
                         Cached result
+                    </span>
+                    <span
+                        v-else-if="result.source === 'catalog'"
+                        class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
+                    >
+                        Manufacturer catalog
+                    </span>
+                    <span
+                        v-else-if="result.source === 'openai'"
+                        class="inline-flex rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/40 dark:text-violet-200"
+                    >
+                        Fresh AI response
                     </span>
                 </div>
 

@@ -5,7 +5,8 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import AssetSpecSheetSendModal from '@/Components/Tenant/AssetSpecSheetSendModal.vue';
-import AssetSpecsAiAutofillModal from '@/Components/Tenant/AssetSpec/AssetSpecsAiAutofillModal.vue';
+// AI spec autofill (disabled — re-enable when ready)
+// import AssetSpecsAiAutofillModal from '@/Components/Tenant/AssetSpec/AssetSpecsAiAutofillModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -71,22 +72,22 @@ const props = defineProps({
 });
 
 const showSendSpecModal = ref(false);
-const showAiAutofillModal = ref(false);
+// const showAiAutofillModal = ref(false);
 
-const canAutofillSpecs = computed(() => {
-    const hv = props.record?.has_variants;
-    return !(hv === true || hv === 1 || hv === '1');
-});
+// const canAutofillSpecs = computed(() => {
+//     const hv = props.record?.has_variants;
+//     return !(hv === true || hv === 1 || hv === '1');
+// });
 
-const autofillModelName = computed(() => {
-    const parts = [
-        props.record?.make?.display_name ?? props.record?.make_display_name,
-        props.record?.model,
-        props.record?.year,
-    ].filter((v) => v != null && String(v).trim() !== '');
-    if (parts.length) return parts.join(' ');
-    return props.record?.display_name ?? '';
-});
+// const autofillModelName = computed(() => {
+//     const parts = [
+//         props.record?.make?.display_name ?? props.record?.make_display_name,
+//         props.record?.model,
+//         props.record?.year,
+//     ].filter((v) => v != null && String(v).trim() !== '');
+//     if (parts.length) return parts.join(' ');
+//     return props.record?.display_name ?? '';
+// });
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
@@ -213,6 +214,7 @@ const cancelDelete = () => {
                             <span class="material-icons text-base">forward_to_inbox</span>
                             Send specification sheets
                         </button>
+                        <!-- AI spec autofill (disabled — re-enable when ready)
                         <button
                             v-if="canAutofillSpecs"
                             type="button"
@@ -222,6 +224,7 @@ const cancelDelete = () => {
                             <span class="material-icons text-base">auto_awesome</span>
                             Autofill specs with AI
                         </button>
+                        -->
                         <Link
                             :href="route(
                                 `${recordType}.edit`,
@@ -289,6 +292,7 @@ const cancelDelete = () => {
             @close="showSendSpecModal = false"
         />
 
+        <!-- AI spec autofill (disabled — re-enable when ready)
         <AssetSpecsAiAutofillModal
             v-if="canAutofillSpecs"
             :show="showAiAutofillModal"
@@ -297,6 +301,7 @@ const cancelDelete = () => {
             :model-name="autofillModelName"
             @close="showAiAutofillModal = false"
         />
+        -->
 
         <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">
             <div class="p-6 text-center">

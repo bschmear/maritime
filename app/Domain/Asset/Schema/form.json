@@ -28,6 +28,12 @@
         },
         {
           "key": "default_price"
+        },
+        {
+          "key": "inactive"
+        },
+        {
+          "key": "description"
         }
       ]
     },
@@ -42,16 +48,6 @@
       "fields": [
         {
           "key": "inactive"
-        }
-      ]
-    },
-
-    "lifecycle": {
-      "label": "Lifecycle & Notes",
-      "fields": [
-
-        {
-          "key": "description"
         }
       ]
     }

@@ -644,14 +644,15 @@ Route::middleware([
             Route::get('/{asset}/spec-sheets/send-options', [AssetController::class, 'specSheetSendOptions'])->name('spec-sheets.send-options');
             Route::post('/{asset}/spec-sheets/send', [AssetController::class, 'sendSpecSheetsToCustomer'])->name('spec-sheets.send');
             Route::get('/{asset}/units', [AssetController::class, 'unitsIndex'])->name('units.index');
-            Route::post('/{asset}/ai-autofill-specs', [AssetController::class, 'aiAutofillSpecs'])->name('ai-autofill-specs');
-            Route::post('/{asset}/ai-autofill-specs/apply', [AssetController::class, 'applyAiAutofillSpecs'])->name('ai-autofill-specs.apply');
+            // AI spec autofill (disabled — re-enable when ready)
+            // Route::post('/{asset}/ai-autofill-specs', [AssetController::class, 'aiAutofillSpecs'])->name('ai-autofill-specs');
+            // Route::post('/{asset}/ai-autofill-specs/apply', [AssetController::class, 'applyAiAutofillSpecs'])->name('ai-autofill-specs.apply');
             Route::get('/{asset}/variants/select-form', [AssetController::class, 'variantsSelectForm'])->name('variants.select-form');
             Route::get('/{asset}/variants', [AssetController::class, 'variantsIndex'])->name('variants.index');
             Route::post('/{asset}/variants', [AssetController::class, 'variantsStore'])->name('variants.store');
             Route::get('/{asset}/variants/{variant}/edit', [AssetController::class, 'variantsEdit'])->name('variants.edit')->scopeBindings();
-            Route::post('/{asset}/variants/{variant}/ai-autofill-specs', [AssetController::class, 'aiAutofillVariantSpecs'])->name('variants.ai-autofill-specs');
-            Route::post('/{asset}/variants/{variant}/ai-autofill-specs/apply', [AssetController::class, 'applyAiAutofillVariantSpecs'])->name('variants.ai-autofill-specs.apply');
+            // Route::post('/{asset}/variants/{variant}/ai-autofill-specs', [AssetController::class, 'aiAutofillVariantSpecs'])->name('variants.ai-autofill-specs');
+            // Route::post('/{asset}/variants/{variant}/ai-autofill-specs/apply', [AssetController::class, 'applyAiAutofillVariantSpecs'])->name('variants.ai-autofill-specs.apply');
             Route::get('/{asset}/variants/{variant}', [AssetController::class, 'variantsShow'])->name('variants.show')->scopeBindings();
             Route::put('/{asset}/variants/{variant}', [AssetController::class, 'variantsUpdate'])->name('variants.update')->scopeBindings();
             Route::delete('/{asset}/variants/{variant}', [AssetController::class, 'variantsDestroy'])->name('variants.destroy')->scopeBindings();
