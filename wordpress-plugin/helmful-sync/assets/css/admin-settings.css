@@ -2,6 +2,21 @@
    Helmful Sync – Admin Settings
    ============================================================ */
 
+/* ── Autofill guard (decoy fields + credential inputs) ── */
+.helmful-autofill-guard {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.helmful-no-autofill[readonly] {
+    background-color: #fff;
+}
+
 /* ── Page wrapper ── */
 .helmful-sync-settings {
     max-width: 900px;
@@ -167,6 +182,17 @@
     font-size: 12px;
     color: #646970;
     margin-left: 0.5rem;
+}
+
+.helmful-sync-subheading {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #646970;
+    margin: 1.5rem 0 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid #ececec;
 }
 
 /* ── Layout picker ── */

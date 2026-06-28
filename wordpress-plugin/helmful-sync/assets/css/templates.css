@@ -68,6 +68,9 @@ body .helmful-boat-shows-shell .helmful-single-hero{
     border-radius: calc(var(--helmful-card-radius, 12px) + 4px);
     background: linear-gradient(135deg, #ffffff 0%, var(--helmful-surface, #f8f9fb) 100%);
     box-shadow: var(--helmful-card-shadow, 0 2px 8px rgba(16, 24, 40, 0.07));
+    position: relative;
+    top: 0;
+    z-index: 0;
 }
 
 body .helmful-boat-shows-shell .helmful-single-hero--event{

@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Helmful Sync
  * Description: Sync boat shows, brands, and inventory from Helmful to WordPress.
- * Version: 1.6.0
+ * Version: 1.7.0
  * Author: Helmful
  * Requires at least: 6.0
  * Requires PHP: 8.1
@@ -16,7 +16,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('HELMFUL_SYNC_VERSION', '1.6.0');
+define('HELMFUL_SYNC_VERSION', '1.7.0');
 define('HELMFUL_SYNC_PATH', plugin_dir_path(__FILE__));
 define('HELMFUL_SYNC_URL', plugin_dir_url(__FILE__));
 define('HELMFUL_SYNC_BASENAME', plugin_basename(__FILE__));

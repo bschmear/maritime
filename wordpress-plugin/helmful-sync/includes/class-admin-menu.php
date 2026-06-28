@@ -50,7 +50,7 @@ final class Helmful_Sync_Admin_Menu
             __('Brands', 'helmful-sync'),
             __('Brands', 'helmful-sync'),
             'edit_posts',
-            'edit.php?post_type='.Helmful_Sync_CPT::BRAND_POST_TYPE,
+            Helmful_Sync_CPT::brands_admin_menu_slug(),
         );
 
         add_submenu_page(
@@ -83,7 +83,7 @@ final class Helmful_Sync_Admin_Menu
             ],
             [
                 'label' => __('Brands', 'helmful-sync'),
-                'url' => admin_url('edit.php?post_type='.Helmful_Sync_CPT::BRAND_POST_TYPE),
+                'url' => Helmful_Sync_CPT::brands_admin_url(),
                 'description' => __('Boat makes and brand logos synced from Helmful.', 'helmful-sync'),
             ],
             [
@@ -123,6 +123,10 @@ final class Helmful_Sync_Admin_Menu
             return null;
         }
 
+        if (self::is_brand_taxonomy_screen()) {
+            return self::MENU_SLUG;
+        }
+
         if ($pagenow !== 'edit.php' && $pagenow !== 'post.php' && $pagenow !== 'post-new.php') {
             if ($pagenow === 'admin.php' && isset($_GET['page']) && $_GET['page'] === 'helmful-sync') {
                 return self::MENU_SLUG;
@@ -134,7 +138,6 @@ final class Helmful_Sync_Admin_Menu
         $helmfulTypes = [
             Helmful_Sync_CPT::SHOW_POST_TYPE,
             Helmful_Sync_CPT::EVENT_POST_TYPE,
-            Helmful_Sync_CPT::BRAND_POST_TYPE,
             Helmful_Sync_CPT::INVENTORY_POST_TYPE,
         ];
 
@@ -153,6 +156,10 @@ final class Helmful_Sync_Admin_Menu
             return null;
         }
 
+        if (self::is_brand_taxonomy_screen()) {
+            return Helmful_Sync_CPT::brands_admin_menu_slug();
+        }
+
         if ($pagenow !== 'edit.php' && $pagenow !== 'post.php' && $pagenow !== 'post-new.php') {
             if ($pagenow === 'admin.php' && isset($_GET['page']) && $_GET['page'] === 'helmful-sync') {
                 return 'helmful-sync';
@@ -164,9 +171,21 @@ final class Helmful_Sync_Admin_Menu
         return match ($typenow) {
             Helmful_Sync_CPT::SHOW_POST_TYPE => 'edit.php?post_type='.Helmful_Sync_CPT::SHOW_POST_TYPE,
             Helmful_Sync_CPT::EVENT_POST_TYPE => 'edit.php?post_type='.Helmful_Sync_CPT::EVENT_POST_TYPE,
-            Helmful_Sync_CPT::BRAND_POST_TYPE => 'edit.php?post_type='.Helmful_Sync_CPT::BRAND_POST_TYPE,
             Helmful_Sync_CPT::INVENTORY_POST_TYPE => 'edit.php?post_type='.Helmful_Sync_CPT::INVENTORY_POST_TYPE,
             default => $submenuFile,
         };
+    }
+
+    private static function is_brand_taxonomy_screen(): bool
+    {
+        global $pagenow;
+
+        if ($pagenow !== 'edit-tags.php' && $pagenow !== 'term.php') {
+            return false;
+        }
+
+        $taxonomy = isset($_GET['taxonomy']) ? sanitize_key(wp_unslash((string) $_GET['taxonomy'])) : '';
+
+        return $taxonomy === Helmful_Sync_CPT::BRAND_TAXONOMY;
     }
 }

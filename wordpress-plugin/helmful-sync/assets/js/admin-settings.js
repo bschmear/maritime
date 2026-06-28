@@ -32,10 +32,24 @@
         }
     }
 
+    function preventCredentialAutofill() {
+        $('.helmful-no-autofill').each(function () {
+            const $field = $(this);
+            $field.prop('readonly', true);
+            $field.on('focus', function unlock() {
+                $field.prop('readonly', false);
+                $field.off('focus', unlock);
+            });
+        });
+    }
+
     $(function () {
         showPanel(activeTab());
+        preventCredentialAutofill();
 
         $('.helmful-admin-tabs .nav-tab').on('click', function (event) {
+            event.preventDefault();
+
             const tab = $(this).data('tab');
             if (!tab) {
                 return;

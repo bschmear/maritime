@@ -150,6 +150,7 @@ final class Helmful_Sync_REST_API
 
             return new WP_REST_Response([
                 'success' => true,
+                'term_id' => $postId,
                 'post_id' => $postId,
             ]);
         } catch (Throwable $e) {

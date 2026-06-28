@@ -222,8 +222,8 @@ function copyText(text) {
                     <strong>Helmful Sync</strong>. Then configure it under Settings → Helmful Sync.
                 </p>
                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    After saving settings here, use <strong>Push all to WordPress</strong> below or
-                    <strong>Pull from Helmful</strong> in WordPress admin to sync boat shows.
+                    After saving settings here, use <strong>Push all to WordPress</strong> below or the pull buttons
+                    in WordPress admin (boat shows &amp; events, brands, inventory) to sync content.
                 </p>
             </section>
 
@@ -237,7 +237,7 @@ function copyText(text) {
                     <div>
                         <dt class="font-medium text-gray-700 dark:text-gray-300">Tenant domain</dt>
                         <dd class="mt-1 flex items-center gap-2">
-                            <code class="rounded bg-gray-100 px-2 py-1 dark:bg-gray-900">{{ tenantDomain || '—' }}</code>
+                            <code class="rounded bg-gray-100 px-2 py-1 dark:bg-gray-900 dark:text-white">{{ tenantDomain || '—' }}</code>
                             <button
                                 v-if="tenantDomain"
                                 type="button"
@@ -283,7 +283,7 @@ function copyText(text) {
 
             <section class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">WordPress site</h3>
-                <form class="mt-4 space-y-4" @submit.prevent="saveSettings">
+                <form class="mt-4 space-y-4" autocomplete="off" @submit.prevent="saveSettings">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">WordPress site URL</label>
                         <input
@@ -291,7 +291,12 @@ function copyText(text) {
                             type="url"
                             required
                             placeholder="https://example.com"
-                            class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-900"
+                            class="input-style mt-1"
+                            autocomplete="off"
+                            autocapitalize="off"
+                            spellcheck="false"
+                            data-lpignore="true"
+                            data-1p-ignore
                         />
                         <p v-if="form.errors.wordpress_url" class="mt-1 text-sm text-red-600">{{ form.errors.wordpress_url }}</p>
                     </div>
@@ -312,7 +317,10 @@ function copyText(text) {
                                 type="password"
                                 :required="!isConnected || replacingWpKey"
                                 :placeholder="isConnected ? 'Paste new WordPress API key' : 'From WordPress plugin settings'"
-                                class="mt-1 w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-900"
+                                class="input-style mt-1"
+                                autocomplete="new-password"
+                                data-lpignore="true"
+                                data-1p-ignore
                             />
                             <button
                                 v-if="isConnected && replacingWpKey"
@@ -326,7 +334,11 @@ function copyText(text) {
                         <p v-if="form.errors.wordpress_api_key" class="mt-1 text-sm text-red-600">{{ form.errors.wordpress_api_key }}</p>
                     </div>
                     <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        <input v-model="form.auto_push_enabled" type="checkbox" class="rounded border-gray-300" />
+                        <input
+                            v-model="form.auto_push_enabled"
+                            type="checkbox"
+                            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                        />
                         Auto-push boat shows and events when saved in Helmful
                     </label>
                     <button
@@ -345,7 +357,7 @@ function copyText(text) {
             >
                 <h3 class="text-base font-semibold text-gray-900 dark:text-white">Sync</h3>
                 <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Push all boat shows and events from Helmful to WordPress, or pull from Helmful in the WordPress plugin.
+                    Push boat shows and events from Helmful to WordPress, or use the separate pull buttons in the WordPress plugin.
                 </p>
                 <div class="mt-4 flex flex-wrap gap-3">
                     <button

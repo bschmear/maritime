@@ -131,34 +131,37 @@ final class Helmful_Sync_Handler
             throw new InvalidArgumentException('Brand uuid is required.');
         }
 
-        $postId = self::find_post_id(Helmful_Sync_CPT::BRAND_POST_TYPE, $uuid);
+        $termId = self::term_id_for_uuid(Helmful_Sync_CPT::BRAND_TAXONOMY, $uuid);
         $active = (bool) ($payload['active'] ?? true);
         $slug = self::string($payload['slug'] ?? '');
-        $postData = [
-            'post_type' => Helmful_Sync_CPT::BRAND_POST_TYPE,
-            'post_title' => self::string($payload['display_name'] ?? 'Brand'),
-            'post_content' => '',
-            'post_status' => $active ? 'publish' : 'draft',
+        $name = self::string($payload['display_name'] ?? 'Brand');
+        $termSlug = $slug !== '' ? sanitize_title($slug) : sanitize_title($name);
+
+        $termArgs = [
+            'name' => $name,
+            'slug' => $termSlug,
         ];
 
-        if ($slug !== '') {
-            $postData['post_name'] = sanitize_title($slug);
-        }
-
-        if ($postId > 0) {
-            $postData['ID'] = $postId;
-            $postId = (int) wp_update_post($postData, true);
+        if ($termId > 0) {
+            $result = wp_update_term($termId, Helmful_Sync_CPT::BRAND_TAXONOMY, $termArgs);
         } else {
-            $postId = (int) wp_insert_post($postData, true);
+            $result = wp_insert_term($name, Helmful_Sync_CPT::BRAND_TAXONOMY, [
+                'slug' => $termSlug,
+            ]);
         }
 
-        if (is_wp_error($postId)) {
-            throw new RuntimeException($postId->get_error_message());
+        if (is_wp_error($result)) {
+            throw new RuntimeException($result->get_error_message());
         }
 
-        self::save_meta($postId, $payload, [
+        $termId = $termId > 0 ? $termId : (int) ($result['term_id'] ?? 0);
+        if ($termId <= 0) {
+            throw new RuntimeException('Unable to save brand term.');
+        }
+
+        self::save_term_meta($termId, [
             'helmful_uuid' => $uuid,
-            'helmful_slug' => $slug,
+            'helmful_slug' => $slug !== '' ? $slug : $termSlug,
             'helmful_brand_key' => self::string($payload['brand_key'] ?? ''),
             'helmful_logo_url' => esc_url_raw(self::string($payload['logo_url'] ?? '')),
             'helmful_app_brand_url' => self::string($payload['app_brand_url'] ?? ''),
@@ -167,7 +170,7 @@ final class Helmful_Sync_Handler
             'helmful_last_synced_at' => gmdate('c'),
         ]);
 
-        return $postId;
+        return $termId;
     }
 
     /**
@@ -207,15 +210,15 @@ final class Helmful_Sync_Handler
         }
 
         $brandUuid = self::string($payload['brand_uuid'] ?? '');
-        $brandPostId = $brandUuid !== ''
-            ? self::post_id_for_uuid(Helmful_Sync_CPT::BRAND_POST_TYPE, $brandUuid)
+        $brandTermId = $brandUuid !== ''
+            ? self::term_id_for_uuid(Helmful_Sync_CPT::BRAND_TAXONOMY, $brandUuid)
             : 0;
 
         self::save_meta($postId, $payload, [
             'helmful_uuid' => $uuid,
             'helmful_slug' => $slug,
             'helmful_brand_uuid' => $brandUuid,
-            'helmful_brand_post_id' => $brandPostId > 0 ? (string) $brandPostId : '',
+            'helmful_brand_term_id' => $brandTermId > 0 ? (string) $brandTermId : '',
             'helmful_brand_name' => self::string($payload['brand_name'] ?? ''),
             'helmful_brand_slug' => self::string($payload['brand_slug'] ?? ''),
             'helmful_model' => self::string($payload['model'] ?? ''),
@@ -228,6 +231,12 @@ final class Helmful_Sync_Handler
             'helmful_updated_at' => self::string($payload['updated_at'] ?? ''),
             'helmful_last_synced_at' => gmdate('c'),
         ]);
+
+        if ($brandTermId > 0) {
+            wp_set_object_terms($postId, [$brandTermId], Helmful_Sync_CPT::BRAND_TAXONOMY, false);
+        } else {
+            wp_set_object_terms($postId, [], Helmful_Sync_CPT::BRAND_TAXONOMY, false);
+        }
 
         return $postId;
     }
@@ -280,6 +289,62 @@ final class Helmful_Sync_Handler
         ]);
 
         return isset($posts[0]) ? (int) $posts[0] : 0;
+    }
+
+    public static function term_id_for_uuid(string $taxonomy, string $uuid): int
+    {
+        if ($uuid === '') {
+            return 0;
+        }
+
+        $terms = get_terms([
+            'taxonomy' => $taxonomy,
+            'hide_empty' => false,
+            'number' => 1,
+            'meta_query' => [
+                [
+                    'key' => 'helmful_uuid',
+                    'value' => $uuid,
+                ],
+            ],
+        ]);
+
+        if (! is_array($terms) || $terms === [] || ! $terms[0] instanceof WP_Term) {
+            return 0;
+        }
+
+        return (int) $terms[0]->term_id;
+    }
+
+    public static function copy_brand_meta_from_post(int $postId, int $termId): void
+    {
+        $keys = [
+            'helmful_uuid',
+            'helmful_slug',
+            'helmful_brand_key',
+            'helmful_logo_url',
+            'helmful_app_brand_url',
+            'helmful_active',
+            'helmful_updated_at',
+            'helmful_last_synced_at',
+        ];
+
+        foreach ($keys as $key) {
+            $value = get_post_meta($postId, $key, true);
+            if ($value !== '' && $value !== false) {
+                update_term_meta($termId, $key, $value);
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $meta
+     */
+    private static function save_term_meta(int $termId, array $meta): void
+    {
+        foreach ($meta as $key => $value) {
+            update_term_meta($termId, $key, $value);
+        }
     }
 
     /**

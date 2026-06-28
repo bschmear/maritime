@@ -30,6 +30,10 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
 
 ?>
 <div class="wrap helmful-sync-settings">
+    <style>
+        .helmful-sync-settings .helmful-admin-panel { display: none; }
+        .helmful-sync-settings .helmful-admin-panel.is-active { display: block; }
+    </style>
     <h1><?php esc_html_e('Helmful Sync', 'helmful-sync'); ?></h1>
     <p><?php esc_html_e('Connect WordPress to Helmful, sync boat shows, brands, and inventory, and control how they appear on your site.', 'helmful-sync'); ?></p>
 
@@ -63,22 +67,59 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
             <h2><?php esc_html_e('Helmful credentials', 'helmful-sync'); ?></h2>
             <p><?php esc_html_e('Your workspace domain and API key from the Helmful integrations page.', 'helmful-sync'); ?></p>
 
-            <form method="post" action="options.php">
+            <form method="post" action="options.php" autocomplete="off">
                 <?php settings_fields('helmful_sync'); ?>
                 <input type="hidden" name="helmful_active_tab" value="connection">
+                <!-- Absorb browser/password-manager autofill on fresh install -->
+                <div class="helmful-autofill-guard" aria-hidden="true">
+                    <input type="text" name="helmful_autofill_trap_user" tabindex="-1" autocomplete="username">
+                    <input type="password" name="helmful_autofill_trap_pass" tabindex="-1" autocomplete="current-password">
+                </div>
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row"><label for="tenant_domain"><?php esc_html_e('Tenant domain', 'helmful-sync'); ?></label></th>
                         <td>
-                            <input name="helmful_sync_settings[tenant_domain]" id="tenant_domain" type="text" class="regular-text" value="<?php echo esc_attr($settings['tenant_domain'] ?? ''); ?>" placeholder="762332.maritime.test" />
+                            <input
+                                name="helmful_sync_settings[tenant_domain]"
+                                id="tenant_domain"
+                                type="text"
+                                class="regular-text helmful-no-autofill"
+                                value="<?php echo esc_attr($settings['tenant_domain'] ?? ''); ?>"
+                                placeholder="123456.helmful.com"
+                                autocomplete="off"
+                                autocapitalize="off"
+                                autocorrect="off"
+                                spellcheck="false"
+                                data-lpignore="true"
+                                data-1p-ignore
+                            />
                             <p class="description"><?php esc_html_e('For local sites, use the domain only — no https:// prefix.', 'helmful-sync'); ?></p>
                         </td>
                     </tr>
                     <tr>
                         <th scope="row"><label for="helmful_api_key"><?php esc_html_e('API key', 'helmful-sync'); ?></label></th>
                         <td>
-                            <input name="helmful_sync_settings[helmful_api_key]" id="helmful_api_key" type="password" class="regular-text" value="<?php echo esc_attr($settings['helmful_api_key'] ?? ''); ?>" autocomplete="off" />
-                            <p class="description"><?php esc_html_e('Generated on the Helmful WordPress integration page.', 'helmful-sync'); ?></p>
+                            <?php
+                            $hasHelmfulApiKey = trim((string) ($settings['helmful_api_key'] ?? '')) !== '';
+                            ?>
+                            <input
+                                name="helmful_sync_settings[helmful_api_key]"
+                                id="helmful_api_key"
+                                type="password"
+                                class="regular-text helmful-no-autofill"
+                                value=""
+                                placeholder="<?php echo $hasHelmfulApiKey
+                                    ? esc_attr__('Saved — enter a new key only to replace', 'helmful-sync')
+                                    : esc_attr__('Paste the key from Helmful', 'helmful-sync'); ?>"
+                                autocomplete="new-password"
+                                data-lpignore="true"
+                                data-1p-ignore
+                            />
+                            <?php if ($hasHelmfulApiKey) { ?>
+                                <p class="description"><?php esc_html_e('An API key is saved. Leave this field blank to keep it.', 'helmful-sync'); ?></p>
+                            <?php } else { ?>
+                                <p class="description"><?php esc_html_e('Generated on the Helmful WordPress integration page.', 'helmful-sync'); ?></p>
+                            <?php } ?>
                         </td>
                     </tr>
                 </table>
@@ -111,7 +152,7 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
         <!-- Sync -->
         <div class="helmful-section">
             <h2><?php esc_html_e('Sync', 'helmful-sync'); ?></h2>
-            <p><?php esc_html_e('Pull boat shows, events, brands, and inventory from Helmful into WordPress, or test that the connection is working.', 'helmful-sync'); ?></p>
+            <p><?php esc_html_e('Pull content from Helmful into WordPress, or test that the connection is working.', 'helmful-sync'); ?></p>
 
             <?php if ($lastPull !== '') { ?>
                 <p class="description" style="margin-bottom:1rem;"><?php echo esc_html(sprintf(__('Last pull: %s', 'helmful-sync'), $lastPull)); ?></p>
@@ -124,12 +165,31 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                     <input type="hidden" name="helmful_active_tab" value="connection">
                     <?php submit_button(__('Test connection', 'helmful-sync'), 'secondary', 'submit', false); ?>
                 </form>
+            </div>
+
+            <h3 class="helmful-sync-subheading"><?php esc_html_e('Pull from Helmful', 'helmful-sync'); ?></h3>
+            <p class="description"><?php esc_html_e('Sync each content type separately. Brands should be pulled before inventory if you use brand filters on your site.', 'helmful-sync'); ?></p>
+
+            <div class="helmful-action-row">
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <?php wp_nonce_field('helmful_sync_pull_boat_shows'); ?>
+                    <input type="hidden" name="action" value="helmful_sync_pull_boat_shows">
+                    <input type="hidden" name="helmful_active_tab" value="connection">
+                    <?php submit_button(__('Pull boat shows & events', 'helmful-sync'), 'primary', 'submit', false); ?>
+                </form>
 
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                    <?php wp_nonce_field('helmful_sync_pull'); ?>
-                    <input type="hidden" name="action" value="helmful_sync_pull">
+                    <?php wp_nonce_field('helmful_sync_pull_brands'); ?>
+                    <input type="hidden" name="action" value="helmful_sync_pull_brands">
                     <input type="hidden" name="helmful_active_tab" value="connection">
-                    <?php submit_button(__('Pull from Helmful', 'helmful-sync'), 'primary', 'submit', false); ?>
+                    <?php submit_button(__('Pull brands', 'helmful-sync'), 'secondary', 'submit', false); ?>
+                </form>
+
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <?php wp_nonce_field('helmful_sync_pull_inventory'); ?>
+                    <input type="hidden" name="action" value="helmful_sync_pull_inventory">
+                    <input type="hidden" name="helmful_active_tab" value="connection">
+                    <?php submit_button(__('Pull inventory', 'helmful-sync'), 'secondary', 'submit', false); ?>
                 </form>
             </div>
         </div>

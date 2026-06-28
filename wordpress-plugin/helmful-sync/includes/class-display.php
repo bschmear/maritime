@@ -1246,11 +1246,11 @@ final class Helmful_Sync_Display
 
             if ($meta['logo_url'] !== '') {
                 echo '<div class="helmful-brand-card__logo">';
-                self::render_image($meta['logo_url'], get_the_title($brand), 'helmful-brand-card__logo-img');
+                self::render_image($meta['logo_url'], $brand->name, 'helmful-brand-card__logo-img');
                 echo '</div>';
             }
 
-            echo '<h3 class="helmful-brand-card__title">'.esc_html(get_the_title($brand)).'</h3>';
+            echo '<h3 class="helmful-brand-card__title">'.esc_html($brand->name).'</h3>';
             echo $filterUrl !== '' ? '</a>' : '</div>';
             echo '</article>';
         }
@@ -1309,7 +1309,7 @@ final class Helmful_Sync_Display
                 $url = add_query_arg('helmful_brand', $meta['slug'], remove_query_arg('helmful_brand', $baseUrl));
 
                 echo '<li class="helmful-inventory-filter__item'.($isActive ? ' is-active' : '').'">';
-                echo '<a href="'.esc_url($url).'">'.esc_html(get_the_title($brand)).'</a>';
+                echo '<a href="'.esc_url($url).'">'.esc_html($brand->name).'</a>';
                 echo '</li>';
             }
 
@@ -1336,26 +1336,43 @@ final class Helmful_Sync_Display
 
     /**
      * @param  array<string, string>  $filters
-     * @return list<WP_Post>
+     * @return list<WP_Term>
      */
     public static function query_brands(array $filters): array
     {
         $args = [
-            'post_type' => Helmful_Sync_CPT::BRAND_POST_TYPE,
-            'post_status' => 'publish',
-            'numberposts' => -1,
-            'orderby' => 'title',
+            'taxonomy' => Helmful_Sync_CPT::BRAND_TAXONOMY,
+            'hide_empty' => false,
+            'orderby' => 'name',
             'order' => 'ASC',
+            'meta_query' => [
+                'relation' => 'OR',
+                [
+                    'key' => 'helmful_active',
+                    'value' => '1',
+                ],
+                [
+                    'key' => 'helmful_active',
+                    'compare' => 'NOT EXISTS',
+                ],
+            ],
         ];
 
         $limit = (int) ($filters['limit'] ?? 0);
         if ($limit > 0) {
-            $args['numberposts'] = $limit;
+            $args['number'] = $limit;
         }
 
-        $posts = get_posts($args);
+        $terms = get_terms($args);
 
-        return is_array($posts) ? $posts : [];
+        if (! is_array($terms)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $terms,
+            static fn ($term): bool => $term instanceof WP_Term,
+        ));
     }
 
     /**
@@ -1379,17 +1396,28 @@ final class Helmful_Sync_Display
 
         $brand = sanitize_text_field($filters['brand'] ?? '');
         if ($brand !== '') {
-            $args['meta_query'] = [
-                'relation' => 'OR',
-                [
-                    'key' => 'helmful_brand_slug',
-                    'value' => $brand,
-                ],
-                [
-                    'key' => 'helmful_brand_uuid',
-                    'value' => $brand,
-                ],
-            ];
+            $termIds = self::brand_term_ids_for_filter($brand);
+            if ($termIds !== []) {
+                $args['tax_query'] = [
+                    [
+                        'taxonomy' => Helmful_Sync_CPT::BRAND_TAXONOMY,
+                        'field' => 'term_id',
+                        'terms' => $termIds,
+                    ],
+                ];
+            } else {
+                $args['meta_query'] = [
+                    'relation' => 'OR',
+                    [
+                        'key' => 'helmful_brand_slug',
+                        'value' => $brand,
+                    ],
+                    [
+                        'key' => 'helmful_brand_uuid',
+                        'value' => $brand,
+                    ],
+                ];
+            }
         }
 
         $posts = get_posts($args);
@@ -1400,13 +1428,30 @@ final class Helmful_Sync_Display
     /**
      * @return array{uuid: string, slug: string, logo_url: string}
      */
-    private static function brand_meta(WP_Post $brand): array
+    private static function brand_meta(WP_Term $brand): array
     {
+        $storedSlug = (string) get_term_meta($brand->term_id, 'helmful_slug', true);
+
         return [
-            'uuid' => (string) get_post_meta($brand->ID, 'helmful_uuid', true),
-            'slug' => (string) get_post_meta($brand->ID, 'helmful_slug', true),
-            'logo_url' => esc_url((string) get_post_meta($brand->ID, 'helmful_logo_url', true)),
+            'uuid' => (string) get_term_meta($brand->term_id, 'helmful_uuid', true),
+            'slug' => $storedSlug !== '' ? $storedSlug : $brand->slug,
+            'logo_url' => esc_url((string) get_term_meta($brand->term_id, 'helmful_logo_url', true)),
         ];
+    }
+
+    /**
+     * @return list<int>
+     */
+    private static function brand_term_ids_for_filter(string $brand): array
+    {
+        $term = get_term_by('slug', $brand, Helmful_Sync_CPT::BRAND_TAXONOMY);
+        if ($term instanceof WP_Term) {
+            return [(int) $term->term_id];
+        }
+
+        $termId = Helmful_Sync_Handler::term_id_for_uuid(Helmful_Sync_CPT::BRAND_TAXONOMY, $brand);
+
+        return $termId > 0 ? [$termId] : [];
     }
 
     /**

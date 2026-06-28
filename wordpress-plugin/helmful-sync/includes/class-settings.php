@@ -17,14 +17,16 @@ final class Helmful_Sync_Settings
         add_action('admin_init', [self::class, 'register_settings']);
         add_action('admin_init', [self::class, 'redirect_after_settings_save']);
         add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
-        add_action('admin_post_helmful_sync_pull', [self::class, 'handle_pull']);
+        add_action('admin_post_helmful_sync_pull_boat_shows', [self::class, 'handle_pull_boat_shows']);
+        add_action('admin_post_helmful_sync_pull_brands', [self::class, 'handle_pull_brands']);
+        add_action('admin_post_helmful_sync_pull_inventory', [self::class, 'handle_pull_inventory']);
         add_action('admin_post_helmful_sync_test', [self::class, 'handle_test']);
         add_action('admin_post_helmful_sync_generate_key', [self::class, 'handle_generate_key']);
     }
 
     public static function enqueue_admin_assets(string $hook): void
     {
-        if ($hook !== 'helmful-sync-hub_page_helmful-sync') {
+        if (! self::is_settings_screen($hook)) {
             return;
         }
 
@@ -51,6 +53,29 @@ final class Helmful_Sync_Settings
             HELMFUL_SYNC_VERSION,
             true,
         );
+    }
+
+    private static function is_settings_screen(?string $hook = null): bool
+    {
+        if (! is_admin()) {
+            return false;
+        }
+
+        $page = isset($_GET['page']) ? sanitize_key((string) wp_unslash($_GET['page'])) : '';
+
+        if ($page === 'helmful-sync') {
+            return true;
+        }
+
+        if ($hook === null) {
+            return false;
+        }
+
+        return in_array($hook, [
+            'helmful-sync-hub_page_helmful-sync',
+            'toplevel_page_helmful-sync',
+            'helmful-sync_page_helmful-sync',
+        ], true);
     }
 
     /**
@@ -107,7 +132,7 @@ final class Helmful_Sync_Settings
 
         $output = [
             'tenant_domain' => sanitize_text_field((string) ($input['tenant_domain'] ?? $current['tenant_domain'] ?? '')),
-            'helmful_api_key' => sanitize_text_field((string) ($input['helmful_api_key'] ?? $current['helmful_api_key'] ?? '')),
+            'helmful_api_key' => self::sanitize_helmful_api_key($input, $current),
             'api_key' => (string) ($current['api_key'] ?? ''),
         ];
 
@@ -127,6 +152,24 @@ final class Helmful_Sync_Settings
         }
 
         return $output;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $current
+     */
+    private static function sanitize_helmful_api_key(array $input, array $current): string
+    {
+        if (! array_key_exists('helmful_api_key', $input)) {
+            return (string) ($current['helmful_api_key'] ?? '');
+        }
+
+        $submitted = trim(sanitize_text_field((string) $input['helmful_api_key']));
+        if ($submitted === '') {
+            return (string) ($current['helmful_api_key'] ?? '');
+        }
+
+        return $submitted;
     }
 
     public static function redirect_after_settings_save(): void
@@ -189,10 +232,24 @@ final class Helmful_Sync_Settings
         include HELMFUL_SYNC_PATH.'admin/settings-page.php';
     }
 
-    public static function handle_pull(): void
+    public static function handle_pull_boat_shows(): void
     {
-        self::assert_admin_post('helmful_sync_pull');
-        $result = Helmful_Sync_Importer::pull_all();
+        self::assert_admin_post('helmful_sync_pull_boat_shows');
+        $result = Helmful_Sync_Importer::pull_boat_shows();
+        self::redirect_with_message($result['message'], ! ($result['success'] ?? false));
+    }
+
+    public static function handle_pull_brands(): void
+    {
+        self::assert_admin_post('helmful_sync_pull_brands');
+        $result = Helmful_Sync_Importer::pull_brands();
+        self::redirect_with_message($result['message'], ! ($result['success'] ?? false));
+    }
+
+    public static function handle_pull_inventory(): void
+    {
+        self::assert_admin_post('helmful_sync_pull_inventory');
+        $result = Helmful_Sync_Importer::pull_inventory();
         self::redirect_with_message($result['message'], ! ($result['success'] ?? false));
     }
 
