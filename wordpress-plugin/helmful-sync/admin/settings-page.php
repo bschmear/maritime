@@ -7,10 +7,10 @@ if (! defined('ABSPATH')) {
 }
 
 $layoutDescriptions = [
-    Helmful_Sync_Display::LAYOUT_STACKED   => __('Full-width cards with nested events.', 'helmful-sync'),
-    Helmful_Sync_Display::LAYOUT_GRID      => __('Responsive multi-column card grid.', 'helmful-sync'),
-    Helmful_Sync_Display::LAYOUT_TIMELINE  => __('Events ordered by date on a timeline.', 'helmful-sync'),
-    Helmful_Sync_Display::LAYOUT_COMPACT   => __('Dense table-style rows for scanning.', 'helmful-sync'),
+    Helmful_Sync_Display::LAYOUT_STACKED => __('Full-width cards with nested events.', 'helmful-sync'),
+    Helmful_Sync_Display::LAYOUT_GRID => __('Responsive multi-column card grid.', 'helmful-sync'),
+    Helmful_Sync_Display::LAYOUT_TIMELINE => __('Events ordered by date on a timeline.', 'helmful-sync'),
+    Helmful_Sync_Display::LAYOUT_COMPACT => __('Dense table-style rows for scanning.', 'helmful-sync'),
 ];
 
 $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): string {
@@ -25,21 +25,21 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
         $args['helmful_new_key'] = $revealedKey;
     }
 
-    return add_query_arg($args, admin_url('options-general.php'));
+    return add_query_arg($args, admin_url('admin.php?page=helmful-sync'));
 };
 
 ?>
 <div class="wrap helmful-sync-settings">
     <h1><?php esc_html_e('Helmful Sync', 'helmful-sync'); ?></h1>
-    <p><?php esc_html_e('Connect WordPress to Helmful, sync boat shows, and control how they appear on your site.', 'helmful-sync'); ?></p>
+    <p><?php esc_html_e('Connect WordPress to Helmful, sync boat shows, brands, and inventory, and control how they appear on your site.', 'helmful-sync'); ?></p>
 
-    <?php if ($notice !== '') : ?>
+    <?php if ($notice !== '') { ?>
         <div class="notice notice-success is-dismissible"><p><?php echo esc_html($notice); ?></p></div>
-    <?php endif; ?>
+    <?php } ?>
 
-    <?php if ($error !== '') : ?>
+    <?php if ($error !== '') { ?>
         <div class="notice notice-error is-dismissible"><p><?php echo esc_html($error); ?></p></div>
-    <?php endif; ?>
+    <?php } ?>
 
     <nav class="nav-tab-wrapper helmful-admin-tabs" aria-label="<?php esc_attr_e('Helmful Sync sections', 'helmful-sync'); ?>">
         <a href="<?php echo esc_url($tabUrl('connection')); ?>" class="nav-tab<?php echo $activeTab === 'connection' ? ' nav-tab-active' : ''; ?>" data-tab="connection">
@@ -91,14 +91,14 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
             <h2><?php esc_html_e('WordPress API key', 'helmful-sync'); ?></h2>
             <p><?php esc_html_e('Generate a key here and paste it into Helmful so it can push data to this site.', 'helmful-sync'); ?></p>
 
-            <?php if (Helmful_Sync_Settings::has_api_key()) : ?>
+            <?php if (Helmful_Sync_Settings::has_api_key()) { ?>
                 <div class="helmful-status-badge"><?php esc_html_e('API key configured', 'helmful-sync'); ?></div>
-            <?php endif; ?>
+            <?php } ?>
 
-            <?php if ($revealedKey !== '') : ?>
+            <?php if ($revealedKey !== '') { ?>
                 <code class="helmful-key-reveal"><?php echo esc_html($revealedKey); ?></code>
                 <p class="description" style="margin-bottom:1rem;"><?php esc_html_e('Copy this key and paste it into Helmful. It won\'t be shown again.', 'helmful-sync'); ?></p>
-            <?php endif; ?>
+            <?php } ?>
 
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('helmful_sync_generate_key'); ?>
@@ -111,11 +111,11 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
         <!-- Sync -->
         <div class="helmful-section">
             <h2><?php esc_html_e('Sync', 'helmful-sync'); ?></h2>
-            <p><?php esc_html_e('Pull all boat shows and events from Helmful into WordPress, or test that the connection is working.', 'helmful-sync'); ?></p>
+            <p><?php esc_html_e('Pull boat shows, events, brands, and inventory from Helmful into WordPress, or test that the connection is working.', 'helmful-sync'); ?></p>
 
-            <?php if ($lastPull !== '') : ?>
+            <?php if ($lastPull !== '') { ?>
                 <p class="description" style="margin-bottom:1rem;"><?php echo esc_html(sprintf(__('Last pull: %s', 'helmful-sync'), $lastPull)); ?></p>
-            <?php endif; ?>
+            <?php } ?>
 
             <div class="helmful-action-row">
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -149,13 +149,13 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                 <!-- Layout -->
                 <h3><?php esc_html_e('Layout', 'helmful-sync'); ?></h3>
                 <div class="helmful-layout-picker" role="radiogroup" aria-label="<?php esc_attr_e('Boat show layout', 'helmful-sync'); ?>">
-                    <?php foreach (Helmful_Sync_Display::layout_options() as $value => $label) : ?>
+                    <?php foreach (Helmful_Sync_Display::layout_options() as $value => $label) { ?>
                         <?php
                         $thumbClass = match ($value) {
-                            Helmful_Sync_Display::LAYOUT_GRID     => 'helmful-thumb-grid',
+                            Helmful_Sync_Display::LAYOUT_GRID => 'helmful-thumb-grid',
                             Helmful_Sync_Display::LAYOUT_TIMELINE => 'helmful-thumb-timeline',
-                            Helmful_Sync_Display::LAYOUT_COMPACT  => 'helmful-thumb-compact',
-                            default                               => 'helmful-thumb-stacked',
+                            Helmful_Sync_Display::LAYOUT_COMPACT => 'helmful-thumb-compact',
+                            default => 'helmful-thumb-stacked',
                         };
                         ?>
                         <label class="helmful-layout-option">
@@ -167,21 +167,21 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                             >
                             <span class="helmful-layout-card">
                                 <span class="helmful-layout-card__thumb <?php echo esc_attr($thumbClass); ?>">
-                                    <?php if ($value === Helmful_Sync_Display::LAYOUT_STACKED) : ?>
+                                    <?php if ($value === Helmful_Sync_Display::LAYOUT_STACKED) { ?>
                                         <span class="bar bar--lg"></span><span class="bar"></span><span class="bar"></span>
-                                    <?php elseif ($value === Helmful_Sync_Display::LAYOUT_GRID) : ?>
+                                    <?php } elseif ($value === Helmful_Sync_Display::LAYOUT_GRID) { ?>
                                         <span></span><span></span><span></span><span></span>
-                                    <?php elseif ($value === Helmful_Sync_Display::LAYOUT_TIMELINE) : ?>
+                                    <?php } elseif ($value === Helmful_Sync_Display::LAYOUT_TIMELINE) { ?>
                                         <span></span><span></span><span></span>
-                                    <?php else : ?>
+                                    <?php } else { ?>
                                         <span></span><span></span><span></span>
-                                    <?php endif; ?>
+                                    <?php } ?>
                                 </span>
                                 <span class="helmful-layout-card__title"><?php echo esc_html($label); ?></span>
                                 <span class="helmful-layout-card__desc"><?php echo esc_html($layoutDescriptions[$value] ?? ''); ?></span>
                             </span>
                         </label>
-                    <?php endforeach; ?>
+                    <?php } ?>
                 </div>
 
                 <!-- Content options -->
@@ -226,9 +226,9 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                         <th scope="row"><label for="helmful_card_style"><?php esc_html_e('Card style', 'helmful-sync'); ?></label></th>
                         <td>
                             <select name="helmful_sync_settings[display][card_style]" id="helmful_card_style">
-                                <?php foreach (Helmful_Sync_Display_Settings::card_style_options() as $value => $label) : ?>
+                                <?php foreach (Helmful_Sync_Display_Settings::card_style_options() as $value => $label) { ?>
                                     <option value="<?php echo esc_attr($value); ?>" <?php selected($display['card_style'], $value); ?>><?php echo esc_html($label); ?></option>
-                                <?php endforeach; ?>
+                                <?php } ?>
                             </select>
                         </td>
                     </tr>
@@ -236,9 +236,9 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                         <th scope="row"><label for="helmful_spacing"><?php esc_html_e('Spacing', 'helmful-sync'); ?></label></th>
                         <td>
                             <select name="helmful_sync_settings[display][spacing]" id="helmful_spacing">
-                                <?php foreach (Helmful_Sync_Display_Settings::spacing_options() as $value => $label) : ?>
+                                <?php foreach (Helmful_Sync_Display_Settings::spacing_options() as $value => $label) { ?>
                                     <option value="<?php echo esc_attr($value); ?>" <?php selected($display['spacing'], $value); ?>><?php echo esc_html($label); ?></option>
-                                <?php endforeach; ?>
+                                <?php } ?>
                             </select>
                         </td>
                     </tr>
@@ -252,9 +252,9 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                             <article class="helmful-boat-show">
                                 <header class="helmful-boat-show__header">
                                     <h3 class="helmful-boat-show__title"><a class="helmful-boat-show__title-link" href="#"><?php esc_html_e('Sample Boat Show', 'helmful-sync'); ?></a></h3>
-                                    <?php if ($display['show_description']) : ?>
+                                    <?php if ($display['show_description']) { ?>
                                         <div class="helmful-boat-show__description"><?php esc_html_e('Preview of how synced boat shows will look on your site.', 'helmful-sync'); ?></div>
-                                    <?php endif; ?>
+                                    <?php } ?>
                                 </header>
                                 <ul class="helmful-event-list helmful-event-list--nested">
                                     <li class="helmful-event">
@@ -318,6 +318,30 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter by year', 'helmful-sync'); ?></p>
                     <code>[helmful_boat_show_events year="2026"]</code>
                     <p><?php esc_html_e('Show only events from a specific year.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Brands landing page', 'helmful-sync'); ?></p>
+                    <code>[helmful_brands]</code>
+                    <p><?php esc_html_e('Grid of all synced brands with logos. Each brand links to your inventory page filtered by brand.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Brand grid columns', 'helmful-sync'); ?></p>
+                    <code>[helmful_brands columns="3"]</code>
+                    <p><?php esc_html_e('Adjust the number of brand columns (2–6).', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Inventory listing', 'helmful-sync'); ?></p>
+                    <code>[helmful_inventory]</code>
+                    <p><?php esc_html_e('All synced inventory with a brand filter bar. Create a page at /inventory/ for the listing.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter inventory by brand', 'helmful-sync'); ?></p>
+                    <code>[helmful_inventory brand="sea-ray"]</code>
+                    <p><?php esc_html_e('Show inventory for one brand by slug. Visitors can also filter via ?helmful_brand=slug in the URL.', 'helmful-sync'); ?></p>
                 </div>
             </div>
         </div>

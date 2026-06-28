@@ -8,6 +8,8 @@ use App\Domain\AssetSpec\Support\AvailableAssetSpecsCache;
 use App\Enums\Inventory\BoatType;
 use App\Enums\Inventory\HullMaterial;
 use App\Enums\Inventory\HullType;
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
 
@@ -42,7 +44,7 @@ class AssetDetailsAiService
             'static_fields' => $context['static_fields'] ?? [],
         ];
 
-        $model = (string) config('boat_meta_ai.generate_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::resolve(OpenAiRequestType::BoatSpecs);
 
         try {
             $response = OpenAI::chat()->create([
@@ -413,7 +415,7 @@ PROMPT;
             'specs' => $context['specs'] ?? [],
         ];
 
-        $model = (string) config('boat_meta_ai.generate_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::resolve(OpenAiRequestType::BoatSpecs);
 
         try {
             $response = OpenAI::chat()->create([

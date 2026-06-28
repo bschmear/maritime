@@ -6,6 +6,9 @@ namespace App\Domain\AssetUnit\Support\InvoiceImport;
 
 use App\Domain\Asset\Models\Asset;
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
 
@@ -70,7 +73,7 @@ class InvoiceCatalogMappingService
     /**
      * @param  list<array<string, mixed>>  $lineItems
      * @param  list<array<string, mixed>>  $catalog
-     * @param  \Illuminate\Support\Collection<int, Asset>  $assetsById
+     * @param  Collection<int, Asset>  $assetsById
      * @return list<array<string, mixed>>
      */
     protected function mapWithAi(BoatMake $brand, array $lineItems, array $catalog, $assetsById): array
@@ -82,7 +85,7 @@ class InvoiceCatalogMappingService
             );
         }
 
-        $model = (string) config('invoice_import.ai_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::resolve(OpenAiRequestType::DocumentExtract);
 
         $payload = json_encode([
             'brand' => $brand->display_name,
@@ -98,7 +101,7 @@ class InvoiceCatalogMappingService
         ], JSON_THROW_ON_ERROR);
 
         try {
-            $response = OpenAI::chat()->create([
+            $response = OpenAI::chat()->create(OpenAiModelResolver::sanitizeChatPayload([
                 'model' => $model,
                 'temperature' => 0,
                 'response_format' => [
@@ -113,7 +116,7 @@ class InvoiceCatalogMappingService
                     ['role' => 'system', 'content' => $this->systemPrompt()],
                     ['role' => 'user', 'content' => $payload],
                 ],
-            ]);
+            ]));
         } catch (\Throwable $e) {
             Log::error('InvoiceCatalogMappingService OpenAI call failed', [
                 'boat_make_id' => $brand->id,
@@ -163,7 +166,7 @@ class InvoiceCatalogMappingService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, Asset>  $assetsById
+     * @param  Collection<int, Asset>  $assetsById
      * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */
@@ -232,7 +235,7 @@ class InvoiceCatalogMappingService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Asset>
+     * @return Collection<int, Asset>
      */
     protected function assetsById(BoatMake $brand)
     {

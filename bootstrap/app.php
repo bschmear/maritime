@@ -8,10 +8,12 @@ use App\Http\Middleware\EnsureKioskDomain;
 use App\Http\Middleware\EnsureTenantAccess;
 use App\Http\Middleware\EnsureTicketSupportAccess;
 use App\Http\Middleware\ExtendCheckoutExecutionTime;
+use App\Http\Middleware\ExtendInvoiceImportExecutionTime;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RedirectUnauthenticatedFromTenant;
 use App\Http\Middleware\ValidatePortalToken;
 use App\Http\Middleware\VerifyInboundEmailRequest;
+use App\Http\Middleware\VerifyWordPressIntegrationRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -85,8 +87,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'portal.token' => ValidatePortalToken::class,
             'ticket.support' => EnsureTicketSupportAccess::class,
             'checkout.execution_time' => ExtendCheckoutExecutionTime::class,
+            'invoice_import.execution_time' => ExtendInvoiceImportExecutionTime::class,
             'verify.inbound-email' => VerifyInboundEmailRequest::class,
-            'verify.wordpress-integration' => \App\Http\Middleware\VerifyWordPressIntegrationRequest::class,
+            'verify.wordpress-integration' => VerifyWordPressIntegrationRequest::class,
         ]);
 
         $middleware->redirectGuestsTo(function (Request $request) {

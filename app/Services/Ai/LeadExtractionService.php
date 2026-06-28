@@ -8,6 +8,8 @@ use App\Enums\Entity\Priority;
 use App\Enums\Entity\PurchaseTimeline;
 use App\Enums\Entity\Source;
 use App\Enums\Leads\Status;
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
 
@@ -23,7 +25,7 @@ class LeadExtractionService
             throw new \RuntimeException('OpenAI API key is not configured.');
         }
 
-        $model = (string) config('inbound_email.ai_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::resolve(OpenAiRequestType::DocumentExtract);
 
         $userPayload = json_encode([
             'subject' => $subject,
@@ -31,7 +33,7 @@ class LeadExtractionService
         ], JSON_THROW_ON_ERROR);
 
         try {
-            $response = OpenAI::chat()->create([
+            $response = OpenAI::chat()->create(OpenAiModelResolver::sanitizeChatPayload([
                 'model' => $model,
                 'temperature' => 0,
                 'response_format' => [
@@ -46,7 +48,7 @@ class LeadExtractionService
                     ['role' => 'system', 'content' => $this->systemPrompt()],
                     ['role' => 'user', 'content' => $userPayload],
                 ],
-            ]);
+            ]));
         } catch (\Throwable $e) {
             Log::error('LeadExtractionService OpenAI call failed', [
                 'subject' => $subject,

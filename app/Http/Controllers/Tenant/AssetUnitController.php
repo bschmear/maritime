@@ -27,8 +27,8 @@ use App\Domain\BoatMake\Models\BoatMake;
 use App\Domain\Financing\Models\Financing;
 use App\Domain\Integration\Support\GoogleIntegrationSettings;
 use App\Domain\Integration\Support\QuickBooksSettings;
-use App\Enums\Inventory\UnitStatus;
 use App\Domain\MsoRecord\Models\MsoRecord;
+use App\Enums\Inventory\UnitStatus;
 use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Models\AccountSettings;
@@ -661,49 +661,57 @@ class AssetUnitController extends RecordController
         BoatMakeInvoiceProfileService $profileService,
         InvoiceInstructionsGeneratorService $instructionsGenerator,
     ): JsonResponse {
-        $validated = $request->validate([
-            'file' => 'required|file|mimes:pdf|max:20480',
-            'boat_make_id' => 'required|integer|exists:boat_make,id',
-        ]);
+        try {
+            $validated = $request->validate([
+                'file' => 'required|file|mimes:pdf|max:20480',
+                'boat_make_id' => 'required|integer|exists:boat_make,id',
+            ]);
 
-        $brand = BoatMake::query()
-            ->with(['invoiceImportProfile', 'vendor:id,display_name,quickbooks_id'])
-            ->findOrFail((int) $validated['boat_make_id']);
+            $brand = BoatMake::query()
+                ->with(['invoiceImportProfile', 'vendor:id,display_name,quickbooks_id'])
+                ->findOrFail((int) $validated['boat_make_id']);
 
-        $pdfText = $extractor->extractFromUpload($request->file('file'));
-        $cacheKey = 'asset_unit_invoice_import:'.uniqid('', true);
+            $pdfText = $extractor->extractFromUpload($request->file('file'));
+            $cacheKey = 'asset_unit_invoice_import:'.uniqid('', true);
 
-        Cache::put($cacheKey, [
-            'boat_make_id' => $brand->id,
-            'pdf_text' => $pdfText,
-            'extraction' => null,
-            'mapped_rows' => null,
-        ], now()->addHour());
+            Cache::put($cacheKey, [
+                'boat_make_id' => $brand->id,
+                'pdf_text' => $pdfText,
+                'extraction' => null,
+                'mapped_rows' => null,
+            ], now()->addHour());
 
-        $savedInstructions = $profileService->instructionsFor($brand);
-        $aiInstructionsGenerated = false;
-        $aiInstructions = $savedInstructions;
+            $savedInstructions = $profileService->instructionsFor($brand);
+            $aiInstructionsGenerated = false;
+            $aiInstructions = $savedInstructions;
 
-        if ($aiInstructions === null || $aiInstructions === '') {
-            $aiInstructions = $instructionsGenerator->generate($pdfText, $brand);
-            $aiInstructionsGenerated = true;
+            if ($aiInstructions === null || $aiInstructions === '') {
+                $aiInstructions = $instructionsGenerator->generate($pdfText, $brand);
+                $aiInstructionsGenerated = true;
+            }
+
+            return response()->json([
+                'cache_key' => $cacheKey,
+                'ai_instructions' => $aiInstructions,
+                'ai_instructions_generated' => $aiInstructionsGenerated,
+                'brand' => [
+                    'id' => $brand->id,
+                    'display_name' => $brand->display_name,
+                    'vendor_id' => $brand->vendor_id,
+                    'vendor' => $brand->vendor ? [
+                        'id' => $brand->vendor->id,
+                        'display_name' => $brand->vendor->display_name,
+                        'quickbooks_id' => $brand->vendor->quickbooks_id,
+                    ] : null,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $this->invoiceImportErrorMessage($e, 'Failed to upload document.'),
+            ], 422);
         }
-
-        return response()->json([
-            'cache_key' => $cacheKey,
-            'ai_instructions' => $aiInstructions,
-            'ai_instructions_generated' => $aiInstructionsGenerated,
-            'brand' => [
-                'id' => $brand->id,
-                'display_name' => $brand->display_name,
-                'vendor_id' => $brand->vendor_id,
-                'vendor' => $brand->vendor ? [
-                    'id' => $brand->vendor->id,
-                    'display_name' => $brand->vendor->display_name,
-                    'quickbooks_id' => $brand->vendor->quickbooks_id,
-                ] : null,
-            ],
-        ]);
     }
 
     public function importInvoiceExtract(
@@ -713,62 +721,70 @@ class AssetUnitController extends RecordController
         BoatMakeInvoiceProfileService $profileService,
         InvoiceInstructionsGeneratorService $instructionsGenerator,
     ): JsonResponse {
-        $validated = $request->validate([
-            'cache_key' => 'required|string',
-            'ai_instructions' => 'nullable|string|max:20000',
-            'save_ai_instructions' => 'nullable|boolean',
-        ]);
+        try {
+            $validated = $request->validate([
+                'cache_key' => 'required|string',
+                'ai_instructions' => 'nullable|string|max:20000',
+                'save_ai_instructions' => 'nullable|boolean',
+            ]);
 
-        $session = $this->invoiceImportSession($validated['cache_key']);
-        if ($session === null) {
-            return response()->json(['message' => 'Import session expired. Upload the document again.'], 422);
+            $session = $this->invoiceImportSession($validated['cache_key']);
+            if ($session === null) {
+                return response()->json(['message' => 'Import session expired. Upload the document again.'], 422);
+            }
+
+            $brand = BoatMake::query()
+                ->with(['invoiceImportProfile', 'vendor:id,display_name,quickbooks_id'])
+                ->findOrFail((int) $session['boat_make_id']);
+
+            if (! empty($validated['save_ai_instructions'])) {
+                $profileService->saveInstructions($brand, $validated['ai_instructions'] ?? null);
+            }
+
+            $instructions = trim((string) ($validated['ai_instructions'] ?? ''));
+            if ($instructions === '') {
+                $instructions = trim((string) ($profileService->instructionsFor($brand) ?? ''));
+            }
+            if ($instructions === '') {
+                $instructions = $instructionsGenerator->generate((string) $session['pdf_text'], $brand);
+            }
+
+            $extraction = $extractionService->extract(
+                (string) $session['pdf_text'],
+                $brand,
+                $instructions,
+                app(InvoiceBrandCatalogBuilder::class)->build($brand),
+            );
+
+            $mappedRows = $mappingService->apply($brand, $extraction['line_items']);
+            $mappedRows = app(InvoiceExistingUnitDetector::class)->apply($mappedRows);
+
+            Cache::put($validated['cache_key'], array_merge($session, [
+                'extraction' => $extraction,
+                'mapped_rows' => $mappedRows,
+            ]), now()->addHour());
+
+            return response()->json([
+                'extraction' => $extraction,
+                'rows' => $mappedRows,
+                'brand' => [
+                    'id' => $brand->id,
+                    'display_name' => $brand->display_name,
+                    'vendor_id' => $brand->vendor_id,
+                    'vendor' => $brand->vendor ? [
+                        'id' => $brand->vendor->id,
+                        'display_name' => $brand->vendor->display_name,
+                        'quickbooks_id' => $brand->vendor->quickbooks_id,
+                    ] : null,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => $this->invoiceImportErrorMessage($e, 'AI extraction failed.'),
+            ], 422);
         }
-
-        $brand = BoatMake::query()
-            ->with(['invoiceImportProfile', 'vendor:id,display_name,quickbooks_id'])
-            ->findOrFail((int) $session['boat_make_id']);
-
-        if (! empty($validated['save_ai_instructions'])) {
-            $profileService->saveInstructions($brand, $validated['ai_instructions'] ?? null);
-        }
-
-        $instructions = trim((string) ($validated['ai_instructions'] ?? ''));
-        if ($instructions === '') {
-            $instructions = trim((string) ($profileService->instructionsFor($brand) ?? ''));
-        }
-        if ($instructions === '') {
-            $instructions = $instructionsGenerator->generate((string) $session['pdf_text'], $brand);
-        }
-
-        $extraction = $extractionService->extract(
-            (string) $session['pdf_text'],
-            $brand,
-            $instructions,
-            app(InvoiceBrandCatalogBuilder::class)->build($brand),
-        );
-
-        $mappedRows = $mappingService->apply($brand, $extraction['line_items']);
-        $mappedRows = app(InvoiceExistingUnitDetector::class)->apply($mappedRows);
-
-        Cache::put($validated['cache_key'], array_merge($session, [
-            'extraction' => $extraction,
-            'mapped_rows' => $mappedRows,
-        ]), now()->addHour());
-
-        return response()->json([
-            'extraction' => $extraction,
-            'rows' => $mappedRows,
-            'brand' => [
-                'id' => $brand->id,
-                'display_name' => $brand->display_name,
-                'vendor_id' => $brand->vendor_id,
-                'vendor' => $brand->vendor ? [
-                    'id' => $brand->vendor->id,
-                    'display_name' => $brand->vendor->display_name,
-                    'quickbooks_id' => $brand->vendor->quickbooks_id,
-                ] : null,
-            ],
-        ]);
     }
 
     public function importInvoiceProfile(
@@ -966,5 +982,18 @@ class AssetUnitController extends RecordController
         $session = Cache::get($cacheKey);
 
         return is_array($session) ? $session : null;
+    }
+
+    private function invoiceImportErrorMessage(\Throwable $e, string $fallback): string
+    {
+        if ($e instanceof RuntimeException) {
+            return $e->getMessage();
+        }
+
+        if (config('app.debug')) {
+            return $fallback.' '.$e->getMessage();
+        }
+
+        return $fallback;
     }
 }

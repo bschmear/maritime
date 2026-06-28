@@ -3,8 +3,9 @@
 import AssetCatalogOptionsSection from '@/Components/Tenant/AssetCatalogOptionsSection.vue';
 import TenantLayout from '@/Layouts/TenantLayout.vue';
 import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
+import AssetSpecsAiAutofillModal from '@/Components/Tenant/AssetSpec/AssetSpecsAiAutofillModal.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     asset: { type: Object, required: true },
@@ -24,6 +25,17 @@ const breadcrumbItems = computed(() => [
     { label: props.asset?.display_name || 'Asset', href: route('assets.show', props.asset.id) },
     { label: variantLabel.value },
 ]);
+
+const showAiAutofillModal = ref(false);
+
+const autofillModelName = computed(() => {
+    const parts = [
+        props.asset?.make_display_name,
+        props.variant?.name ?? props.variant?.display_name,
+    ].filter((v) => v != null && String(v).trim() !== '');
+    if (parts.length) return parts.join(' — ');
+    return variantLabel.value;
+});
 </script>
 
 <template>
@@ -97,6 +109,14 @@ const breadcrumbItems = computed(() => [
                             <span class="material-icons text-base">table_chart</span>
                             Specifications
                         </a>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/40"
+                            @click="showAiAutofillModal = true"
+                        >
+                            <span class="material-icons text-base">auto_awesome</span>
+                            Autofill specs with AI
+                        </button>
                         <Link
                             :href="route('assets.variants.edit', { asset: asset.id, variant: variant.id })"
                         >
@@ -239,5 +259,13 @@ const breadcrumbItems = computed(() => [
                 </div>
             </div>
         </div>
+
+        <AssetSpecsAiAutofillModal
+            :show="showAiAutofillModal"
+            :suggest-url="route('assets.variants.ai-autofill-specs', { asset: asset.id, variant: variant.id })"
+            :apply-url="route('assets.variants.ai-autofill-specs.apply', { asset: asset.id, variant: variant.id })"
+            :model-name="autofillModelName"
+            @close="showAiAutofillModal = false"
+        />
     </TenantLayout>
 </template>

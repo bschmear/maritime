@@ -13,6 +13,9 @@ return [
     |
     */
 
-    'ai_model' => env('OPENAI_TAX_RATE_MODEL', 'gpt-4o-mini'),
+    /*
+    | Deprecated: tax lookup uses OPENAI_MODEL_DOCUMENT_EXTRACT (openai_models.php).
+    */
+    'ai_model' => env('OPENAI_TAX_RATE_MODEL'),
 
 ];

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 use App\Http\Controllers\Api\WordPressBoatShowController;
+use App\Http\Controllers\Api\WordPressCatalogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
@@ -13,8 +14,8 @@ use App\Http\Controllers\Tenant\AccountSmsNotificationsController;
 use App\Http\Controllers\Tenant\AddOnController;
 use App\Http\Controllers\Tenant\AiInboxController;
 use App\Http\Controllers\Tenant\AssetController;
-use App\Http\Controllers\Tenant\AssetOptionController;
 use App\Http\Controllers\Tenant\AssetOptionCategoryController;
+use App\Http\Controllers\Tenant\AssetOptionController;
 use App\Http\Controllers\Tenant\AssetSpecController;
 use App\Http\Controllers\Tenant\AssetSpecValueController;
 use App\Http\Controllers\Tenant\AssetUnitController;
@@ -224,6 +225,8 @@ Route::middleware([
             Route::get('/status', [WordPressBoatShowController::class, 'status'])->name('wordpress.api.status');
             Route::get('/boat-shows', [WordPressBoatShowController::class, 'index'])->name('wordpress.api.boat-shows.index');
             Route::get('/boat-shows/{uuid}', [WordPressBoatShowController::class, 'show'])->name('wordpress.api.boat-shows.show');
+            Route::get('/brands', [WordPressCatalogController::class, 'brands'])->name('wordpress.api.brands.index');
+            Route::get('/inventory', [WordPressCatalogController::class, 'inventory'])->name('wordpress.api.inventory.index');
         });
 
     Route::get('/surveys', [PublicSurveyController::class, 'index'])->name('surveysPublic');
@@ -641,10 +644,14 @@ Route::middleware([
             Route::get('/{asset}/spec-sheets/send-options', [AssetController::class, 'specSheetSendOptions'])->name('spec-sheets.send-options');
             Route::post('/{asset}/spec-sheets/send', [AssetController::class, 'sendSpecSheetsToCustomer'])->name('spec-sheets.send');
             Route::get('/{asset}/units', [AssetController::class, 'unitsIndex'])->name('units.index');
+            Route::post('/{asset}/ai-autofill-specs', [AssetController::class, 'aiAutofillSpecs'])->name('ai-autofill-specs');
+            Route::post('/{asset}/ai-autofill-specs/apply', [AssetController::class, 'applyAiAutofillSpecs'])->name('ai-autofill-specs.apply');
             Route::get('/{asset}/variants/select-form', [AssetController::class, 'variantsSelectForm'])->name('variants.select-form');
             Route::get('/{asset}/variants', [AssetController::class, 'variantsIndex'])->name('variants.index');
             Route::post('/{asset}/variants', [AssetController::class, 'variantsStore'])->name('variants.store');
             Route::get('/{asset}/variants/{variant}/edit', [AssetController::class, 'variantsEdit'])->name('variants.edit')->scopeBindings();
+            Route::post('/{asset}/variants/{variant}/ai-autofill-specs', [AssetController::class, 'aiAutofillVariantSpecs'])->name('variants.ai-autofill-specs');
+            Route::post('/{asset}/variants/{variant}/ai-autofill-specs/apply', [AssetController::class, 'applyAiAutofillVariantSpecs'])->name('variants.ai-autofill-specs.apply');
             Route::get('/{asset}/variants/{variant}', [AssetController::class, 'variantsShow'])->name('variants.show')->scopeBindings();
             Route::put('/{asset}/variants/{variant}', [AssetController::class, 'variantsUpdate'])->name('variants.update')->scopeBindings();
             Route::delete('/{asset}/variants/{variant}', [AssetController::class, 'variantsDestroy'])->name('variants.destroy')->scopeBindings();
@@ -679,8 +686,12 @@ Route::middleware([
             Route::get('/export', [AssetUnitController::class, 'export'])->name('export');
             Route::get('/import', [AssetUnitController::class, 'import'])->name('import');
             Route::get('/import/invoice', [AssetUnitController::class, 'importInvoiceIndex'])->name('import.invoice');
-            Route::post('/import/invoice/parse', [AssetUnitController::class, 'importInvoiceParse'])->name('import.invoice.parse');
-            Route::post('/import/invoice/extract', [AssetUnitController::class, 'importInvoiceExtract'])->name('import.invoice.extract');
+            Route::post('/import/invoice/parse', [AssetUnitController::class, 'importInvoiceParse'])
+                ->middleware('invoice_import.execution_time')
+                ->name('import.invoice.parse');
+            Route::post('/import/invoice/extract', [AssetUnitController::class, 'importInvoiceExtract'])
+                ->middleware('invoice_import.execution_time')
+                ->name('import.invoice.extract');
             Route::post('/import/invoice/profile', [AssetUnitController::class, 'importInvoiceProfile'])->name('import.invoice.profile');
             Route::post('/import/invoice/check-existing', [AssetUnitController::class, 'importInvoiceCheckExisting'])->name('import.invoice.check-existing');
             Route::post('/import/invoice/confirm', [AssetUnitController::class, 'importInvoiceConfirm'])->name('import.invoice.confirm');

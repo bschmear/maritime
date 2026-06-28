@@ -22,8 +22,12 @@ use App\Enums\RecordType;
 use App\Enums\Timezone;
 use App\Mail\CustomerAssetSpecSheetShareMail;
 use App\Models\AccountSettings;
+use App\Services\Asset\BoatSpecFillerService;
+use App\Services\AssetDetailsAiService;
 use App\Services\AssetOptionResolver;
 use App\Services\Mail\TenantMailService;
+use App\Support\Asset\ApplyBoatSpecFillerResult;
+use App\Support\Asset\BoatSpecFillerContextBuilder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -723,6 +727,119 @@ class AssetController extends RecordController
             return response()->json([
                 'message' => $e->getMessage(),
             ], 422);
+        }
+    }
+
+    public function aiAutofillSpecs(Request $request, RecordModel $asset): JsonResponse
+    {
+        if ($asset->has_variants) {
+            return response()->json([
+                'message' => 'This asset uses variants. Autofill specs on a variant instead.',
+            ], 422);
+        }
+
+        try {
+            $context = BoatSpecFillerContextBuilder::forAsset($asset);
+            $result = app(BoatSpecFillerService::class)->suggest(
+                $context,
+                $request->boolean('refresh'),
+            );
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function applyAiAutofillSpecs(Request $request, RecordModel $asset): JsonResponse
+    {
+        if ($asset->has_variants) {
+            return response()->json([
+                'message' => 'This asset uses variants. Apply specs on a variant instead.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'spec_updates' => ['present', 'array'],
+            'spec_updates.*.spec_id' => ['required', 'integer'],
+            'spec_updates.*.value_number' => ['nullable', 'numeric'],
+            'spec_updates.*.value_text' => ['nullable', 'string'],
+            'spec_updates.*.value_boolean' => ['nullable', 'boolean'],
+            'spec_updates.*.unit' => ['nullable', 'string'],
+            'static_updates' => ['present', 'array'],
+            'static_updates.*.key' => ['required', 'string', 'max:64'],
+            'static_updates.*.value_number' => ['nullable', 'numeric'],
+            'static_updates.*.value_text' => ['nullable', 'string'],
+            'static_updates.*.value_boolean' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            ApplyBoatSpecFillerResult::toAsset(
+                $asset,
+                $validated['spec_updates'],
+                $validated['static_updates'],
+            );
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function aiAutofillVariantSpecs(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse
+    {
+        $this->ensureVariantBelongsToAsset($asset, $variant);
+
+        try {
+            $context = BoatSpecFillerContextBuilder::forVariant($variant);
+            $result = app(BoatSpecFillerService::class)->suggest(
+                $context,
+                $request->boolean('refresh'),
+            );
+
+            return response()->json($result);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    public function applyAiAutofillVariantSpecs(Request $request, RecordModel $asset, AssetVariant $variant): JsonResponse
+    {
+        $this->ensureVariantBelongsToAsset($asset, $variant);
+
+        $validated = $request->validate([
+            'spec_updates' => ['present', 'array'],
+            'spec_updates.*.spec_id' => ['required', 'integer'],
+            'spec_updates.*.value_number' => ['nullable', 'numeric'],
+            'spec_updates.*.value_text' => ['nullable', 'string'],
+            'spec_updates.*.value_boolean' => ['nullable', 'boolean'],
+            'spec_updates.*.unit' => ['nullable', 'string'],
+            'static_updates' => ['present', 'array'],
+            'static_updates.*.key' => ['required', 'string', 'max:64'],
+            'static_updates.*.value_number' => ['nullable', 'numeric'],
+            'static_updates.*.value_text' => ['nullable', 'string'],
+            'static_updates.*.value_boolean' => ['nullable', 'boolean'],
+        ]);
+
+        try {
+            ApplyBoatSpecFillerResult::toVariant(
+                $asset,
+                $variant,
+                $validated['spec_updates'],
+                $validated['static_updates'],
+            );
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => $e->getMessage()], 422);
         }
     }
 

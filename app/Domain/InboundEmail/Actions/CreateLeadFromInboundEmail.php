@@ -11,6 +11,8 @@ use App\Models\EmailRoute;
 use App\Services\Ai\LeadExtractionService;
 use App\Support\InboundEmail\InboundEmailBodyExtractor;
 use App\Support\InboundEmail\LeadExtractionMapper;
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -58,7 +60,7 @@ class CreateLeadFromInboundEmail implements InboundEmailAction
                     'breakdown' => $scoreData['breakdown'],
                     'reason' => 'AI Inbox email lead extraction',
                     'stage' => 'lead_intake',
-                    'model_version' => (string) config('inbound_email.ai_model', 'gpt-4o-mini'),
+                    'model_version' => OpenAiModelResolver::resolve(OpenAiRequestType::DocumentExtract),
                     'auto_generated' => true,
                     'event_id' => $ingestion->id,
                 ],

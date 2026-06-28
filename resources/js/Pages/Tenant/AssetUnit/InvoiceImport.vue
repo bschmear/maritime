@@ -9,6 +9,42 @@ import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const DEFAULT_UNIT_STATUS = 4;
+const INVOICE_AI_REQUEST_TIMEOUT_MS = 300_000;
+
+function axiosErrorMessage(error, fallback) {
+    const data = error?.response?.data;
+
+    if (typeof data?.message === 'string' && data.message !== '') {
+        return data.message;
+    }
+
+    if (data?.errors) {
+        const first = Object.values(data.errors).flat().find((value) => typeof value === 'string' && value !== '');
+
+        if (first) {
+            return first;
+        }
+    }
+
+    const status = error?.response?.status;
+    if (status) {
+        if (status === 502 || status === 504) {
+            return `${fallback} The server timed out while waiting for AI (HTTP ${status}). Try again or contact support.`;
+        }
+
+        return `${fallback} (HTTP ${status})`;
+    }
+
+    if (error?.code === 'ECONNABORTED') {
+        return `${fallback} The request timed out while waiting for AI.`;
+    }
+
+    if (typeof error?.message === 'string' && error.message !== '' && error.message !== 'Network Error') {
+        return `${fallback} ${error.message}`;
+    }
+
+    return fallback;
+}
 
 const props = defineProps({
     quickbooks: {
@@ -463,6 +499,7 @@ async function onFileSelected(event) {
 
         const { data } = await axios.post(route('assetunits.import.invoice.parse'), formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: INVOICE_AI_REQUEST_TIMEOUT_MS,
         });
 
         cacheKey.value = data.cache_key;
@@ -475,7 +512,7 @@ async function onFileSelected(event) {
         syncVendorFromBrand(brand.value);
         step.value = 2;
     } catch (e) {
-        error.value = e.response?.data?.message ?? 'Failed to upload document.';
+        error.value = axiosErrorMessage(e, 'Failed to upload document.');
     } finally {
         parsing.value = false;
         event.target.value = '';
@@ -496,6 +533,8 @@ async function runExtraction() {
             cache_key: cacheKey.value,
             ai_instructions: aiInstructions.value,
             save_ai_instructions: saveAiInstructions.value,
+        }, {
+            timeout: INVOICE_AI_REQUEST_TIMEOUT_MS,
         });
 
         extraction.value = data.extraction;
@@ -511,7 +550,7 @@ async function runExtraction() {
         syncVendorFromBrand(brand.value);
         step.value = 4;
     } catch (e) {
-        error.value = e.response?.data?.message ?? 'AI extraction failed.';
+        error.value = axiosErrorMessage(e, 'AI extraction failed.');
         step.value = 2;
     } finally {
         extracting.value = false;
@@ -627,7 +666,7 @@ async function confirmImport() {
         showBillModal.value = false;
         step.value = 5;
     } catch (e) {
-        error.value = e.response?.data?.message ?? 'Import failed.';
+        error.value = axiosErrorMessage(e, 'Import failed.');
     } finally {
         confirming.value = false;
     }
@@ -762,7 +801,7 @@ const checkboxClass =
                         :disabled="parsing"
                         @change="onFileSelected"
                     />
-                    <p v-if="parsing" class="mt-2 text-sm text-gray-500 dark:text-gray-400">Uploading and analyzing document…</p>
+                    <p v-if="parsing" class="mt-2 text-sm text-gray-500 dark:text-gray-400">Uploading document…</p>
                     <p
                         v-else-if="cacheKey"
                         class="mt-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-200"
@@ -777,29 +816,40 @@ const checkboxClass =
                         Saved per brand for your dealership. Write your own, or use the draft AI creates from the uploaded document on first import.
                     </p>
                     <p
-                        v-if="aiInstructionsGenerated"
+                        v-if="aiInstructionsGenerated && !parsing"
                         class="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-100"
                     >
                         AI drafted these instructions from your document. Review and edit before extracting. Check “Save instructions for this brand” to reuse them next time.
                     </p>
-                    <textarea
-                        v-model="aiInstructions"
-                        rows="10"
-                        class="mt-2 w-full rounded-lg border-gray-300 bg-white font-mono text-xs text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-primary-400 dark:focus:ring-primary-400"
-                        placeholder="Describe document layout, columns, and how to find HINs, models, and prices…"
-                    />
+                    <div class="relative mt-2">
+                        <textarea
+                            v-model="aiInstructions"
+                            rows="10"
+                            :disabled="parsing"
+                            class="w-full rounded-lg border-gray-300 bg-white font-mono text-xs text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder:text-gray-500 dark:focus:border-primary-400 dark:focus:ring-primary-400"
+                            placeholder="Describe document layout, columns, and how to find HINs, models, and prices…"
+                        />
+                        <div
+                            v-if="parsing"
+                            class="absolute inset-0 flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white/90 px-4 dark:border-gray-600 dark:bg-gray-800/90"
+                        >
+                            <div class="size-8 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                            <p class="mt-3 text-sm font-medium text-gray-700 dark:text-gray-300">Analyzing document…</p>
+                            <p class="mt-1 text-center text-xs text-gray-500 dark:text-gray-400">Drafting AI instructions. This may take a minute.</p>
+                        </div>
+                    </div>
                     <label class="mt-3 inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                        <input v-model="saveAiInstructions" type="checkbox" :class="checkboxClass" />
+                        <input v-model="saveAiInstructions" type="checkbox" :class="checkboxClass" :disabled="parsing" />
                         Save instructions for this brand
                     </label>
                 </div>
 
                 <div class="flex justify-between gap-2">
-                    <button type="button" :class="secondaryButtonClass" @click="step = 1">Back</button>
+                    <button type="button" :class="secondaryButtonClass" :disabled="parsing" @click="step = 1">Back</button>
                     <button
                         type="button"
                         class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                        :disabled="!cacheKey || extracting || !aiInstructions.trim()"
+                        :disabled="!cacheKey || extracting || parsing || !aiInstructions.trim()"
                         @click="runExtraction"
                     >
                         Extract with AI

@@ -13,6 +13,10 @@ final class Helmful_Sync_CPT
     /** Max 20 characters — WordPress truncates longer post type names. */
     public const EVENT_POST_TYPE = 'helmful_show_event';
 
+    public const BRAND_POST_TYPE = 'helmful_brand';
+
+    public const INVENTORY_POST_TYPE = 'helmful_inventory';
+
     /** @var list<string> Legacy types created before the 20-char limit fix. */
     private const LEGACY_EVENT_POST_TYPES = [
         'helmful_boat_show_ev',
@@ -36,6 +40,7 @@ final class Helmful_Sync_CPT
             ],
             'supports' => ['title', 'editor', 'custom-fields'],
             'menu_icon' => 'dashicons-location-alt',
+            'show_in_menu' => false,
         ]);
 
         register_post_type(self::EVENT_POST_TYPE, [
@@ -61,6 +66,46 @@ final class Helmful_Sync_CPT
             'has_archive' => false,
             'rewrite' => [
                 'slug' => 'boat-show-event',
+                'with_front' => false,
+            ],
+            'supports' => ['title', 'editor', 'custom-fields'],
+        ]);
+
+        register_post_type(self::BRAND_POST_TYPE, [
+            'labels' => [
+                'name' => __('Brands', 'helmful-sync'),
+                'singular_name' => __('Brand', 'helmful-sync'),
+                'menu_name' => __('Brands', 'helmful-sync'),
+                'all_items' => __('Brands', 'helmful-sync'),
+            ],
+            'public' => true,
+            'publicly_queryable' => true,
+            'show_in_rest' => true,
+            'show_ui' => true,
+            'show_in_menu' => false,
+            'has_archive' => false,
+            'rewrite' => [
+                'slug' => 'brands',
+                'with_front' => false,
+            ],
+            'supports' => ['title', 'editor', 'thumbnail', 'custom-fields'],
+        ]);
+
+        register_post_type(self::INVENTORY_POST_TYPE, [
+            'labels' => [
+                'name' => __('Inventory', 'helmful-sync'),
+                'singular_name' => __('Inventory Item', 'helmful-sync'),
+                'menu_name' => __('Inventory', 'helmful-sync'),
+                'all_items' => __('Inventory', 'helmful-sync'),
+            ],
+            'public' => true,
+            'publicly_queryable' => true,
+            'show_in_rest' => true,
+            'show_ui' => true,
+            'show_in_menu' => false,
+            'has_archive' => false,
+            'rewrite' => [
+                'slug' => 'inventory',
                 'with_front' => false,
             ],
             'supports' => ['title', 'editor', 'custom-fields'],

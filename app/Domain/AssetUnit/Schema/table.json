@@ -3,9 +3,14 @@
   "columns": [
     {
       "key": "hin",
-      "label": "Hull ID (HIN)",
+      "label": "HIN / Serial",
       "sortable": true,
-      "isKey": true
+      "isKey": true,
+      "format": "joined",
+      "keys": [
+        { "key": "hin", "title": "Hull ID (HIN)", "label": "HIN" },
+        { "key": "serial_number", "title": "Serial Number", "label": "S/N" }
+      ]
     },
     {
       "key": "make_id",
@@ -28,11 +33,6 @@
       "key": "location_id",
       "label": "Location",
       "sortable": false
-    },
-    {
-      "key": "serial_number",
-      "label": "Serial Number",
-      "sortable": true
     },
     {
       "key": "year",

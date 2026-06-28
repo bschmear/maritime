@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\AssetUnit\Support\InvoiceImport;
 
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Support\OpenAi\OpenAiModelResolver;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
 use RuntimeException;
@@ -18,7 +19,7 @@ class InvoiceInstructionsGeneratorService
             throw new RuntimeException('OpenAI API key is not configured.');
         }
 
-        $model = (string) config('invoice_import.ai_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::forInvoicePdfText($pdfText);
 
         $userPayload = json_encode([
             'brand' => $brand->display_name,
@@ -26,7 +27,7 @@ class InvoiceInstructionsGeneratorService
         ], JSON_THROW_ON_ERROR);
 
         try {
-            $response = OpenAI::chat()->create([
+            $response = OpenAI::chat()->create(OpenAiModelResolver::sanitizeChatPayload([
                 'model' => $model,
                 'temperature' => 0,
                 'response_format' => [
@@ -41,7 +42,7 @@ class InvoiceInstructionsGeneratorService
                     ['role' => 'system', 'content' => $this->systemPrompt()],
                     ['role' => 'user', 'content' => $userPayload],
                 ],
-            ]);
+            ]));
         } catch (\Throwable $e) {
             Log::error('InvoiceInstructionsGeneratorService OpenAI call failed', [
                 'boat_make_id' => $brand->id,

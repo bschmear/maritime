@@ -42,6 +42,6 @@ class InvoicePdfTextExtractor
 
     public function isTextSufficient(string $text): bool
     {
-        return mb_strlen(preg_replace('/\s+/', '', $text) ?? '') >= (int) config('invoice_import.min_text_length', 80);
+        return mb_strlen(preg_replace('/\s+/', '', $text) ?? '') >= (int) config('openai_models.invoice_min_text_length', config('invoice_import.min_text_length', 80));
     }
 }

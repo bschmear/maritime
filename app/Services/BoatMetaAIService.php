@@ -6,6 +6,8 @@ use App\Domain\InventoryCatalog\Models\InventoryBoatMake;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAsset;
 use App\Domain\InventoryCatalog\Models\InventoryCatalogAssetVariant;
 use App\Enums\Inventory\BoatType;
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -138,7 +140,7 @@ class BoatMetaAIService
     protected function callAI(string $makeSlug, string $modelSlug, string $makeLabel, string $modelLabel): array
     {
         $response = OpenAI::chat()->create([
-            'model' => config('boat_meta_ai.generate_model', 'gpt-5'),
+            'model' => OpenAiModelResolver::resolve(OpenAiRequestType::BoatSpecs),
             'response_format' => [
                 'type' => 'json_schema',
                 'json_schema' => [

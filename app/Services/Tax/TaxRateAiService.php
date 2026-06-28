@@ -2,6 +2,8 @@
 
 namespace App\Services\Tax;
 
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
 
@@ -36,10 +38,10 @@ class TaxRateAiService
             'country' => trim((string) ($address['country'] ?? 'US')),
         ];
 
-        $model = (string) config('tax.ai_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::resolve(OpenAiRequestType::DocumentExtract);
 
         try {
-            $response = OpenAI::chat()->create([
+            $response = OpenAI::chat()->create(OpenAiModelResolver::sanitizeChatPayload([
                 'model' => $model,
                 'temperature' => 0,
                 'response_format' => [
@@ -60,7 +62,7 @@ class TaxRateAiService
                         'content' => json_encode($payload, JSON_THROW_ON_ERROR),
                     ],
                 ],
-            ]);
+            ]));
         } catch (\Throwable $e) {
             Log::error('TaxRateAiService OpenAI call failed', [
                 'address' => $payload,

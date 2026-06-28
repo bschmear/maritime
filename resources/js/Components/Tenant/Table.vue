@@ -1504,10 +1504,33 @@ defineExpose({
                                         {{ getRecordValue(record, col) || '—' }}
                                     </Link>
                                 </template>
-                                <!-- Primary key column (e.g. payment sequence) -->
+                                <!-- Primary key column (e.g. payment sequence, HIN / serial) -->
                                 <template v-else-if="col.isKey">
                                     <Link :href="getShowUrl(record.id)" class="font-mono text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">
-                                        {{ getRecordValue(record, col) || '—' }}
+                                        <template v-if="isJoinedColumnFormat(col)">
+                                            <span
+                                                v-for="joined in [buildJoinedColumnSegments(record, col, props.fieldsSchema)]"
+                                                :key="col.key"
+                                                class="inline-flex flex-wrap items-center gap-x-3 gap-y-1"
+                                            >
+                                                <template v-if="joined.isEmpty">—</template>
+                                                <span
+                                                    v-for="(seg, segIdx) in joined.segments"
+                                                    :key="`${seg.key}-${segIdx}`"
+                                                    class="inline-flex items-center gap-1"
+                                                    :title="seg.title || undefined"
+                                                >
+                                                    <span
+                                                        v-if="seg.label"
+                                                        class="text-xs font-medium text-primary-500 dark:text-primary-300"
+                                                    >{{ seg.label }}</span>
+                                                    <span>{{ seg.text }}</span>
+                                                </span>
+                                            </span>
+                                        </template>
+                                        <template v-else>
+                                            {{ getRecordValue(record, col) || '—' }}
+                                        </template>
                                     </Link>
                                 </template>
                                 <!-- Contact roles -->

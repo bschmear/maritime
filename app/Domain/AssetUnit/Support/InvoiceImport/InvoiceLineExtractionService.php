@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\AssetUnit\Support\InvoiceImport;
 
 use App\Domain\BoatMake\Models\BoatMake;
+use App\Support\OpenAi\OpenAiModelResolver;
 use Illuminate\Support\Facades\Log;
 use OpenAI\Laravel\Facades\OpenAI;
 use RuntimeException;
@@ -27,6 +28,8 @@ class InvoiceLineExtractionService
             throw new RuntimeException('OpenAI API key is not configured.');
         }
 
+        $pdfText = $this->ensureUtf8($pdfText);
+
         $instructions = trim((string) ($aiInstructions ?? ''));
         if ($instructions === '') {
             $instructions = trim((string) ($brand->invoiceImportProfile?->ai_instructions ?? ''));
@@ -35,16 +38,27 @@ class InvoiceLineExtractionService
             throw new RuntimeException('Invoice parsing instructions are required. Add instructions or let AI draft them from your uploaded PDF.');
         }
 
-        $model = (string) config('invoice_import.ai_model', 'gpt-4o-mini');
+        $model = OpenAiModelResolver::forInvoicePdfText($pdfText);
 
-        $userPayload = json_encode([
-            'brand' => $brand->display_name,
-            'pdf_text' => $pdfText,
-            'catalog' => $catalog,
-        ], JSON_THROW_ON_ERROR);
+        Log::info('InvoiceLineExtractionService: starting OpenAI extraction', [
+            'boat_make_id' => $brand->id,
+            'model' => $model,
+            'pdf_text_length' => mb_strlen($pdfText),
+            'catalog_assets' => count($catalog),
+        ]);
 
         try {
-            $response = OpenAI::chat()->create([
+            $userPayload = json_encode([
+                'brand' => $brand->display_name,
+                'pdf_text' => $pdfText,
+                'catalog' => $catalog,
+            ], JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        } catch (\JsonException $e) {
+            throw new RuntimeException('Invoice text could not be encoded for AI processing. Try re-uploading the PDF.', 0, $e);
+        }
+
+        try {
+            $response = OpenAI::chat()->create(OpenAiModelResolver::sanitizeChatPayload([
                 'model' => $model,
                 'temperature' => 0,
                 'response_format' => [
@@ -59,10 +73,14 @@ class InvoiceLineExtractionService
                     ['role' => 'system', 'content' => $this->systemPrompt($instructions)],
                     ['role' => 'user', 'content' => $userPayload],
                 ],
-            ]);
+            ]));
         } catch (\Throwable $e) {
+            report($e);
             Log::error('InvoiceLineExtractionService OpenAI call failed', [
                 'boat_make_id' => $brand->id,
+                'model' => $model,
+                'pdf_text_length' => mb_strlen($pdfText),
+                'catalog_assets' => count($catalog),
                 'error' => $e->getMessage(),
             ]);
 
@@ -346,5 +364,12 @@ PROMPT;
         unset($row);
 
         return $filtered;
+    }
+
+    protected function ensureUtf8(string $text): string
+    {
+        $normalized = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+
+        return is_string($normalized) ? $normalized : $text;
     }
 }

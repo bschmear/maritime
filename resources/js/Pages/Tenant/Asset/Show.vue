@@ -5,6 +5,7 @@ import Breadcrumb from '@/Components/Tenant/Breadcrumb.vue';
 import AssetForm from '@/Components/Tenant/AssetForm.vue';
 import Sublist from '@/Components/Tenant/Sublist.vue';
 import AssetSpecSheetSendModal from '@/Components/Tenant/AssetSpecSheetSendModal.vue';
+import AssetSpecsAiAutofillModal from '@/Components/Tenant/AssetSpec/AssetSpecsAiAutofillModal.vue';
 import Modal from '@/Components/Modal.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -70,6 +71,22 @@ const props = defineProps({
 });
 
 const showSendSpecModal = ref(false);
+const showAiAutofillModal = ref(false);
+
+const canAutofillSpecs = computed(() => {
+    const hv = props.record?.has_variants;
+    return !(hv === true || hv === 1 || hv === '1');
+});
+
+const autofillModelName = computed(() => {
+    const parts = [
+        props.record?.make?.display_name ?? props.record?.make_display_name,
+        props.record?.model,
+        props.record?.year,
+    ].filter((v) => v != null && String(v).trim() !== '');
+    if (parts.length) return parts.join(' ');
+    return props.record?.display_name ?? '';
+});
 
 const showDeleteModal = ref(false);
 const isDeleting = ref(false);
@@ -196,6 +213,15 @@ const cancelDelete = () => {
                             <span class="material-icons text-base">forward_to_inbox</span>
                             Send specification sheets
                         </button>
+                        <button
+                            v-if="canAutofillSpecs"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 hover:bg-violet-100 dark:border-violet-700 dark:bg-violet-950/40 dark:text-violet-200 dark:hover:bg-violet-900/40"
+                            @click="showAiAutofillModal = true"
+                        >
+                            <span class="material-icons text-base">auto_awesome</span>
+                            Autofill specs with AI
+                        </button>
                         <Link
                             :href="route(
                                 `${recordType}.edit`,
@@ -261,6 +287,15 @@ const cancelDelete = () => {
             :show="showSendSpecModal"
             :asset-id="record.id"
             @close="showSendSpecModal = false"
+        />
+
+        <AssetSpecsAiAutofillModal
+            v-if="canAutofillSpecs"
+            :show="showAiAutofillModal"
+            :suggest-url="route('assets.ai-autofill-specs', record.id)"
+            :apply-url="route('assets.ai-autofill-specs.apply', record.id)"
+            :model-name="autofillModelName"
+            @close="showAiAutofillModal = false"
         />
 
         <Modal :show="showDeleteModal" max-width="md" @close="cancelDelete">

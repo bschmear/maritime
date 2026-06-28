@@ -13,6 +13,9 @@ return [
         'decay_minutes' => 1,
     ],
 
-    'ai_model' => env('OPENAI_LEAD_EXTRACTION_MODEL', 'gpt-4o-mini'),
+    /*
+    | Deprecated: lead extraction uses OPENAI_MODEL_DOCUMENT_EXTRACT (openai_models.php).
+    */
+    'ai_model' => env('OPENAI_LEAD_EXTRACTION_MODEL'),
 
 ];

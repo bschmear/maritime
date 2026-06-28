@@ -121,6 +121,117 @@ final class Helmful_Sync_Handler
         return $postId;
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function upsert_brand(array $payload): int
+    {
+        $uuid = self::string($payload['uuid'] ?? null);
+        if ($uuid === '') {
+            throw new InvalidArgumentException('Brand uuid is required.');
+        }
+
+        $postId = self::find_post_id(Helmful_Sync_CPT::BRAND_POST_TYPE, $uuid);
+        $active = (bool) ($payload['active'] ?? true);
+        $slug = self::string($payload['slug'] ?? '');
+        $postData = [
+            'post_type' => Helmful_Sync_CPT::BRAND_POST_TYPE,
+            'post_title' => self::string($payload['display_name'] ?? 'Brand'),
+            'post_content' => '',
+            'post_status' => $active ? 'publish' : 'draft',
+        ];
+
+        if ($slug !== '') {
+            $postData['post_name'] = sanitize_title($slug);
+        }
+
+        if ($postId > 0) {
+            $postData['ID'] = $postId;
+            $postId = (int) wp_update_post($postData, true);
+        } else {
+            $postId = (int) wp_insert_post($postData, true);
+        }
+
+        if (is_wp_error($postId)) {
+            throw new RuntimeException($postId->get_error_message());
+        }
+
+        self::save_meta($postId, $payload, [
+            'helmful_uuid' => $uuid,
+            'helmful_slug' => $slug,
+            'helmful_brand_key' => self::string($payload['brand_key'] ?? ''),
+            'helmful_logo_url' => esc_url_raw(self::string($payload['logo_url'] ?? '')),
+            'helmful_app_brand_url' => self::string($payload['app_brand_url'] ?? ''),
+            'helmful_active' => $active ? '1' : '0',
+            'helmful_updated_at' => self::string($payload['updated_at'] ?? ''),
+            'helmful_last_synced_at' => gmdate('c'),
+        ]);
+
+        return $postId;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function upsert_inventory(array $payload): int
+    {
+        $uuid = self::string($payload['uuid'] ?? null);
+        if ($uuid === '') {
+            throw new InvalidArgumentException('Inventory uuid is required.');
+        }
+
+        $postId = self::find_post_id(Helmful_Sync_CPT::INVENTORY_POST_TYPE, $uuid);
+        $active = (bool) ($payload['active'] ?? true);
+        $slug = self::string($payload['slug'] ?? '');
+        $description = self::string($payload['description'] ?? '');
+        $postData = [
+            'post_type' => Helmful_Sync_CPT::INVENTORY_POST_TYPE,
+            'post_title' => self::string($payload['display_name'] ?? 'Inventory Item'),
+            'post_content' => $description,
+            'post_status' => $active ? 'publish' : 'draft',
+        ];
+
+        if ($slug !== '') {
+            $postData['post_name'] = sanitize_title($slug);
+        }
+
+        if ($postId > 0) {
+            $postData['ID'] = $postId;
+            $postId = (int) wp_update_post($postData, true);
+        } else {
+            $postId = (int) wp_insert_post($postData, true);
+        }
+
+        if (is_wp_error($postId)) {
+            throw new RuntimeException($postId->get_error_message());
+        }
+
+        $brandUuid = self::string($payload['brand_uuid'] ?? '');
+        $brandPostId = $brandUuid !== ''
+            ? self::post_id_for_uuid(Helmful_Sync_CPT::BRAND_POST_TYPE, $brandUuid)
+            : 0;
+
+        self::save_meta($postId, $payload, [
+            'helmful_uuid' => $uuid,
+            'helmful_slug' => $slug,
+            'helmful_brand_uuid' => $brandUuid,
+            'helmful_brand_post_id' => $brandPostId > 0 ? (string) $brandPostId : '',
+            'helmful_brand_name' => self::string($payload['brand_name'] ?? ''),
+            'helmful_brand_slug' => self::string($payload['brand_slug'] ?? ''),
+            'helmful_model' => self::string($payload['model'] ?? ''),
+            'helmful_year' => self::string($payload['year'] ?? ''),
+            'helmful_length' => self::string($payload['length'] ?? ''),
+            'helmful_default_price' => self::string($payload['default_price'] ?? ''),
+            'helmful_type' => self::string($payload['type'] ?? ''),
+            'helmful_active' => $active ? '1' : '0',
+            'helmful_app_asset_url' => self::string($payload['app_asset_url'] ?? ''),
+            'helmful_updated_at' => self::string($payload['updated_at'] ?? ''),
+            'helmful_last_synced_at' => gmdate('c'),
+        ]);
+
+        return $postId;
+    }
+
     public static function trash_by_uuid(string $postType, string $uuid): bool
     {
         $postId = self::find_post_id($postType, $uuid);

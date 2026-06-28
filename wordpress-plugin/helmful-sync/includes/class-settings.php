@@ -13,7 +13,7 @@ final class Helmful_Sync_Settings
     public static function init(): void
     {
         add_filter('plugin_action_links_'.HELMFUL_SYNC_BASENAME, [self::class, 'plugin_action_links']);
-        add_action('admin_menu', [self::class, 'register_menu']);
+        add_action('admin_menu', [self::class, 'register_menu'], 11);
         add_action('admin_init', [self::class, 'register_settings']);
         add_action('admin_init', [self::class, 'redirect_after_settings_save']);
         add_action('admin_enqueue_scripts', [self::class, 'enqueue_admin_assets']);
@@ -24,7 +24,7 @@ final class Helmful_Sync_Settings
 
     public static function enqueue_admin_assets(string $hook): void
     {
-        if ($hook !== 'settings_page_helmful-sync') {
+        if ($hook !== 'helmful-sync-hub_page_helmful-sync') {
             return;
         }
 
@@ -74,17 +74,18 @@ final class Helmful_Sync_Settings
 
     public static function settings_url(): string
     {
-        return admin_url('options-general.php?page=helmful-sync');
+        return admin_url('admin.php?page=helmful-sync');
     }
 
     public static function register_menu(): void
     {
-        add_options_page(
-            __('Helmful Sync', 'helmful-sync'),
-            __('Helmful Sync', 'helmful-sync'),
+        add_submenu_page(
+            Helmful_Sync_Admin_Menu::MENU_SLUG,
+            __('Settings', 'helmful-sync'),
+            __('Settings', 'helmful-sync'),
             'manage_options',
             'helmful-sync',
-            [self::class, 'render_page']
+            [self::class, 'render_page'],
         );
     }
 
@@ -149,7 +150,7 @@ final class Helmful_Sync_Settings
             'page' => 'helmful-sync',
             'tab' => sanitize_key($tab),
             'settings-updated' => 'true',
-        ], admin_url('options-general.php')));
+        ], admin_url('admin.php?page=helmful-sync')));
         exit;
     }
 
@@ -216,7 +217,7 @@ final class Helmful_Sync_Settings
             'helmful_notice' => rawurlencode('WordPress API key generated. Copy it into Helmful.'),
             'helmful_new_key' => rawurlencode($newKey),
             'tab' => sanitize_key((string) ($_POST['helmful_active_tab'] ?? 'connection')),
-        ], admin_url('options-general.php')));
+        ], admin_url('admin.php?page=helmful-sync')));
         exit;
     }
 
@@ -274,7 +275,7 @@ final class Helmful_Sync_Settings
             'page' => 'helmful-sync',
             $arg => rawurlencode($message),
             'tab' => sanitize_key((string) ($_POST['helmful_active_tab'] ?? $_GET['tab'] ?? 'connection')),
-        ], admin_url('options-general.php')));
+        ], admin_url('admin.php?page=helmful-sync')));
         exit;
     }
 }

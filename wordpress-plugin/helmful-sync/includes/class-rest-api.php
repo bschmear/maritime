@@ -34,6 +34,18 @@ final class Helmful_Sync_REST_API
             'permission_callback' => [self::class, 'authorize'],
         ]);
 
+        register_rest_route('helmful/v1', '/sync/brand', [
+            'methods' => 'POST',
+            'callback' => [self::class, 'sync_brand'],
+            'permission_callback' => [self::class, 'authorize'],
+        ]);
+
+        register_rest_route('helmful/v1', '/sync/inventory', [
+            'methods' => 'POST',
+            'callback' => [self::class, 'sync_inventory'],
+            'permission_callback' => [self::class, 'authorize'],
+        ]);
+
         register_rest_route('helmful/v1', '/sync/boat-show/(?P<uuid>[a-f0-9\-]+)', [
             'methods' => 'DELETE',
             'callback' => [self::class, 'delete_boat_show'],
@@ -121,6 +133,34 @@ final class Helmful_Sync_REST_API
     {
         try {
             $postId = Helmful_Sync_Handler::upsert_event((array) $request->get_json_params());
+
+            return new WP_REST_Response([
+                'success' => true,
+                'post_id' => $postId,
+            ]);
+        } catch (Throwable $e) {
+            return new WP_Error('helmful_sync_failed', $e->getMessage(), ['status' => 422]);
+        }
+    }
+
+    public static function sync_brand(WP_REST_Request $request): WP_REST_Response|WP_Error
+    {
+        try {
+            $postId = Helmful_Sync_Handler::upsert_brand((array) $request->get_json_params());
+
+            return new WP_REST_Response([
+                'success' => true,
+                'post_id' => $postId,
+            ]);
+        } catch (Throwable $e) {
+            return new WP_Error('helmful_sync_failed', $e->getMessage(), ['status' => 422]);
+        }
+    }
+
+    public static function sync_inventory(WP_REST_Request $request): WP_REST_Response|WP_Error
+    {
+        try {
+            $postId = Helmful_Sync_Handler::upsert_inventory((array) $request->get_json_params());
 
             return new WP_REST_Response([
                 'success' => true,

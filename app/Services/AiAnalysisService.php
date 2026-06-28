@@ -6,6 +6,9 @@ use App\Models\AiSurveyAnalysis;
 use App\Models\AiUsage;
 use App\Models\Survey\SurveyResponse;
 use App\Models\Team;
+use App\Models\User;
+use App\Support\OpenAi\OpenAiModelResolver;
+use App\Support\OpenAi\OpenAiRequestType;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -21,28 +24,24 @@ class AiAnalysisService
     /**
      * Analyze a survey response using GPT-5 Full.
      *
-     * @param Team $team
-     * @param SurveyResponse $surveyResponse
-     * @param int|null $userId
-     * @return AiSurveyAnalysis
      * @throws \Exception
      */
     public function analyzeSurvey(Team $team, SurveyResponse $surveyResponse, ?int $userId = null): AiSurveyAnalysis
     {
         // Check if team can use AI
-        if (!$this->canTeamUseAi($team)) {
+        if (! $this->canTeamUseAi($team)) {
             throw new \Exception('Your subscription does not include AI analysis features.');
         }
 
         // Check AI quota
-        if (!$this->hasAiQuota($team)) {
+        if (! $this->hasAiQuota($team)) {
             throw new \Exception('Monthly AI analysis limit reached. Please upgrade your plan.');
         }
 
         // Get user timezone if userId is provided
         $userTimezone = null;
         if ($userId) {
-            $user = \App\Models\User::find($userId);
+            $user = User::find($userId);
             $userTimezone = $user?->timezone ?? 'UTC';
         }
 
@@ -51,7 +50,7 @@ class AiAnalysisService
         $schemaType = $this->promptBuilder->getSchemaType($surveyResponse);
         $schema = config("ai_schemas.{$schemaType}");
 
-        if (!$schema) {
+        if (! $schema) {
             throw new \Exception("Invalid schema type: {$schemaType}");
         }
 
@@ -109,7 +108,7 @@ class AiAnalysisService
     {
         $apiKey = config('services.openai.key') ?? env('OPENAI_API_KEY');
 
-        if (!$apiKey) {
+        if (! $apiKey) {
             throw new \Exception('OpenAI API key not configured.');
         }
 
@@ -117,7 +116,7 @@ class AiAnalysisService
             'Authorization' => "Bearer {$apiKey}",
             'Content-Type' => 'application/json',
         ])->timeout(60)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4o', // Using GPT-4o as GPT-5 is not yet released
+            'model' => OpenAiModelResolver::resolve(OpenAiRequestType::MessyOcr),
             'messages' => [
                 [
                     'role' => 'system',
@@ -139,8 +138,8 @@ class AiAnalysisService
             'temperature' => 0.7,
         ]);
 
-        if (!$response->successful()) {
-            throw new \Exception('OpenAI API request failed: ' . $response->body());
+        if (! $response->successful()) {
+            throw new \Exception('OpenAI API request failed: '.$response->body());
         }
 
         $data = $response->json();
@@ -148,14 +147,14 @@ class AiAnalysisService
         // Extract the JSON content
         $content = $data['choices'][0]['message']['content'] ?? null;
 
-        if (!$content) {
+        if (! $content) {
             throw new \Exception('Invalid response from OpenAI API.');
         }
 
         $result = json_decode($content, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \Exception('Failed to parse OpenAI response: ' . json_last_error_msg());
+            throw new \Exception('Failed to parse OpenAI response: '.json_last_error_msg());
         }
 
         // Add usage information
@@ -171,7 +170,7 @@ class AiAnalysisService
     {
         $subscription = $team->cachedActiveSubscription();
 
-        if (!$subscription) {
+        if (! $subscription) {
             return false;
         }
 
@@ -181,6 +180,7 @@ class AiAnalysisService
         // Tier 1 (Trial) can use free credits
         if ($tier == 1) {
             $aiUsage = $team->aiUsage ?? AiUsage::firstOrCreate(['team_id' => $team->id]);
+
             return $aiUsage->hasFreeCredits();
         }
 
@@ -195,7 +195,7 @@ class AiAnalysisService
     {
         $subscription = $team->cachedActiveSubscription();
 
-        if (!$subscription) {
+        if (! $subscription) {
             return false;
         }
 
@@ -273,7 +273,7 @@ class AiAnalysisService
         $tier = $subscription->level ?? 1;
         $aiConfig = config("global.subscriptionOptions.{$tier}.ai");
 
-        if (!$aiUsage) {
+        if (! $aiUsage) {
             $aiUsage = AiUsage::firstOrCreate(['team_id' => $team->id]);
         }
 
