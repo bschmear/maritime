@@ -56,11 +56,34 @@ const page = usePage();
 /** Set true to show AI catalog generate (modal, overlay, AI-oriented copy). */
 const boatMakeAiCatalogUiEnabled = false;
 
-const refreshCatalogLogo = () => {
-    router.post(route(`${props.recordType}.refresh-catalog-logo`, props.record.id), {}, {
-        preserveScroll: true,
-        only: ['record', 'imageUrls', 'flash'],
-    });
+const showRefreshCatalogModal = ref(false);
+const refreshCatalogBusy = ref(false);
+
+const openRefreshCatalogModal = () => {
+    showRefreshCatalogModal.value = true;
+};
+
+const closeRefreshCatalogModal = () => {
+    if (refreshCatalogBusy.value) {
+        return;
+    }
+    showRefreshCatalogModal.value = false;
+};
+
+const confirmRefreshFromCatalog = () => {
+    refreshCatalogBusy.value = true;
+    router.post(
+        route(`${props.recordType}.refresh-catalog-data`, props.record.id),
+        { confirm: true },
+        {
+            preserveScroll: true,
+            only: ['record', 'imageUrls', 'flash', 'errors'],
+            onFinish: () => {
+                refreshCatalogBusy.value = false;
+                showRefreshCatalogModal.value = false;
+            },
+        }
+    );
 };
 
 const flashSuccess = computed(() => page.props.flash?.success ?? null);
@@ -306,9 +329,9 @@ function importSelectedLibraryModels() {
                         v-if="record.brand_key"
                         type="button"
                         class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                        @click="refreshCatalogLogo"
+                        @click="openRefreshCatalogModal"
                     >
-                        Refresh logo from catalog
+                        Refresh from catalog
                     </button>
                 </div>
                 <div v-if="record.logo_url" class="mt-4">
@@ -627,6 +650,58 @@ function importSelectedLibraryModels() {
                     @click="submitAddModelFromModal"
                 >
                     {{ aiForm.processing ? 'Working…' : 'Generate with AI & add to catalog' }}
+                </button>
+            </div>
+        </div>
+    </Modal>
+
+    <Modal :show="showRefreshCatalogModal" max-width="md" @close="closeRefreshCatalogModal">
+        <div class="flex max-h-[90vh] flex-col">
+            <div class="flex shrink-0 items-start justify-between border-b border-gray-200 p-4 dark:border-gray-700">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Refresh from catalog?</h3>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        This will overwrite this brand's catalog-linked fields with the latest shared inventory data:
+                    </p>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-600 dark:text-gray-400">
+                        <li>Brand name</li>
+                        <li>Website</li>
+                        <li>Description</li>
+                        <li>Catalog logo settings</li>
+                    </ul>
+                    <p class="mt-3 text-sm font-medium text-amber-800 dark:text-amber-200">
+                        Any custom edits to those fields on this brand will be replaced.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    class="ml-2 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-600 dark:hover:text-white"
+                    :disabled="refreshCatalogBusy"
+                    @click="closeRefreshCatalogModal"
+                >
+                    <svg class="h-3 w-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6" />
+                    </svg>
+                    <span class="sr-only">Close</span>
+                </button>
+            </div>
+
+            <div class="flex shrink-0 flex-wrap justify-end gap-3 border-t border-gray-200 p-4 dark:border-gray-700">
+                <button
+                    type="button"
+                    class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                    :disabled="refreshCatalogBusy"
+                    @click="closeRefreshCatalogModal"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="button"
+                    class="rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-900"
+                    :disabled="refreshCatalogBusy"
+                    @click="confirmRefreshFromCatalog"
+                >
+                    {{ refreshCatalogBusy ? 'Refreshing…' : 'Refresh from catalog' }}
                 </button>
             </div>
         </div>

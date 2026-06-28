@@ -718,7 +718,7 @@ Route::middleware([
         Route::prefix('boatmakes')->name('boatmakes.')->group(function () {
             Route::post('/manual', [BoatMakeController::class, 'storeManual'])->name('manual');
             Route::post('/bulk-from-catalog', [BoatMakeController::class, 'bulkFromCatalog'])->name('bulk-from-catalog');
-            Route::post('/{boatmake}/refresh-catalog-logo', [BoatMakeController::class, 'refreshLogoFromCatalog'])->name('refresh-catalog-logo');
+            Route::post('/{boatmake}/refresh-catalog-data', [BoatMakeController::class, 'refreshFromCatalog'])->name('refresh-catalog-data');
             Route::post('/{boatmake}/catalog-import', [BoatMakeController::class, 'catalogImport'])->name('catalog-import');
             Route::post('/{boatmake}/catalog-generate-model', [BoatMakeController::class, 'catalogGenerateModel'])->name('catalog-generate-model');
             Route::post('/{boatmake}/import-discovered-models', [BoatMakeController::class, 'queueImportDiscoveredModels'])->name('import-discovered-models');

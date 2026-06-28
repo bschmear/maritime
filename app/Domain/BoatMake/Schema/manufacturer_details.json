@@ -1,0 +1,167 @@
+{
+  "zodiac": {
+    "url": "https://www.zodiac-nautic.com",
+    "description": "French manufacturer and inventor of the inflatable and RIB boat, offering recreational, professional, and military-grade inflatables and rigid inflatables for over 125 years.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender", "power-dinghy", "power-sportcruiser", "power-util"]
+  },
+  "zodiac-milpro": {
+    "url": "https://www.zodiacmilpro.com",
+    "description": "Zodiac Milpro builds professional-grade rigid and soft inflatable boats for military, law enforcement, search and rescue, and commercial operators worldwide.",
+    "boat_type_keys": ["power-rib", "power-inflatable", "power-commercial", "power-util", "power-pilot"]
+  },
+  "zodiac-hurricane": {
+    "url": "https://www.zodiac-hurricane.com",
+    "description": "Zodiac Hurricane Technologies designs heavy-duty aluminum-hull RIBs for professional, government, and commercial missions requiring maximum durability and payload.",
+    "boat_type_keys": ["power-rib", "power-commercial", "power-util", "power-pilot"]
+  },
+  "highfield": {
+    "url": "https://www.highfieldboats.com",
+    "description": "Global RIB manufacturer known for aluminum-hull tenders and sport boats, from compact roll-up models to patrol and adventure lines up to 10 meters.",
+    "boat_type_keys": ["power-rib", "power-tender", "power-inflatable", "power-center", "power-jet", "power-util"]
+  },
+  "ab-inflatables": {
+    "url": "https://www.abinflatables.com",
+    "description": "AB Inflatables builds aluminum-hull RIBs and inflatables for yacht tenders, fishing, diving, and commercial use, with models from compact tenders to large center consoles.",
+    "boat_type_keys": ["power-rib", "power-tender", "power-inflatable", "power-center", "power-util"]
+  },
+  "brig": {
+    "url": "https://www.brigboats.com",
+    "description": "European RIB builder fusing aeronautical engineering with marine craftsmanship, offering hand-built rigid inflatables from compact tenders to high-performance sport boats.",
+    "boat_type_keys": ["power-rib", "power-tender", "power-inflatable", "power-sportcruiser", "power-highperf"]
+  },
+  "grand": {
+    "url": "https://www.grandinflatables.com",
+    "description": "Grand Inflatables produces aluminum-hull RIBs and inflatables for leisure, fishing, and commercial use, with a focus on value and practical layouts.",
+    "boat_type_keys": ["power-rib", "power-inflatable", "power-tender"]
+  },
+  "grand-inflatables": {
+    "url": "https://www.grandinflatables.com",
+    "description": "Grand Inflatables produces aluminum-hull RIBs and inflatables for leisure, fishing, and commercial use, with a focus on value and practical layouts.",
+    "boat_type_keys": ["power-rib", "power-inflatable", "power-tender"]
+  },
+  "achilles": {
+    "url": "https://www.achillesinflatables.com",
+    "description": "Achilles Inflatable Craft manufactures Hypalon and PVC inflatables and RIBs for recreation, fishing, and commercial applications from compact tenders to large sport boats.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender", "raft"]
+  },
+  "ranieri": {
+    "url": "https://www.ranieri-international.com",
+    "description": "Italian builder of RIBs, inflatables, and small fiberglass boats for leisure and professional use, with a wide range of center-console and open layouts.",
+    "boat_type_keys": ["power-rib", "power-tender", "power-inflatable", "power-center"]
+  },
+  "caribe": {
+    "url": "https://www.caribeboats.com",
+    "description": "Caribe Inflatables builds Hypalon RIBs and soft-bottom inflatables for yacht tenders, resort fleets, diving, and general recreation.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "gala": {
+    "url": "https://www.galaboats.com",
+    "description": "Gala Boats manufactures PVC and Hypalon inflatables and aluminum-hull RIBs for tenders, fishing, and family boating at accessible price points.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "walker-bay": {
+    "url": "https://www.walkerbay.com",
+    "description": "Walker Bay is known for Generation 3 and 4 rigid inflatable tenders plus dinghy and utility inflatables designed for yacht owners and coastal boaters.",
+    "boat_type_keys": ["power-rib", "power-tender", "power-dinghy", "unpowered-tender"]
+  },
+  "williams-jet-tenders": {
+    "url": "https://www.williamsjetenders.com",
+    "description": "Williams Jet Tenders builds premium jet-driven RIB tenders engineered for superyachts, combining jet propulsion with luxury finishes and stable handling.",
+    "boat_type_keys": ["power-jet", "power-tender", "power-rib"]
+  },
+  "novurania": {
+    "url": "https://www.novurania.com",
+    "description": "Novurania produces heavy-duty RIBs and inflatables for yacht tenders, military, and professional operators, with a reputation for rugged construction.",
+    "boat_type_keys": ["power-rib", "power-tender", "power-inflatable", "power-commercial"]
+  },
+  "bombard": {
+    "url": "https://www.bombard-boats.com",
+    "description": "Bombard is a long-standing inflatable boat brand in the Zodiac group, offering affordable PVC and Hypalon inflatables for leisure and utility use.",
+    "boat_type_keys": ["power-inflatable", "power-dinghy", "unpowered-tender"]
+  },
+  "takacat": {
+    "url": "https://www.takacat.com",
+    "description": "Takacat builds foldable and lightweight catamaran-style inflatables and RIBs that pack down for easy storage on smaller vessels and trailers.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "unpowered-tender"]
+  },
+  "sea-eagle": {
+    "url": "https://www.seaeagle.com",
+    "description": "Sea Eagle manufactures portable PVC inflatables including kayaks, fishing boats, and RIB-style models designed for easy transport and setup.",
+    "boat_type_keys": ["power-inflatable", "unpowered-kayak", "power-dinghy", "raft"]
+  },
+  "honwave": {
+    "url": "https://www.honwave.com",
+    "description": "Honwave, a Honda Marine brand, offers PVC inflatables and aluminum-hull RIBs as practical tenders and family boats with emphasis on reliability and value.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "suzumar": {
+    "url": "https://www.suzumar.fi",
+    "description": "Suzumar is a Finnish inflatable boat manufacturer producing aluminum-hull RIBs and soft inflatables for Nordic and European leisure and utility markets.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "mercury-inflatables": {
+    "url": "https://www.mercurymarine.com",
+    "description": "Mercury Inflatables offers PVC and Hypalon inflatables and RIBs designed to pair with Mercury outboards for tenders and general recreational boating.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "saturn": {
+    "url": "https://www.saturnboats.com",
+    "description": "Saturn Inflatables supplies PVC and Hypalon inflatables, kayaks, and RIBs for budget-conscious boaters, outfitters, and commercial rental fleets.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "unpowered-kayak"]
+  },
+  "stryker": {
+    "url": "https://www.strykerboats.com",
+    "description": "Stryker Boats builds aluminum-hull RIBs and inflatables for fishing, diving, and utility work with an emphasis on durable, no-frills layouts.",
+    "boat_type_keys": ["power-rib", "power-inflatable", "power-util"]
+  },
+  "true-kit": {
+    "url": "https://www.truekit.co.nz",
+    "description": "True Kit manufactures kit-set and ready-built aluminum RIBs and inflatables in New Zealand, popular with DIY builders and commercial operators.",
+    "boat_type_keys": ["power-rib", "power-inflatable", "power-util"]
+  },
+  "maxxon": {
+    "url": "https://www.maxxoninflatables.com",
+    "description": "Maxxon Inflatables produces PVC and Hypalon inflatables and RIBs for tenders, fishing, and recreation with a focus on practical, affordable designs.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "inmar": {
+    "url": "https://www.inmar.com",
+    "description": "Inmar Inflatable Boats builds Hypalon RIBs and soft inflatables for yacht tenders, resort fleets, and commercial operators on the U.S. West Coast.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "newport": {
+    "url": "https://www.newportvessels.com",
+    "description": "Newport Vessels sells PVC inflatables, RIBs, and electric outboards aimed at anglers, families, and first-time boaters seeking affordable packages.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender"]
+  },
+  "west-marine": {
+    "url": "https://www.westmarine.com",
+    "description": "West Marine offers house-brand inflatables and RIBs alongside marine retail products, targeting cruisers and coastal boaters who want ready-to-use tender solutions.",
+    "boat_type_keys": ["power-inflatable", "power-rib", "power-tender", "power-dinghy"]
+  },
+  "aqua-marina": {
+    "url": "https://www.aquamarina.com",
+    "description": "Aqua Marina manufactures portable PVC inflatables including kayaks, SUPs, and small motor boats designed for easy storage and recreational paddling.",
+    "boat_type_keys": ["unpowered-kayak", "power-inflatable", "raft"]
+  },
+  "avon": {
+    "url": "https://www.avon-marine.com",
+    "description": "Avon Marine, part of the Zodiac group, builds professional and recreational RIBs and inflatables with a heritage in rescue, military, and yacht tender applications.",
+    "boat_type_keys": ["power-rib", "power-inflatable", "power-tender", "power-commercial"]
+  },
+  "nrs": {
+    "url": "https://www.nrs.com",
+    "description": "NRS designs inflatable kayaks, catarafts, and packrafts for river running and outdoor adventure, with a strong following among whitewater and expedition paddlers.",
+    "boat_type_keys": ["unpowered-kayak", "raft"]
+  },
+  "seabright": {
+    "url": "https://www.seabrightboats.com",
+    "description": "SeaBright Boats builds aluminum-hull RIBs and small craft for fishing and utility use, with practical layouts for coastal and inshore operators.",
+    "boat_type_keys": ["power-rib", "power-util", "power-saltfish"]
+  },
+  "vanguard": {
+    "url": "https://www.vanguard-marine.com",
+    "description": "Vanguard Marine manufactures aluminum-hull RIBs and inflatables for commercial, government, and recreational customers requiring rugged, work-ready boats.",
+    "boat_type_keys": ["power-rib", "power-commercial", "power-util"]
+  }
+}

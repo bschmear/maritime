@@ -16,6 +16,12 @@
         },
         {
           "key": "vendor_id"
+        },
+        {
+          "key": "website_url"
+        },
+        {
+          "key": "description"
         }
       ]
     },

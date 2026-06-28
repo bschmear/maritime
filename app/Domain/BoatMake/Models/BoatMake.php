@@ -20,6 +20,8 @@ class BoatMake extends Model
         'is_custom',
         'use_default_logo',
         'default_brand_image',
+        'website_url',
+        'description',
         'custom_logo_id',
         'active',
         'asset_types',

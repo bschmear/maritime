@@ -170,6 +170,7 @@ class PostController extends Controller
     {
         return $request->validate([
             'title' => 'required|string|max:255',
+            'short_description' => 'nullable|string|max:255',
             'body' => 'nullable|string',
             'category_id' => 'nullable|exists:categories,id',
             'cover_image' => PostCoverImageStorage::storedPublicPathRules(),

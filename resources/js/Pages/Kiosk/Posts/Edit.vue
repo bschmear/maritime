@@ -34,6 +34,7 @@ const props = defineProps({
 
 const form = useForm({
     title: props.post.title || '',
+    short_description: props.post.short_description || '',
     body: props.post.body || '',
     category_id: props.post.category_id || '',
     cover_image: props.post.cover_image || '',
@@ -98,6 +99,22 @@ const submit = () => {
                                     {{ form.title.length }}/{{ titleMaxLength }} characters
                                 </p>
                                 <InputError class="mt-2" :message="form.errors.title" />
+                            </div>
+
+                            <div>
+                                <InputLabel for="short_description" value="Short description" class="text-gray-900 dark:text-white" />
+                                <textarea
+                                    id="short_description"
+                                    v-model="form.short_description"
+                                    rows="3"
+                                    :maxlength="titleMaxLength"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 bg-white text-gray-900 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-primary-400 dark:focus:ring-primary-400"
+                                    placeholder="Brief summary for blog cards, SEO, and social previews…"
+                                />
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {{ form.short_description.length }}/{{ titleMaxLength }} characters
+                                </p>
+                                <InputError class="mt-2" :message="form.errors.short_description" />
                             </div>
 
                             <div>

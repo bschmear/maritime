@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 /**
  * Canonical manufacturer list (display + stable slug) from Domain/BoatMake/Schema/manufacturers.json.
  *
+ * Optional website URL and description come from Domain/BoatMake/Schema/manufacturer_details.json.
+ *
  * File format: JSON object `{ "slug": "Display Name", ... }` (slug is the inventory / brand key).
  * Legacy format: JSON array of display name strings (slugs derived with collision suffixes) is still supported.
  */
@@ -20,7 +22,7 @@ final class ManufacturerCatalog
     }
 
     /**
-     * @return list<array{display_name: string, slug: string}>
+     * @return list<array{display_name: string, slug: string, url: ?string, description: ?string, boat_type_keys: list<string>}>
      */
     public static function entries(): array
     {
@@ -38,6 +40,7 @@ final class ManufacturerCatalog
             return self::entriesFromLegacyNameList($raw);
         }
 
+        $detailsBySlug = ManufacturerDetailsCatalog::allBySlug();
         $out = [];
         foreach ($raw as $slug => $displayName) {
             if (! is_string($slug) || trim($slug) === '') {
@@ -46,7 +49,19 @@ final class ManufacturerCatalog
             if (! is_string($displayName) || trim($displayName) === '') {
                 continue;
             }
-            $out[] = ['slug' => trim($slug), 'display_name' => trim($displayName)];
+            $slug = trim($slug);
+            $row = ['slug' => $slug, 'display_name' => trim($displayName)];
+            $details = $detailsBySlug[$slug] ?? null;
+            $row['url'] = $details['url'] ?? null;
+            $row['description'] = $details['description'] ?? null;
+            $row['boat_type_keys'] = $details['boat_type_keys'] ?? [];
+            if ($row['url'] === '') {
+                $row['url'] = null;
+            }
+            if ($row['description'] === '') {
+                $row['description'] = null;
+            }
+            $out[] = $row;
         }
 
         usort($out, static fn (array $a, array $b): int => strcasecmp($a['display_name'], $b['display_name']));
@@ -75,7 +90,7 @@ final class ManufacturerCatalog
                 $n++;
             }
             $used[$slug] = true;
-            $out[] = ['display_name' => $name, 'slug' => $slug];
+            $out[] = ['display_name' => $name, 'slug' => $slug, 'url' => null, 'description' => null, 'boat_type_keys' => []];
         }
 
         return $out;

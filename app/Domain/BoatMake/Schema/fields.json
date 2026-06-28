@@ -39,6 +39,16 @@
     "disabled": true,
     "hidden": true
   },
+  "website_url": {
+    "label": "Website",
+    "type": "text",
+    "help": "Manufacturer website imported from the shared inventory catalog when available."
+  },
+  "description": {
+    "label": "Description",
+    "type": "textarea",
+    "help": "Brand overview imported from the shared inventory catalog when available."
+  },
   "custom_logo_id": {
     "label": "Custom logo",
     "type": "image",

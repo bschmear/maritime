@@ -96,7 +96,7 @@ const applySearch = (event) => {
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-4 text-sm font-medium">
                                     <Link
-                                        :href="route('kiosk.inventory-brands.edit', brand.id)"
+                                        :href="route('kiosk.inventory-brands.show', brand.id)"
                                         class="text-gray-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
                                     >
                                         {{ brand.display_name }}
@@ -120,6 +120,12 @@ const applySearch = (event) => {
                                 </td>
                                 <td class="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                     <div class="flex items-center justify-end gap-x-3">
+                                        <Link
+                                            :href="route('kiosk.inventory-brands.show', brand.id)"
+                                            class="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+                                        >
+                                            View
+                                        </Link>
                                         <Link
                                             :href="route('kiosk.inventory-brands.edit', brand.id)"
                                             class="text-primary-600 hover:text-primary-700 dark:text-primary-400"

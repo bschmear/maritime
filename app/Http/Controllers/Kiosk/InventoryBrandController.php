@@ -49,10 +49,34 @@ class InventoryBrandController extends Controller
     {
         $validated = $this->validateBrand($request);
 
-        InventoryBoatMake::query()->create($validated);
+        $brand = InventoryBoatMake::query()->create($validated);
 
-        return redirect()->route('kiosk.inventory-brands.index')
+        return redirect()->route('kiosk.inventory-brands.show', $brand)
             ->with('success', 'Brand created successfully.');
+    }
+
+    public function show(int $inventoryBrand): Response
+    {
+        $brand = InventoryBoatMake::query()
+            ->with([
+                'boatType:id,display_name,slug',
+                'boatTypes:id,display_name,slug',
+                'hullType:id,display_name',
+                'hullMaterial:id,display_name',
+                'catalogAssets' => static function ($query) {
+                    $query
+                        ->orderBy('display_name')
+                        ->with(['variants' => static function ($variants) {
+                            $variants->orderBy('display_name');
+                        }]);
+                },
+            ])
+            ->withCount('catalogAssets')
+            ->findOrFail($inventoryBrand);
+
+        return Inertia::render('Kiosk/Inventory/Brands/Show', [
+            'brand' => $brand,
+        ]);
     }
 
     public function edit(int $inventoryBrand): Response
@@ -72,7 +96,7 @@ class InventoryBrandController extends Controller
 
         $brand->update($validated);
 
-        return redirect()->route('kiosk.inventory-brands.index')
+        return redirect()->route('kiosk.inventory-brands.show', $brand)
             ->with('success', 'Brand updated successfully.');
     }
 
@@ -135,6 +159,8 @@ class InventoryBrandController extends Controller
             'boat_type_id' => ['nullable', 'integer', Rule::exists('inventory.boat_type', 'id')],
             'hull_type_id' => ['nullable', 'integer', Rule::exists('inventory.hull_type', 'id')],
             'hull_material_id' => ['nullable', 'integer', Rule::exists('inventory.hull_material', 'id')],
+            'website_url' => ['nullable', 'string', 'max:512'],
+            'description' => ['nullable', 'string', 'max:5000'],
         ]);
 
         $validated['slug'] = Str::slug($validated['slug']);

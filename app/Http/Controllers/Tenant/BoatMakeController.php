@@ -191,19 +191,40 @@ class BoatMakeController extends RecordController
             'brand_keys.*' => ['required', 'string', 'max:255'],
             'asset_types' => ['sometimes', 'array', 'min:1'],
             'asset_types.*' => ['integer', 'in:1,2,3,4'],
+            'overwrite_description' => ['sometimes', 'boolean'],
         ])->validate();
 
         $allowed = collect(ManufacturerCatalog::entries())->keyBy('slug');
         $assetTypes = $data['asset_types'] ?? [1];
+        $overwriteDescription = (bool) ($data['overwrite_description'] ?? false);
 
         $created = 0;
+        $updated = 0;
         foreach ($data['brand_keys'] as $slug) {
             if (! isset($allowed[$slug])) {
                 continue;
             }
-            if (RecordModel::query()->where('brand_key', $slug)->exists()) {
+
+            $existing = RecordModel::query()->where('brand_key', $slug)->first();
+            if ($existing) {
+                if ($overwriteDescription) {
+                    $metadata = BrandLogoCatalogSync::metadataForBrandKey($slug);
+                    $payload = [];
+                    if ($metadata['website_url'] !== null) {
+                        $payload['website_url'] = $metadata['website_url'];
+                    }
+                    if ($metadata['description'] !== null) {
+                        $payload['description'] = $metadata['description'];
+                    }
+                    if ($payload !== []) {
+                        $existing->update($payload);
+                        $updated++;
+                    }
+                }
+
                 continue;
             }
+
             $label = $allowed[$slug]['display_name'];
             $result = $create([
                 'display_name' => $label,
@@ -217,7 +238,12 @@ class BoatMakeController extends RecordController
             }
         }
 
-        return back()->with('success', $created.' brand(s) added.');
+        $message = $created.' brand(s) added.';
+        if ($updated > 0) {
+            $message .= ' '.$updated.' existing brand(s) updated from catalog.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function catalogImport(Request $request, string $id)
@@ -385,8 +411,12 @@ class BoatMakeController extends RecordController
         return back()->with('success', $msg);
     }
 
-    public function refreshLogoFromCatalog(string $id, UpdateAction $update)
+    public function refreshFromCatalog(Request $request, string $id, UpdateAction $update)
     {
+        Validator::make($request->all(), [
+            'confirm' => ['required', 'accepted'],
+        ])->validate();
+
         $record = RecordModel::query()->findOrFail($id);
 
         if (! $record->brand_key) {
@@ -395,25 +425,22 @@ class BoatMakeController extends RecordController
             ]);
         }
 
-        $defaultLogo = BrandLogoCatalogSync::defaultLogoForBrandKey($record->brand_key);
+        $payload = BrandLogoCatalogSync::refreshPayloadForBrandKey($record->brand_key);
 
-        if ($defaultLogo === null) {
+        if ($payload === null) {
             return back()->withErrors([
-                'brand' => 'No catalog logo is available for this brand yet.',
+                'brand' => 'No catalog data is available for this brand yet.',
             ]);
         }
 
-        $result = $update((int) $record->id, [
-            'default_brand_image' => $defaultLogo,
-            'use_default_logo' => true,
-        ]);
+        $result = $update((int) $record->id, $payload);
 
         if (($result['success'] ?? false) !== true) {
             return back()->withErrors([
-                'brand' => $result['message'] ?? 'Could not refresh catalog logo.',
+                'brand' => $result['message'] ?? 'Could not refresh brand data from catalog.',
             ]);
         }
 
-        return back()->with('success', 'Catalog logo refreshed.');
+        return back()->with('success', 'Brand data refreshed from catalog.');
     }
 }

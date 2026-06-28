@@ -17,6 +17,7 @@ const titleMaxLength = 255;
 
 const form = useForm({
     title: '',
+    short_description: '',
     body: '',
     category_id: '',
     cover_image: '',
@@ -79,6 +80,23 @@ const submit = () => {
                                     {{ form.title.length }}/{{ titleMaxLength }} characters
                                 </p>
                                 <InputError class="mt-2" :message="form.errors.title" />
+                            </div>
+
+                            <!-- Short description -->
+                            <div class="sm:col-span-6">
+                                <InputLabel for="short_description" value="Short description" class="text-gray-900 dark:text-white" />
+                                <textarea
+                                    id="short_description"
+                                    v-model="form.short_description"
+                                    rows="3"
+                                    :maxlength="titleMaxLength"
+                                    class="mt-2 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:border-primary-500 dark:focus:border-primary-400 focus:ring-primary-500 dark:focus:ring-primary-400"
+                                    placeholder="Brief summary for blog cards, SEO, and social previews…"
+                                />
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                    {{ form.short_description.length }}/{{ titleMaxLength }} characters
+                                </p>
+                                <InputError class="mt-2" :message="form.errors.short_description" />
                             </div>
 
                             <!-- Body -->

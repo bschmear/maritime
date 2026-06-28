@@ -24,13 +24,15 @@ class CreateBoatMake
             'custom_logo_id' => ['sometimes', 'nullable', 'integer', 'exists:documents,id'],
             'active' => ['sometimes', 'boolean'],
             'brand_key' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'website_url' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:5000'],
             'vendor_id' => ['sometimes', 'nullable', 'integer', 'exists:vendors,id'],
         ])->validate();
 
         if (! empty($validated['brand_key'])) {
             $validated['slug'] = $validated['brand_key'];
-            $logoDefaults = BrandLogoCatalogSync::importDefaults($validated['brand_key']);
-            $validated = array_merge($logoDefaults, $validated);
+            $catalogDefaults = BrandLogoCatalogSync::importDefaults($validated['brand_key']);
+            $validated = array_merge($catalogDefaults, $validated);
         } else {
             $slug = Str::slug($validated['display_name']);
             $originalSlug = $slug;

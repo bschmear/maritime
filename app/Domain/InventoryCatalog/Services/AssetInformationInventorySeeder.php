@@ -15,6 +15,7 @@ use App\Enums\Inventory\BoatType;
 use App\Enums\Inventory\HullMaterial;
 use App\Enums\Inventory\HullType;
 use App\Support\ManufacturerCatalog;
+use App\Support\ManufacturerDetailsCatalog;
 use Illuminate\Support\Facades\DB;
 use JsonException;
 
@@ -180,6 +181,11 @@ final class AssetInformationInventorySeeder
                     $makePayload = [
                         'display_name' => $displayName,
                         'active' => true,
+                        ...ManufacturerDetailsCatalog::inventoryPayload(
+                            $slug,
+                            false,
+                            InventoryBoatMake::query()->where('slug', $slug)->value('description')
+                        ),
                     ];
                     if ($makeLookupIds !== null) {
                         $makePayload['boat_type_id'] = $makeLookupIds['boat_type_id'];
@@ -191,6 +197,7 @@ final class AssetInformationInventorySeeder
                         ['slug' => $slug],
                         $makePayload
                     );
+                    ManufacturerDetailsCatalog::syncBoatTypesForMake($make, false);
 
                     $assetCount = 0;
                     $variantCount = 0;

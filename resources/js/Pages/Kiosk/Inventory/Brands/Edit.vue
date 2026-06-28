@@ -23,6 +23,8 @@ const form = useForm({
     boat_type_id: props.brand.boat_type_id || '',
     hull_type_id: props.brand.hull_type_id || '',
     hull_material_id: props.brand.hull_material_id || '',
+    website_url: props.brand.website_url || '',
+    description: props.brand.description || '',
 });
 
 const submit = () => {
@@ -51,7 +53,7 @@ const removeLogoFromServer = () => {
         <template #header>
             <div class="flex items-center gap-x-3">
                 <Link
-                    :href="route('kiosk.inventory-brands.index')"
+                    :href="route('kiosk.inventory-brands.show', brand.id)"
                     class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                 >
                     ←
@@ -129,12 +131,33 @@ const removeLogoFromServer = () => {
                             <option v-for="material in hullMaterials" :key="material.id" :value="material.id">{{ material.display_name }}</option>
                         </select>
                     </div>
+                    <div>
+                        <InputLabel for="website_url" value="Website" />
+                        <TextInput id="website_url" v-model="form.website_url" type="url" class="mt-2 block w-full" />
+                        <InputError class="mt-2" :message="form.errors.website_url" />
+                    </div>
+                    <div>
+                        <InputLabel for="description" value="Description" />
+                        <textarea
+                            id="description"
+                            v-model="form.description"
+                            rows="4"
+                            class="mt-2 block w-full rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        />
+                        <InputError class="mt-2" :message="form.errors.description" />
+                    </div>
                     <div class="text-sm text-gray-500 dark:text-gray-400">
                         {{ brand.catalog_assets_count || 0 }} catalog model(s) linked to this brand.
+                        <Link
+                            :href="route('kiosk.inventory-brands.show', brand.id)"
+                            class="ml-1 font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                        >
+                            View models
+                        </Link>
                     </div>
                 </div>
                 <div class="mt-8 flex justify-end gap-3 border-t border-gray-200 pt-6 dark:border-gray-700">
-                    <Link :href="route('kiosk.inventory-brands.index')" class="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                    <Link :href="route('kiosk.inventory-brands.show', brand.id)" class="text-sm font-semibold text-gray-600 dark:text-gray-300">
                         Cancel
                     </Link>
                     <button type="submit" class="gradient-btn rounded-lg px-4 py-2.5 text-sm" :disabled="form.processing">

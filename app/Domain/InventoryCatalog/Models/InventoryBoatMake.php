@@ -6,6 +6,7 @@ namespace App\Domain\InventoryCatalog\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InventoryBoatMake extends Model
@@ -19,6 +20,8 @@ class InventoryBoatMake extends Model
         'slug',
         'active',
         'logo_url',
+        'website_url',
+        'description',
         'boat_type_id',
         'hull_type_id',
         'hull_material_id',
@@ -31,6 +34,19 @@ class InventoryBoatMake extends Model
     public function boatType(): BelongsTo
     {
         return $this->belongsTo(InventoryBoatType::class, 'boat_type_id');
+    }
+
+    public function boatTypes(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            InventoryBoatType::class,
+            'boat_make_boat_type',
+            'boat_make_id',
+            'boat_type_id'
+        )
+            ->withPivot(['is_primary'])
+            ->withTimestamps()
+            ->orderByPivot('is_primary', 'desc');
     }
 
     public function hullType(): BelongsTo

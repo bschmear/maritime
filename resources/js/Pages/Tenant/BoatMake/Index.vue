@@ -59,6 +59,7 @@ const showManufacturersModal = ref(false);
 const showManualModal = ref(false);
 const manufacturerSearch = ref('');
 const selectedSlugs = shallowRef(new Set());
+const overwriteDescription = ref(false);
 const busy = ref(false);
 
 const manualForm = reactive({
@@ -131,6 +132,7 @@ function onCheckboxChange(slug, event) {
 function openManufacturersModal() {
     manufacturerSearch.value = '';
     selectedSlugs.value = new Set();
+    overwriteDescription.value = false;
     showManufacturersModal.value = true;
 }
 
@@ -186,7 +188,11 @@ function submitBulk() {
     busy.value = true;
     router.post(
         route('boatmakes.bulk-from-catalog'),
-        { brand_keys: [...selectedSlugs.value], asset_types: [1] },
+        {
+            brand_keys: [...selectedSlugs.value],
+            asset_types: [1],
+            overwrite_description: overwriteDescription.value,
+        },
         {
             preserveScroll: true,
             onFinish: () => {
@@ -366,13 +372,14 @@ function confirmCatalogManualAnyway() {
                 </div>
 
                 <div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-gray-200 p-4 dark:border-gray-700">
-                    <!-- <button
-                        type="button"
-                        class="mr-auto text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
-                        @click="openManualFromCatalog"
-                    >
-                        Add manually
-                    </button> -->
+                    <label class="mr-auto inline-flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                        <input
+                            v-model="overwriteDescription"
+                            type="checkbox"
+                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
+                        />
+                        <span>Overwrite description on brands already added</span>
+                    </label>
                     <span v-if="selectedCount > 0" class="text-xs text-gray-500 dark:text-gray-400">
                         {{ selectedCount }} selected
                     </span>
