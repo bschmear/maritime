@@ -55,7 +55,10 @@ final class AssetWordPressPayload
             'type' => $asset->type,
             'active' => ! (bool) $asset->inactive,
             'primary_image_url' => $primaryImageUrl,
-            'specs' => SpecValueDisplayFormatter::labeledRowsFromAsset($asset, false),
+            'specs' => array_values(array_filter(
+                SpecValueDisplayFormatter::labeledRowsFromAsset($asset, false),
+                static fn (array $row): bool => filled($row['value'] ?? null),
+            )),
             'app_asset_url' => TenantAbsoluteUrl::path('assets/'.$asset->id),
             'updated_at' => $asset->updated_at?->toIso8601String(),
         ];

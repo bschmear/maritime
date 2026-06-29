@@ -5,7 +5,7 @@ body .helmful-boat-shows-shell .helmful-sync-main{
 }
 
 body .helmful-boat-shows-shell .helmful-template{
-    max-width: 1080px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 2rem 1.25rem 4rem;
     box-sizing: border-box;
@@ -377,20 +377,15 @@ body .helmful-boat-shows-shell .helmful-event-card .helmful-event__links{
 
 body .helmful-boat-shows-shell .helmful-detail-grid{
     display: grid;
-    gap: 0.85rem;
+    grid-template-columns: 9rem 1fr;
+    gap: 0.85rem 1rem;
+    align-items: baseline;
     margin: 0 0 1.5rem;
     padding: 1.25rem;
     border: 1px solid var(--helmful-border, #e2e5e9);
     border-radius: var(--helmful-card-radius, 12px);
     background: #fff;
     box-shadow: var(--helmful-card-shadow, 0 2px 8px rgba(16, 24, 40, 0.07));
-}
-
-body .helmful-boat-shows-shell .helmful-detail-grid__row{
-    display: grid;
-    grid-template-columns: 9rem 1fr;
-    gap: 0.75rem 1rem;
-    align-items: baseline;
 }
 
 body .helmful-boat-shows-shell .helmful-detail-grid dt{
@@ -413,6 +408,389 @@ body .helmful-boat-shows-shell .helmful-single-back{
     margin-top: 1.25rem;
 }
 
+/* ============================================================
+   INVENTORY SINGLE — layout only; width/padding from WP theme
+   ============================================================ */
+
+body .helmful-boat-shows-shell.helmful-inventory-single-shell{
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single-page{
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 1536px;
+    padding: 3.5rem;
+    margin: 0 auto;
+}
+
+html:has(.helmful-inventory-single-page){
+    scroll-behavior: smooth;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single{
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 2rem;
+    align-items: start;
+    margin-bottom: 2rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__media{
+    background: var(--helmful-card-bg, #fff);
+    border: 1px solid var(--helmful-border, #e5e7eb);
+    border-radius: var(--helmful-card-radius, 12px);
+    overflow: hidden;
+    box-shadow: var(--helmful-card-shadow, none);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__image{
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__placeholder{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 4 / 3;
+    background: var(--helmful-placeholder-bg, #f9fafb);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__placeholder-icon{
+    width: 4rem;
+    height: 4rem;
+    color: var(--helmful-placeholder-icon, #e5e7eb);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__brand{
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--helmful-muted, #6b7280);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__brand a{
+    color: var(--helmful-accent, #1e3a5f);
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__brand a:hover,
+body .helmful-boat-shows-shell .helmful-inventory-single__brand a:focus{
+    text-decoration: underline;
+    outline: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__title{
+    margin: 0 0 0.75rem;
+    font-size: clamp(1.75rem, 3vw, 2.35rem);
+    line-height: 1.15;
+    color: var(--helmful-heading, #111827);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__price{
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--helmful-accent, #1e3a5f);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__description{
+    color: var(--helmful-muted, #6b7280);
+    font-size: 1rem;
+    line-height: 1.7;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__description p{
+    margin: 0 0 1rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__description p:last-child{
+    margin-bottom: 0;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-cta{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1rem;
+    padding: 0.85rem 1.35rem;
+    border-radius: 8px;
+    background: var(--helmful-accent, #1e3a5f);
+    color: var(--helmful-on-accent, #fff);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-cta:hover,
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-cta:focus{
+    background: var(--helmful-accent-hover, #16304f);
+    color: var(--helmful-on-accent, #fff);
+    outline: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__specs,
+body .helmful-boat-shows-shell .helmful-inventory-single__quote,
+body .helmful-boat-shows-shell .helmful-inventory-single__related{
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--helmful-card-bg, #fff);
+    border: 1px solid var(--helmful-border, #e5e7eb);
+    border-radius: var(--helmful-card-radius, 12px);
+    box-shadow: var(--helmful-card-shadow, none);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__quote{
+    scroll-margin-top: 1.5rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__specs-title,
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-title,
+body .helmful-boat-shows-shell .helmful-inventory-single__related-title{
+    margin: 0 0 1rem;
+    font-size: 1.25rem;
+    color: var(--helmful-heading, #111827);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__specs .helmful-inventory-spec-list{
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-spec-list{
+    display: grid;
+    grid-template-columns: minmax(9rem, 12rem) 1fr;
+    gap: 0.85rem 1rem;
+    align-items: baseline;
+    margin: 0;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-spec-list dt{
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--helmful-subtle, #9ca3af);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-spec-list dd{
+    margin: 0;
+    font-size: 0.98rem;
+    color: var(--helmful-heading, #111827);
+    line-height: 1.5;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__related-head{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__related-head .helmful-inventory-single__related-title{
+    margin-bottom: 0;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__related-link{
+    color: var(--helmful-accent, #1e3a5f);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__related-link:hover,
+body .helmful-boat-shows-shell .helmful-inventory-single__related-link:focus{
+    text-decoration: underline;
+    outline: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-grid{
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: 1fr;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card{
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--helmful-surface-bg, #f7f7f7);
+    border: 1px solid var(--helmful-border, #e5e7eb);
+    border-radius: var(--helmful-card-radius, 12px);
+    overflow: hidden;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__media{
+    display: block;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--helmful-placeholder-bg, #f9fafb);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__image{
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__placeholder{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: var(--helmful-placeholder-bg, #f9fafb);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__placeholder-icon{
+    width: 3rem;
+    height: 3rem;
+    color: var(--helmful-placeholder-icon, #e5e7eb);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__body{
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__title{
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.3;
+    color: var(--helmful-heading, #111827);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__title a{
+    color: inherit;
+    text-decoration: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__title a:hover,
+body .helmful-boat-shows-shell .helmful-inventory-related-card__title a:focus{
+    color: var(--helmful-accent, #1e3a5f);
+    outline: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__price{
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--helmful-accent, #1e3a5f);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__link{
+    margin-top: auto;
+    color: var(--helmful-accent, #1e3a5f);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+    text-transform: uppercase;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-related-card__link:hover,
+body .helmful-boat-shows-shell .helmful-inventory-related-card__link:focus{
+    text-decoration: underline;
+    outline: none;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-intro,
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-item{
+    margin: 0 0 1rem;
+    color: var(--helmful-muted, #6b7280);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-single__quote-item{
+    font-weight: 600;
+    color: var(--helmful-heading, #111827);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline{
+    display: grid;
+    gap: 1rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__field label{
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--helmful-heading, #111827);
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__field input,
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__field textarea{
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--helmful-border, #e5e7eb);
+    border-radius: 8px;
+    font: inherit;
+    background: #fff;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__feedback{
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__feedback.is-error{
+    color: #b42318;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__feedback.is-success{
+    color: #027a48;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__submit{
+    justify-self: start;
+    padding: 0.8rem 1.25rem;
+    border: 0;
+    border-radius: 8px;
+    background: var(--helmful-button-dark, #111827);
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+body .helmful-boat-shows-shell .helmful-inventory-quote-inline__submit:disabled{
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+@media (min-width: 640px) {
+    body .helmful-boat-shows-shell .helmful-inventory-related-grid{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1024px) {
+    body .helmful-boat-shows-shell .helmful-inventory-related-grid{
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 720px) {
     body .helmful-boat-shows-shell .helmful-single-hero{
         grid-template-columns: 1fr;
@@ -428,8 +806,13 @@ body .helmful-boat-shows-shell .helmful-single-back{
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    body .helmful-boat-shows-shell .helmful-detail-grid__row{
+    body .helmful-boat-shows-shell .helmful-detail-grid,
+    body .helmful-boat-shows-shell .helmful-inventory-spec-list{
         grid-template-columns: 1fr;
         gap: 0.2rem;
+    }
+
+    body .helmful-boat-shows-shell .helmful-inventory-single{
+        grid-template-columns: 1fr;
     }
 }

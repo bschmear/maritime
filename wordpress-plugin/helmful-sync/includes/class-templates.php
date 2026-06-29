@@ -8,6 +8,20 @@ if (! defined('ABSPATH')) {
 
 final class Helmful_Sync_Templates
 {
+    /** @var list<string> */
+    private const SINGLE_POST_TYPES = [
+        Helmful_Sync_CPT::SHOW_POST_TYPE,
+        Helmful_Sync_CPT::EVENT_POST_TYPE,
+        Helmful_Sync_CPT::INVENTORY_POST_TYPE,
+    ];
+
+    /** @var array<string, string> */
+    private const SINGLE_TEMPLATE_MAP = [
+        Helmful_Sync_CPT::SHOW_POST_TYPE => 'single-helmful-boat-show.php',
+        Helmful_Sync_CPT::EVENT_POST_TYPE => 'single-helmful-boat-show-event.php',
+        Helmful_Sync_CPT::INVENTORY_POST_TYPE => 'single-helmful-inventory.php',
+    ];
+
     public static function init(): void
     {
         add_filter('single_template', [self::class, 'load_single_template']);
@@ -21,7 +35,7 @@ final class Helmful_Sync_Templates
 
     public static function filter_singular_content(string $content): string
     {
-        if (! is_singular([Helmful_Sync_CPT::SHOW_POST_TYPE, Helmful_Sync_CPT::EVENT_POST_TYPE])) {
+        if (! is_singular(self::SINGLE_POST_TYPES)) {
             return $content;
         }
 
@@ -38,7 +52,7 @@ final class Helmful_Sync_Templates
      */
     public static function body_class(array $classes): array
     {
-        if (! is_singular([Helmful_Sync_CPT::SHOW_POST_TYPE, Helmful_Sync_CPT::EVENT_POST_TYPE])) {
+        if (! is_singular(self::SINGLE_POST_TYPES)) {
             return $classes;
         }
 
@@ -59,12 +73,7 @@ final class Helmful_Sync_Templates
             return $template;
         }
 
-        $map = [
-            Helmful_Sync_CPT::SHOW_POST_TYPE => 'single-helmful-boat-show.php',
-            Helmful_Sync_CPT::EVENT_POST_TYPE => 'single-helmful-boat-show-event.php',
-        ];
-
-        $file = $map[$post->post_type] ?? null;
+        $file = self::SINGLE_TEMPLATE_MAP[$post->post_type] ?? null;
         if ($file === null) {
             return $template;
         }
@@ -76,7 +85,7 @@ final class Helmful_Sync_Templates
 
     public static function load_template_include(string $template): string
     {
-        if (! is_singular([Helmful_Sync_CPT::SHOW_POST_TYPE, Helmful_Sync_CPT::EVENT_POST_TYPE])) {
+        if (! is_singular(self::SINGLE_POST_TYPES)) {
             return $template;
         }
 
@@ -85,12 +94,7 @@ final class Helmful_Sync_Templates
             return $template;
         }
 
-        $map = [
-            Helmful_Sync_CPT::SHOW_POST_TYPE => 'single-helmful-boat-show.php',
-            Helmful_Sync_CPT::EVENT_POST_TYPE => 'single-helmful-boat-show-event.php',
-        ];
-
-        $file = $map[$post->post_type] ?? null;
+        $file = self::SINGLE_TEMPLATE_MAP[$post->post_type] ?? null;
         if ($file === null) {
             return $template;
         }
@@ -136,11 +140,15 @@ final class Helmful_Sync_Templates
 
     public static function enqueue_assets(): void
     {
-        if (! is_singular([Helmful_Sync_CPT::SHOW_POST_TYPE, Helmful_Sync_CPT::EVENT_POST_TYPE])) {
+        if (! is_singular(self::SINGLE_POST_TYPES)) {
             return;
         }
 
-        Helmful_Sync_Display::enqueue_assets();
+        if (is_singular(Helmful_Sync_CPT::INVENTORY_POST_TYPE)) {
+            Helmful_Sync_Display::enqueue_inventory_assets();
+        } else {
+            Helmful_Sync_Display::enqueue_assets();
+        }
 
         wp_enqueue_style(
             'helmful-sync-templates',
@@ -149,12 +157,14 @@ final class Helmful_Sync_Templates
             HELMFUL_SYNC_VERSION,
         );
 
-        wp_enqueue_script(
-            'helmful-sync-single',
-            HELMFUL_SYNC_URL.'assets/js/single-countdown.js',
-            [],
-            HELMFUL_SYNC_VERSION,
-            true,
-        );
+        if (! is_singular(Helmful_Sync_CPT::INVENTORY_POST_TYPE)) {
+            wp_enqueue_script(
+                'helmful-sync-single',
+                HELMFUL_SYNC_URL.'assets/js/single-countdown.js',
+                [],
+                HELMFUL_SYNC_VERSION,
+                true,
+            );
+        }
     }
 }

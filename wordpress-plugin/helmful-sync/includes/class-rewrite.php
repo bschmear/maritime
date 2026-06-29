@@ -18,6 +18,8 @@ final class Helmful_Sync_Rewrite
         add_action('template_redirect', [self::class, 'redirect_brand_taxonomy_archives']);
         add_filter('document_title_parts', [self::class, 'brand_page_title_parts']);
         add_filter('rel_canonical', [self::class, 'brand_page_canonical']);
+        add_filter('the_title', [self::class, 'brand_inventory_page_title'], 10, 2);
+        add_filter('render_block', [self::class, 'brand_inventory_post_title_block'], 10, 2);
         add_action('init', [self::class, 'maybe_flush_rewrites'], 20);
         add_action('init', [self::class, 'backfill_event_show_links'], 25);
         add_action('init', [self::class, 'repair_event_show_links'], 26);
@@ -156,14 +158,75 @@ final class Helmful_Sync_Rewrite
 
         $label = Helmful_Sync_Display::inventory_brand_label_by_slug($slug);
         if ($label !== '') {
-            $parts['title'] = sprintf(
-                /* translators: %s: brand name */
-                __('%s Inventory', 'helmful-sync'),
-                $label,
-            );
+            $parts['title'] = $label;
         }
 
         return $parts;
+    }
+
+    public static function brand_inventory_page_title(string $title, int $postId = 0): string
+    {
+        if (is_admin()) {
+            return $title;
+        }
+
+        $brandTitle = self::current_brand_page_heading();
+        if ($brandTitle === '') {
+            return $title;
+        }
+
+        $inventoryPage = Helmful_Sync_Display::inventory_page();
+        if (! $inventoryPage instanceof WP_Post) {
+            return $title;
+        }
+
+        $inventoryPageId = (int) $inventoryPage->ID;
+        $targetPostId = $postId > 0 ? $postId : (int) get_queried_object_id();
+
+        if ($targetPostId !== $inventoryPageId) {
+            return $title;
+        }
+
+        return $brandTitle;
+    }
+
+    /**
+     * @param  array<string, mixed>  $block
+     */
+    public static function brand_inventory_post_title_block(string $blockContent, array $block): string
+    {
+        if (($block['blockName'] ?? '') !== 'core/post-title') {
+            return $blockContent;
+        }
+
+        $brandTitle = self::current_brand_page_heading();
+        if ($brandTitle === '') {
+            return $blockContent;
+        }
+
+        $inventoryPage = Helmful_Sync_Display::inventory_page();
+        if (! $inventoryPage instanceof WP_Post || get_queried_object_id() !== (int) $inventoryPage->ID) {
+            return $blockContent;
+        }
+
+        $replaced = preg_replace(
+            '/(<[^>]+wp-block-post-title[^>]*>)(.*?)(<\/[^>]+>)/s',
+            '$1'.esc_html($brandTitle).'$3',
+            $blockContent,
+            1,
+        );
+
+        return is_string($replaced) ? $replaced : $blockContent;
+    }
+
+    private static function current_brand_page_heading(): string
+    {
+        $slug = Helmful_Sync_Display::current_brand_slug();
+        if ($slug === '') {
+            return '';
+        }
+
+        return Helmful_Sync_Display::inventory_brand_label_by_slug($slug);
     }
 
     public static function brand_page_canonical(string $canonical): string

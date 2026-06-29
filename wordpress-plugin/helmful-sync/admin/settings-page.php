@@ -46,6 +46,35 @@ $renderColorFields = static function (array $labels, array $display) : void {
     }
 };
 
+$renderShortcodeField = static function (string $shortcode): void {
+    ?>
+    <input
+        type="text"
+        class="helmful-shortcode-field"
+        readonly
+        value="<?php echo esc_attr($shortcode); ?>"
+        aria-label="<?php echo esc_attr(sprintf(__('Shortcode: %s', 'helmful-sync'), $shortcode)); ?>"
+    >
+    <?php
+};
+
+$renderInventoryCheckbox = static function (string $key, string $label, array $display) : void {
+    $fieldId = 'helmful_'.str_replace('_', '-', $key);
+    ?>
+    <label for="<?php echo esc_attr($fieldId); ?>" style="display:block;margin:0 0 0.5rem;">
+        <input type="hidden" name="helmful_sync_settings[display][<?php echo esc_attr($key); ?>]" value="0">
+        <input
+            type="checkbox"
+            id="<?php echo esc_attr($fieldId); ?>"
+            name="helmful_sync_settings[display][<?php echo esc_attr($key); ?>]"
+            value="1"
+            <?php checked(! empty($display[$key])); ?>
+        >
+        <?php echo esc_html($label); ?>
+    </label>
+    <?php
+};
+
 ?>
 <div class="wrap helmful-sync-settings">
     <style>
@@ -224,55 +253,55 @@ $renderColorFields = static function (array $labels, array $display) : void {
             <div class="helmful-shortcode-grid">
                 <div class="helmful-shortcode-card helmful-shortcode-card--featured">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Recommended', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_shows]</code>
+                    <?php $renderShortcodeField('[helmful_boat_shows]'); ?>
                     <p><?php esc_html_e('Displays all boat shows using your saved layout and design settings.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Override layout', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_shows layout="grid"]</code>
+                    <?php $renderShortcodeField('[helmful_boat_shows layout="grid"]'); ?>
                     <p><?php esc_html_e('Force a specific layout: stacked, grid, timeline, or compact.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Single show', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_shows slug="miami-boat-show"]</code>
+                    <?php $renderShortcodeField('[helmful_boat_shows slug="miami-boat-show"]'); ?>
                     <p><?php esc_html_e('Display one boat show by its Helmful slug.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Events only', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_show_events]</code>
+                    <?php $renderShortcodeField('[helmful_boat_show_events]'); ?>
                     <p><?php esc_html_e('List boat show events without the parent show wrapper.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter by year', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_show_events year="2026"]</code>
+                    <?php $renderShortcodeField('[helmful_boat_show_events year="2026"]'); ?>
                     <p><?php esc_html_e('Show only events from a specific year.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card helmful-shortcode-card--featured">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Brands landing page', 'helmful-sync'); ?></p>
-                    <code>[helmful_brands]</code>
+                    <?php $renderShortcodeField('[helmful_brands]'); ?>
                     <p><?php esc_html_e('Grid of all synced brands with logos. Each brand links to your inventory page filtered by brand.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Brand grid columns', 'helmful-sync'); ?></p>
-                    <code>[helmful_brands columns="3"]</code>
+                    <?php $renderShortcodeField('[helmful_brands columns="3"]'); ?>
                     <p><?php esc_html_e('Adjust the number of brand columns (2–6).', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card helmful-shortcode-card--featured">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Inventory listing', 'helmful-sync'); ?></p>
-                    <code>[helmful_inventory]</code>
+                    <?php $renderShortcodeField('[helmful_inventory]'); ?>
                     <p><?php esc_html_e('All synced inventory with a brand sidebar filter. Create a page at /inventory/ for the listing.', 'helmful-sync'); ?></p>
                 </div>
 
                 <div class="helmful-shortcode-card">
                     <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter inventory by brand', 'helmful-sync'); ?></p>
-                    <code>[helmful_inventory brand="sea-ray"]</code>
+                    <?php $renderShortcodeField('[helmful_inventory brand="sea-ray"]'); ?>
                     <p><?php esc_html_e('Show inventory for one brand by slug. Each brand also has its own URL under the brands page, e.g. /brands/sea-ray/.', 'helmful-sync'); ?></p>
                 </div>
             </div>
@@ -428,7 +457,7 @@ $renderColorFields = static function (array $labels, array $display) : void {
                 <input type="hidden" name="helmful_active_tab" value="inventory">
 
                 <h2><?php esc_html_e('Inventory Design', 'helmful-sync'); ?></h2>
-                <p class="description"><?php esc_html_e('Controls layout, pagination, quote requests, and styling for [helmful_inventory].', 'helmful-sync'); ?></p>
+                <p class="description"><?php esc_html_e('Controls layout, pagination, quote requests, visibility, and styling for inventory listings and item pages.', 'helmful-sync'); ?></p>
 
                 <h3><?php esc_html_e('Listing', 'helmful-sync'); ?></h3>
                 <table class="form-table" role="presentation">
@@ -452,7 +481,41 @@ $renderColorFields = static function (array $labels, array $display) : void {
                         <th scope="row"><label for="helmful_quote_email"><?php esc_html_e('Quote request email', 'helmful-sync'); ?></label></th>
                         <td>
                             <input type="email" id="helmful_quote_email" name="helmful_sync_settings[display][quote_email]" value="<?php echo esc_attr($display['quote_email']); ?>" class="regular-text" placeholder="<?php echo esc_attr((string) get_option('admin_email')); ?>">
-                            <p class="description"><?php esc_html_e('Quote requests from the inventory modal are sent here. Leave blank to use the WordPress admin email.', 'helmful-sync'); ?></p>
+                            <p class="description"><?php esc_html_e('Quote requests from inventory listings and item pages are sent here. Leave blank to use the WordPress admin email.', 'helmful-sync'); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h3><?php esc_html_e('Listing cards', 'helmful-sync'); ?></h3>
+                <p class="description"><?php esc_html_e('Choose what appears on each boat card in the inventory grid.', 'helmful-sync'); ?></p>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Visible fields', 'helmful-sync'); ?></th>
+                        <td>
+                            <?php
+                            $renderInventoryCheckbox('inventory_card_show_brand', __('Show brand', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_card_show_specs', __('Show specs', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_card_show_price', __('Show default price', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_card_show_quote_button', __('Show request quote button', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_card_show_view_details', __('Show view details button', 'helmful-sync'), $display);
+                            ?>
+                        </td>
+                    </tr>
+                </table>
+
+                <h3><?php esc_html_e('Item page', 'helmful-sync'); ?></h3>
+                <p class="description"><?php esc_html_e('Choose what appears on individual inventory item pages.', 'helmful-sync'); ?></p>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><?php esc_html_e('Visible fields', 'helmful-sync'); ?></th>
+                        <td>
+                            <?php
+                            $renderInventoryCheckbox('inventory_single_show_brand', __('Show brand', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_single_show_description', __('Show description', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_single_show_specs', __('Show specs', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_single_show_price', __('Show default price', 'helmful-sync'), $display);
+                            $renderInventoryCheckbox('inventory_single_show_quote_form', __('Show quote request form', 'helmful-sync'), $display);
+                            ?>
                         </td>
                     </tr>
                 </table>

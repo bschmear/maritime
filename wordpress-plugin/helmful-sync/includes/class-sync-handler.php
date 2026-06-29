@@ -135,11 +135,14 @@ final class Helmful_Sync_Handler
         $active = (bool) ($payload['active'] ?? true);
         $slug = self::string($payload['slug'] ?? '');
         $name = self::string($payload['display_name'] ?? 'Brand');
+        $description = self::string($payload['description'] ?? '');
+        $websiteUrl = esc_url_raw(self::string($payload['website_url'] ?? $payload['website'] ?? ''));
         $termSlug = $slug !== '' ? sanitize_title($slug) : sanitize_title($name);
 
         $termArgs = [
             'name' => $name,
             'slug' => $termSlug,
+            'description' => $description,
         ];
 
         if ($termId > 0) {
@@ -147,6 +150,7 @@ final class Helmful_Sync_Handler
         } else {
             $result = wp_insert_term($name, Helmful_Sync_CPT::BRAND_TAXONOMY, [
                 'slug' => $termSlug,
+                'description' => $description,
             ]);
         }
 
@@ -164,6 +168,7 @@ final class Helmful_Sync_Handler
             'helmful_slug' => $slug !== '' ? $slug : $termSlug,
             'helmful_brand_key' => self::string($payload['brand_key'] ?? ''),
             'helmful_logo_url' => esc_url_raw(self::string($payload['logo_url'] ?? '')),
+            'helmful_website_url' => $websiteUrl,
             'helmful_app_brand_url' => self::string($payload['app_brand_url'] ?? ''),
             'helmful_active' => $active ? '1' : '0',
             'helmful_updated_at' => self::string($payload['updated_at'] ?? ''),
@@ -228,7 +233,7 @@ final class Helmful_Sync_Handler
             'helmful_type' => self::string($payload['type'] ?? ''),
             'helmful_active' => $active ? '1' : '0',
             'helmful_primary_image_url' => self::inventory_primary_image_from_payload($payload),
-            'helmful_specs' => wp_json_encode(self::inventory_specs_from_payload($payload)),
+            'helmful_specs' => self::encode_inventory_specs(self::inventory_specs_from_payload($payload)),
             'helmful_import_payload' => wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'helmful_app_asset_url' => self::string($payload['app_asset_url'] ?? ''),
             'helmful_updated_at' => self::string($payload['updated_at'] ?? ''),
@@ -326,6 +331,7 @@ final class Helmful_Sync_Handler
             'helmful_slug',
             'helmful_brand_key',
             'helmful_logo_url',
+            'helmful_website_url',
             'helmful_app_brand_url',
             'helmful_active',
             'helmful_updated_at',
@@ -393,10 +399,104 @@ final class Helmful_Sync_Handler
     public static function inventory_specs_from_payload(array $payload): array
     {
         $specs = $payload['specs'] ?? [];
+        if (is_string($specs)) {
+            $decoded = json_decode($specs, true);
+            if (! is_array($decoded)) {
+                $decoded = json_decode(wp_unslash($specs), true);
+            }
+            $specs = is_array($decoded) ? $decoded : [];
+        }
+
         if (! is_array($specs)) {
             return [];
         }
 
+        return self::normalize_inventory_specs_list($specs);
+    }
+
+    /**
+     * @return list<array{label: string, value: string, unit?: string}>
+     */
+    public static function inventory_specs_for_post(int $postId): array
+    {
+        $fromMeta = self::decode_inventory_specs_json(get_post_meta($postId, 'helmful_specs', true));
+        if ($fromMeta !== []) {
+            return $fromMeta;
+        }
+
+        return self::inventory_specs_from_import_payload($postId);
+    }
+
+    /**
+     * @return list<array{label: string, value: string, unit?: string}>
+     */
+    private static function inventory_specs_from_import_payload(int $postId): array
+    {
+        $importPayload = get_post_meta($postId, 'helmful_import_payload', true);
+
+        if (is_array($importPayload)) {
+            return self::inventory_specs_from_payload($importPayload);
+        }
+
+        if (! is_string($importPayload) || $importPayload === '') {
+            return [];
+        }
+
+        foreach ([$importPayload, wp_unslash($importPayload)] as $candidate) {
+            $decoded = json_decode($candidate, true);
+            if (is_array($decoded)) {
+                $specs = self::inventory_specs_from_payload($decoded);
+                if ($specs !== []) {
+                    return $specs;
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  list<array{label: string, value: string, unit?: string}>  $specs
+     */
+    private static function encode_inventory_specs(array $specs): string
+    {
+        $encoded = wp_json_encode($specs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        return is_string($encoded) && $encoded !== '' ? $encoded : '[]';
+    }
+
+    /**
+     * @return list<array{label: string, value: string, unit?: string}>
+     */
+    private static function decode_inventory_specs_json(mixed $raw): array
+    {
+        if (is_array($raw)) {
+            return self::normalize_inventory_specs_list($raw);
+        }
+
+        if (! is_string($raw) || $raw === '') {
+            return [];
+        }
+
+        foreach ([$raw, wp_unslash($raw)] as $candidate) {
+            $decoded = json_decode($candidate, true);
+            if (is_array($decoded)) {
+                $specs = self::normalize_inventory_specs_list($decoded);
+                if ($specs !== []) {
+                    return $specs;
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param  list<mixed>  $specs
+     * @return list<array{label: string, value: string, unit?: string}>
+     */
+    private static function normalize_inventory_specs_list(array $specs): array
+    {
         $normalized = [];
 
         foreach ($specs as $spec) {
@@ -425,51 +525,6 @@ final class Helmful_Sync_Handler
         }
 
         return $normalized;
-    }
-
-    /**
-     * @return list<array{label: string, value: string, unit?: string}>
-     */
-    public static function inventory_specs_for_post(int $postId): array
-    {
-        $raw = get_post_meta($postId, 'helmful_specs', true);
-        if (! is_string($raw) || $raw === '') {
-            return [];
-        }
-
-        $decoded = json_decode($raw, true);
-        if (! is_array($decoded)) {
-            return [];
-        }
-
-        $specs = [];
-
-        foreach ($decoded as $spec) {
-            if (! is_array($spec)) {
-                continue;
-            }
-
-            $label = self::string($spec['label'] ?? '');
-            $value = self::string($spec['value'] ?? '');
-
-            if ($label === '' || $value === '') {
-                continue;
-            }
-
-            $entry = [
-                'label' => $label,
-                'value' => $value,
-            ];
-
-            $unit = self::string($spec['unit'] ?? '');
-            if ($unit !== '') {
-                $entry['unit'] = $unit;
-            }
-
-            $specs[] = $entry;
-        }
-
-        return $specs;
     }
 
     public static function inventory_primary_image_for_post(int $postId): string

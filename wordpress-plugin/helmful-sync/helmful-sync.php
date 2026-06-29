@@ -33,6 +33,7 @@ require_once HELMFUL_SYNC_PATH.'includes/class-shortcodes.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-templates.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-rewrite.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-inventory-admin.php';
+require_once HELMFUL_SYNC_PATH.'includes/class-brand-admin.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-admin-menu.php';
 
 final class Helmful_Sync_Plugin
@@ -47,6 +48,7 @@ final class Helmful_Sync_Plugin
         Helmful_Sync_Templates::init();
         Helmful_Sync_Rewrite::init();
         Helmful_Sync_Inventory_Admin::init();
+        Helmful_Sync_Brand_Admin::init();
         Helmful_Sync_Admin_Menu::init();
     }
 }

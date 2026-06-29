@@ -100,5 +100,9 @@
 
         syncLayoutUi();
         syncColorFields();
+
+        $('.helmful-shortcode-field').on('focus click', function () {
+            this.select();
+        });
     });
 })(jQuery);

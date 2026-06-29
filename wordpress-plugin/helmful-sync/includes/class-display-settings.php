@@ -114,6 +114,34 @@ final class Helmful_Sync_Display_Settings
      *     spacing: string
      * }
      */
+    /**
+     * @return array<string, bool>
+     */
+    public static function inventory_card_visibility_defaults(): array
+    {
+        return [
+            'inventory_card_show_brand' => true,
+            'inventory_card_show_specs' => true,
+            'inventory_card_show_price' => true,
+            'inventory_card_show_quote_button' => true,
+            'inventory_card_show_view_details' => true,
+        ];
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public static function inventory_single_visibility_defaults(): array
+    {
+        return [
+            'inventory_single_show_brand' => true,
+            'inventory_single_show_description' => true,
+            'inventory_single_show_specs' => true,
+            'inventory_single_show_price' => true,
+            'inventory_single_show_quote_form' => true,
+        ];
+    }
+
     public static function defaults(): array
     {
         return array_merge([
@@ -126,7 +154,7 @@ final class Helmful_Sync_Display_Settings
             'quote_email' => '',
             'card_style' => 'soft',
             'spacing' => 'comfortable',
-        ], self::color_defaults());
+        ], self::inventory_card_visibility_defaults(), self::inventory_single_visibility_defaults(), self::color_defaults());
     }
 
     /**
@@ -215,7 +243,17 @@ final class Helmful_Sync_Display_Settings
         $brandsColumns = (int) ($input['brands_columns'] ?? 4);
         $quoteEmail = sanitize_email((string) ($input['quote_email'] ?? ''));
 
-        return array_merge($colors, [
+        $cardVisibility = [];
+        foreach (self::inventory_card_visibility_defaults() as $key => $default) {
+            $cardVisibility[$key] = ! empty($input[$key]);
+        }
+
+        $singleVisibility = [];
+        foreach (self::inventory_single_visibility_defaults() as $key => $default) {
+            $singleVisibility[$key] = ! empty($input[$key]);
+        }
+
+        return array_merge($colors, $cardVisibility, $singleVisibility, [
             'layout' => $layout,
             'columns' => in_array($columns, [2, 3], true) ? $columns : 2,
             'show_description' => ! empty($input['show_description']),
@@ -226,6 +264,36 @@ final class Helmful_Sync_Display_Settings
             'card_style' => $cardStyle,
             'spacing' => $spacing,
         ]);
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public static function inventory_card_visibility(): array
+    {
+        $settings = self::get();
+
+        $visibility = [];
+        foreach (self::inventory_card_visibility_defaults() as $key => $default) {
+            $visibility[$key] = (bool) ($settings[$key] ?? $default);
+        }
+
+        return $visibility;
+    }
+
+    /**
+     * @return array<string, bool>
+     */
+    public static function inventory_single_visibility(): array
+    {
+        $settings = self::get();
+
+        $visibility = [];
+        foreach (self::inventory_single_visibility_defaults() as $key => $default) {
+            $visibility[$key] = (bool) ($settings[$key] ?? $default);
+        }
+
+        return $visibility;
     }
 
     public static function quote_email(): string

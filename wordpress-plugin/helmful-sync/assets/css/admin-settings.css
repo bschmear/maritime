@@ -433,8 +433,10 @@
     color: #1d3557;
 }
 
-.helmful-shortcode-card code {
+.helmful-shortcode-card .helmful-shortcode-field {
     display: block;
+    width: 100%;
+    box-sizing: border-box;
     font-size: 12.5px;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     background: #fff;
@@ -442,11 +444,11 @@
     border-radius: 5px;
     padding: 6px 10px;
     color: #1d2327;
-    word-break: break-all;
     margin-bottom: 0.5rem;
+    cursor: text;
 }
 
-.helmful-shortcode-card--featured code {
+.helmful-shortcode-card--featured .helmful-shortcode-field {
     background: #fff;
     border-color: #b8cfe8;
 }

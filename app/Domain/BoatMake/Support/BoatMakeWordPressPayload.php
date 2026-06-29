@@ -32,6 +32,8 @@ final class BoatMakeWordPressPayload
             'display_name' => $make->display_name,
             'slug' => $make->slug ?? $make->brand_key,
             'brand_key' => $make->brand_key,
+            'description' => $make->description,
+            'website_url' => $make->website_url,
             'logo_url' => $make->logo_url,
             'active' => (bool) $make->active,
             'app_brand_url' => TenantAbsoluteUrl::path('boatmakes/'.$make->id),
