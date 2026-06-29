@@ -6,6 +6,7 @@ namespace App\Domain\Asset\Support;
 
 use App\Domain\Asset\Models\Asset;
 use App\Domain\BoatMake\Support\BoatMakeWordPressPayload;
+use App\Domain\AssetSpec\Support\SpecValueDisplayFormatter;
 use App\Support\TenantAbsoluteUrl;
 
 final class AssetWordPressPayload
@@ -28,11 +29,16 @@ final class AssetWordPressPayload
      */
     public static function forAsset(Asset $asset): array
     {
-        $asset->loadMissing('make');
+        $asset->loadMissing(['make', 'images', 'specValues.definition']);
 
         $brandUuid = $asset->make !== null
             ? BoatMakeWordPressPayload::uuidFor($asset->make)
             : null;
+
+        $primaryImageUrl = $asset->images
+            ->sortByDesc('is_primary')
+            ->sortBy('sort_order')
+            ->first()?->url ?? '';
 
         return [
             'uuid' => self::uuidFor($asset),
@@ -48,6 +54,8 @@ final class AssetWordPressPayload
             'default_price' => $asset->default_price,
             'type' => $asset->type,
             'active' => ! (bool) $asset->inactive,
+            'primary_image_url' => $primaryImageUrl,
+            'specs' => SpecValueDisplayFormatter::labeledRowsFromAsset($asset, false),
             'app_asset_url' => TenantAbsoluteUrl::path('assets/'.$asset->id),
             'updated_at' => $asset->updated_at?->toIso8601String(),
         ];
@@ -61,7 +69,7 @@ final class AssetWordPressPayload
         $assets = Asset::query()
             ->where('inactive', false)
             ->whereNotNull('make_id')
-            ->with(['make'])
+            ->with(['make', 'images', 'specValues.definition'])
             ->orderBy('display_name')
             ->get();
 

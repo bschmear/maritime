@@ -137,14 +137,14 @@ final class Helmful_Sync_Settings
         ];
 
         if (isset($input['display']) && is_array($input['display'])) {
-            $output['display'] = Helmful_Sync_Display_Settings::sanitize($input['display']);
-            self::remember_active_tab('display');
+            $currentDisplay = Helmful_Sync_Display_Settings::get();
+            $output['display'] = Helmful_Sync_Display_Settings::sanitize(array_merge($currentDisplay, $input['display']));
         } else {
             $output['display'] = Helmful_Sync_Display_Settings::get();
         }
 
         if (isset($input['tenant_domain']) || isset($input['helmful_api_key'])) {
-            self::remember_active_tab('connection');
+            self::remember_active_tab('general');
         }
 
         if (isset($_POST['helmful_active_tab'])) {
@@ -223,10 +223,18 @@ final class Helmful_Sync_Settings
         $error = isset($_GET['helmful_error']) ? sanitize_text_field(wp_unslash((string) $_GET['helmful_error'])) : '';
         $revealedKey = isset($_GET['helmful_new_key']) ? sanitize_text_field(wp_unslash((string) $_GET['helmful_new_key'])) : '';
         $lastPull = (string) get_option('helmful_sync_last_pull_at', '');
-        $activeTab = isset($_GET['tab']) ? sanitize_key((string) $_GET['tab']) : 'connection';
-        $allowedTabs = ['connection', 'display', 'shortcodes'];
+        $activeTab = isset($_GET['tab']) ? sanitize_key((string) $_GET['tab']) : 'general';
+        $tabAliases = [
+            'connection' => 'general',
+            'display' => 'boat-shows',
+            'shortcodes' => 'general',
+        ];
+        if (isset($tabAliases[$activeTab])) {
+            $activeTab = $tabAliases[$activeTab];
+        }
+        $allowedTabs = ['general', 'boat-shows', 'inventory', 'brands'];
         if (! in_array($activeTab, $allowedTabs, true)) {
-            $activeTab = 'connection';
+            $activeTab = 'general';
         }
 
         include HELMFUL_SYNC_PATH.'admin/settings-page.php';
@@ -273,7 +281,7 @@ final class Helmful_Sync_Settings
             'page' => 'helmful-sync',
             'helmful_notice' => rawurlencode('WordPress API key generated. Copy it into Helmful.'),
             'helmful_new_key' => rawurlencode($newKey),
-            'tab' => sanitize_key((string) ($_POST['helmful_active_tab'] ?? 'connection')),
+            'tab' => sanitize_key((string) ($_POST['helmful_active_tab'] ?? 'general')),
         ], admin_url('admin.php?page=helmful-sync')));
         exit;
     }
@@ -331,7 +339,7 @@ final class Helmful_Sync_Settings
         wp_safe_redirect(add_query_arg([
             'page' => 'helmful-sync',
             $arg => rawurlencode($message),
-            'tab' => sanitize_key((string) ($_POST['helmful_active_tab'] ?? $_GET['tab'] ?? 'connection')),
+            'tab' => sanitize_key((string) ($_POST['helmful_active_tab'] ?? $_GET['tab'] ?? 'general')),
         ], admin_url('admin.php?page=helmful-sync')));
         exit;
     }

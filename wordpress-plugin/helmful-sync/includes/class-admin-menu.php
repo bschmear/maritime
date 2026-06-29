@@ -108,7 +108,7 @@ final class Helmful_Sync_Admin_Menu
         if (current_user_can('manage_options')) {
             echo '<a class="card" href="'.esc_url(admin_url('admin.php?page=helmful-sync')).'" style="padding:1.25rem;border:1px solid #c3c4c7;border-radius:8px;background:#fff;text-decoration:none;color:inherit;">';
             echo '<strong style="display:block;font-size:1.05rem;margin-bottom:.35rem;">'.esc_html__('Settings', 'helmful-sync').'</strong>';
-            echo '<span style="color:#50575e;">'.esc_html__('Connection, sync, display, and shortcodes.', 'helmful-sync').'</span>';
+            echo '<span style="color:#50575e;">'.esc_html__('Connection, sync, design, and shortcodes.', 'helmful-sync').'</span>';
             echo '</a>';
         }
 

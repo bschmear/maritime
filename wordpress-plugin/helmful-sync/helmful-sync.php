@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Helmful Sync
  * Description: Sync boat shows, brands, and inventory from Helmful to WordPress.
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: Helmful
  * Requires at least: 6.0
  * Requires PHP: 8.1
@@ -16,7 +16,7 @@ if (! defined('ABSPATH')) {
     exit;
 }
 
-define('HELMFUL_SYNC_VERSION', '1.7.0');
+define('HELMFUL_SYNC_VERSION', '1.7.1');
 define('HELMFUL_SYNC_PATH', plugin_dir_path(__FILE__));
 define('HELMFUL_SYNC_URL', plugin_dir_url(__FILE__));
 define('HELMFUL_SYNC_BASENAME', plugin_basename(__FILE__));
@@ -28,9 +28,11 @@ require_once HELMFUL_SYNC_PATH.'includes/class-importer.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-settings.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-display.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-display-settings.php';
+require_once HELMFUL_SYNC_PATH.'includes/class-quote-request.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-shortcodes.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-templates.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-rewrite.php';
+require_once HELMFUL_SYNC_PATH.'includes/class-inventory-admin.php';
 require_once HELMFUL_SYNC_PATH.'includes/class-admin-menu.php';
 
 final class Helmful_Sync_Plugin
@@ -40,9 +42,11 @@ final class Helmful_Sync_Plugin
         add_action('init', [Helmful_Sync_CPT::class, 'register']);
         add_action('rest_api_init', [Helmful_Sync_REST_API::class, 'register_routes']);
         Helmful_Sync_Settings::init();
+        Helmful_Sync_Quote_Request::init();
         Helmful_Sync_Shortcodes::init();
         Helmful_Sync_Templates::init();
         Helmful_Sync_Rewrite::init();
+        Helmful_Sync_Inventory_Admin::init();
         Helmful_Sync_Admin_Menu::init();
     }
 }

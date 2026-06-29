@@ -28,6 +28,24 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
     return add_query_arg($args, admin_url('admin.php?page=helmful-sync'));
 };
 
+$renderColorFields = static function (array $labels, array $display) : void {
+    foreach ($labels as $colorKey => $colorLabel) {
+        $fieldId = 'helmful_'.str_replace('_', '-', $colorKey);
+        $colorValue = $display[$colorKey] ?? Helmful_Sync_Display_Settings::color_defaults()[$colorKey];
+        ?>
+        <tr>
+            <th scope="row"><label for="<?php echo esc_attr($fieldId); ?>"><?php echo esc_html($colorLabel); ?></label></th>
+            <td>
+                <div class="helmful-color-field" data-color-field="<?php echo esc_attr($colorKey); ?>">
+                    <input type="color" id="<?php echo esc_attr($fieldId); ?>" name="helmful_sync_settings[display][<?php echo esc_attr($colorKey); ?>]" value="<?php echo esc_attr($colorValue); ?>">
+                    <input type="text" class="helmful-color-field__text" value="<?php echo esc_attr($colorValue); ?>" pattern="^#[0-9a-fA-F]{6}$" aria-label="<?php echo esc_attr($colorLabel); ?>">
+                </div>
+            </td>
+        </tr>
+        <?php
+    }
+};
+
 ?>
 <div class="wrap helmful-sync-settings">
     <style>
@@ -46,21 +64,24 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
     <?php } ?>
 
     <nav class="nav-tab-wrapper helmful-admin-tabs" aria-label="<?php esc_attr_e('Helmful Sync sections', 'helmful-sync'); ?>">
-        <a href="<?php echo esc_url($tabUrl('connection')); ?>" class="nav-tab<?php echo $activeTab === 'connection' ? ' nav-tab-active' : ''; ?>" data-tab="connection">
-            <?php esc_html_e('Connection', 'helmful-sync'); ?>
+        <a href="<?php echo esc_url($tabUrl('general')); ?>" class="nav-tab<?php echo $activeTab === 'general' ? ' nav-tab-active' : ''; ?>" data-tab="general">
+            <?php esc_html_e('General', 'helmful-sync'); ?>
         </a>
-        <a href="<?php echo esc_url($tabUrl('display')); ?>" class="nav-tab<?php echo $activeTab === 'display' ? ' nav-tab-active' : ''; ?>" data-tab="display">
-            <?php esc_html_e('Display', 'helmful-sync'); ?>
+        <a href="<?php echo esc_url($tabUrl('boat-shows')); ?>" class="nav-tab<?php echo $activeTab === 'boat-shows' ? ' nav-tab-active' : ''; ?>" data-tab="boat-shows">
+            <?php esc_html_e('Boat Show Design', 'helmful-sync'); ?>
         </a>
-        <a href="<?php echo esc_url($tabUrl('shortcodes')); ?>" class="nav-tab<?php echo $activeTab === 'shortcodes' ? ' nav-tab-active' : ''; ?>" data-tab="shortcodes">
-            <?php esc_html_e('Shortcodes', 'helmful-sync'); ?>
+        <a href="<?php echo esc_url($tabUrl('inventory')); ?>" class="nav-tab<?php echo $activeTab === 'inventory' ? ' nav-tab-active' : ''; ?>" data-tab="inventory">
+            <?php esc_html_e('Inventory Design', 'helmful-sync'); ?>
+        </a>
+        <a href="<?php echo esc_url($tabUrl('brands')); ?>" class="nav-tab<?php echo $activeTab === 'brands' ? ' nav-tab-active' : ''; ?>" data-tab="brands">
+            <?php esc_html_e('Brands Design', 'helmful-sync'); ?>
         </a>
     </nav>
 
     <!-- ====================================================
-         CONNECTION TAB
+         GENERAL TAB
          ==================================================== -->
-    <div class="helmful-admin-panel<?php echo $activeTab === 'connection' ? ' is-active' : ''; ?>" data-panel="connection">
+    <div class="helmful-admin-panel<?php echo $activeTab === 'general' ? ' is-active' : ''; ?>" data-panel="general">
 
         <!-- Helmful credentials -->
         <div class="helmful-section">
@@ -69,7 +90,7 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
 
             <form method="post" action="options.php" autocomplete="off">
                 <?php settings_fields('helmful_sync'); ?>
-                <input type="hidden" name="helmful_active_tab" value="connection">
+                <input type="hidden" name="helmful_active_tab" value="general">
                 <!-- Absorb browser/password-manager autofill on fresh install -->
                 <div class="helmful-autofill-guard" aria-hidden="true">
                     <input type="text" name="helmful_autofill_trap_user" tabindex="-1" autocomplete="username">
@@ -144,7 +165,7 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                 <?php wp_nonce_field('helmful_sync_generate_key'); ?>
                 <input type="hidden" name="action" value="helmful_sync_generate_key">
-                <input type="hidden" name="helmful_active_tab" value="connection">
+                <input type="hidden" name="helmful_active_tab" value="general">
                 <?php submit_button(__('Generate new API key', 'helmful-sync'), 'secondary'); ?>
             </form>
         </div>
@@ -162,7 +183,7 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <?php wp_nonce_field('helmful_sync_test'); ?>
                     <input type="hidden" name="action" value="helmful_sync_test">
-                    <input type="hidden" name="helmful_active_tab" value="connection">
+                    <input type="hidden" name="helmful_active_tab" value="general">
                     <?php submit_button(__('Test connection', 'helmful-sync'), 'secondary', 'submit', false); ?>
                 </form>
             </div>
@@ -174,37 +195,103 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <?php wp_nonce_field('helmful_sync_pull_boat_shows'); ?>
                     <input type="hidden" name="action" value="helmful_sync_pull_boat_shows">
-                    <input type="hidden" name="helmful_active_tab" value="connection">
+                    <input type="hidden" name="helmful_active_tab" value="general">
                     <?php submit_button(__('Pull boat shows & events', 'helmful-sync'), 'primary', 'submit', false); ?>
                 </form>
 
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <?php wp_nonce_field('helmful_sync_pull_brands'); ?>
                     <input type="hidden" name="action" value="helmful_sync_pull_brands">
-                    <input type="hidden" name="helmful_active_tab" value="connection">
+                    <input type="hidden" name="helmful_active_tab" value="general">
                     <?php submit_button(__('Pull brands', 'helmful-sync'), 'secondary', 'submit', false); ?>
                 </form>
 
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <?php wp_nonce_field('helmful_sync_pull_inventory'); ?>
                     <input type="hidden" name="action" value="helmful_sync_pull_inventory">
-                    <input type="hidden" name="helmful_active_tab" value="connection">
+                    <input type="hidden" name="helmful_active_tab" value="general">
                     <?php submit_button(__('Pull inventory', 'helmful-sync'), 'secondary', 'submit', false); ?>
                 </form>
             </div>
         </div>
 
-    </div><!-- /connection -->
+        <!-- Shortcodes -->
+        <div class="helmful-section">
+            <h2><?php esc_html_e('Shortcodes', 'helmful-sync'); ?></h2>
+            <p><?php esc_html_e('Add these to any page or post. They use your design settings by default — individual attributes override them.', 'helmful-sync'); ?></p>
+            <p class="description"><?php esc_html_e('Create a Page at /boat-shows/ with [helmful_boat_shows] for the listing. Single show and event URLs use custom Helmful templates automatically (not blog posts). After updating, save Permalinks once.', 'helmful-sync'); ?></p>
+
+            <div class="helmful-shortcode-grid">
+                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Recommended', 'helmful-sync'); ?></p>
+                    <code>[helmful_boat_shows]</code>
+                    <p><?php esc_html_e('Displays all boat shows using your saved layout and design settings.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Override layout', 'helmful-sync'); ?></p>
+                    <code>[helmful_boat_shows layout="grid"]</code>
+                    <p><?php esc_html_e('Force a specific layout: stacked, grid, timeline, or compact.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Single show', 'helmful-sync'); ?></p>
+                    <code>[helmful_boat_shows slug="miami-boat-show"]</code>
+                    <p><?php esc_html_e('Display one boat show by its Helmful slug.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Events only', 'helmful-sync'); ?></p>
+                    <code>[helmful_boat_show_events]</code>
+                    <p><?php esc_html_e('List boat show events without the parent show wrapper.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter by year', 'helmful-sync'); ?></p>
+                    <code>[helmful_boat_show_events year="2026"]</code>
+                    <p><?php esc_html_e('Show only events from a specific year.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Brands landing page', 'helmful-sync'); ?></p>
+                    <code>[helmful_brands]</code>
+                    <p><?php esc_html_e('Grid of all synced brands with logos. Each brand links to your inventory page filtered by brand.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Brand grid columns', 'helmful-sync'); ?></p>
+                    <code>[helmful_brands columns="3"]</code>
+                    <p><?php esc_html_e('Adjust the number of brand columns (2–6).', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Inventory listing', 'helmful-sync'); ?></p>
+                    <code>[helmful_inventory]</code>
+                    <p><?php esc_html_e('All synced inventory with a brand sidebar filter. Create a page at /inventory/ for the listing.', 'helmful-sync'); ?></p>
+                </div>
+
+                <div class="helmful-shortcode-card">
+                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter inventory by brand', 'helmful-sync'); ?></p>
+                    <code>[helmful_inventory brand="sea-ray"]</code>
+                    <p><?php esc_html_e('Show inventory for one brand by slug. Each brand also has its own URL under the brands page, e.g. /brands/sea-ray/.', 'helmful-sync'); ?></p>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /general -->
 
     <!-- ====================================================
-         DISPLAY TAB
+         BOAT SHOW DESIGN TAB
          ==================================================== -->
-    <div class="helmful-admin-panel<?php echo $activeTab === 'display' ? ' is-active' : ''; ?>" data-panel="display">
+    <div class="helmful-admin-panel<?php echo $activeTab === 'boat-shows' ? ' is-active' : ''; ?>" data-panel="boat-shows">
 
         <div class="helmful-section">
             <form method="post" action="options.php">
                 <?php settings_fields('helmful_sync'); ?>
-                <input type="hidden" name="helmful_active_tab" value="display">
+                <input type="hidden" name="helmful_active_tab" value="boat-shows">
+
+                <h2><?php esc_html_e('Boat Show Design', 'helmful-sync'); ?></h2>
+                <p class="description"><?php esc_html_e('Controls layout and styling for [helmful_boat_shows] and boat show templates.', 'helmful-sync'); ?></p>
 
                 <!-- Layout -->
                 <h3><?php esc_html_e('Layout', 'helmful-sync'); ?></h3>
@@ -269,19 +356,10 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                     </tr>
                 </table>
 
-                <!-- Design -->
-                <h3><?php esc_html_e('Design', 'helmful-sync'); ?></h3>
+                <h3><?php esc_html_e('Colors', 'helmful-sync'); ?></h3>
+                <p class="description"><?php esc_html_e('Theme overrides can target CSS custom properties on .helmful-boat-shows-shell.', 'helmful-sync'); ?></p>
                 <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row"><label for="helmful_accent_color"><?php esc_html_e('Accent color', 'helmful-sync'); ?></label></th>
-                        <td>
-                            <div class="helmful-color-field">
-                                <input type="color" id="helmful_accent_color" name="helmful_sync_settings[display][accent_color]" value="<?php echo esc_attr($display['accent_color']); ?>">
-                                <input type="text" id="helmful_accent_color_text" value="<?php echo esc_attr($display['accent_color']); ?>" pattern="^#[0-9a-fA-F]{6}$" aria-label="<?php esc_attr_e('Accent color hex value', 'helmful-sync'); ?>">
-                            </div>
-                            <p class="description"><?php esc_html_e('Used for buttons, timeline markers, and table headers.', 'helmful-sync'); ?></p>
-                        </td>
-                    </tr>
+                    <?php $renderColorFields(Helmful_Sync_Display_Settings::boat_shows_color_labels(), $display); ?>
                     <tr>
                         <th scope="row"><label for="helmful_card_style"><?php esc_html_e('Card style', 'helmful-sync'); ?></label></th>
                         <td>
@@ -333,79 +411,103 @@ $tabUrl = static function (string $tab) use ($notice, $error, $revealedKey): str
                     </div>
                 </div>
 
-                <?php submit_button(__('Save display settings', 'helmful-sync')); ?>
+                <?php submit_button(__('Save boat show design', 'helmful-sync')); ?>
             </form>
         </div>
 
-    </div><!-- /display -->
+    </div><!-- /boat-shows -->
 
     <!-- ====================================================
-         SHORTCODES TAB
+         INVENTORY DESIGN TAB
          ==================================================== -->
-    <div class="helmful-admin-panel<?php echo $activeTab === 'shortcodes' ? ' is-active' : ''; ?>" data-panel="shortcodes">
+    <div class="helmful-admin-panel<?php echo $activeTab === 'inventory' ? ' is-active' : ''; ?>" data-panel="inventory">
 
         <div class="helmful-section">
-            <h2><?php esc_html_e('Shortcodes', 'helmful-sync'); ?></h2>
-            <p><?php esc_html_e('Add these to any page or post. They use your Display settings by default — individual attributes override them.', 'helmful-sync'); ?></p>
-            <p class="description"><?php esc_html_e('Create a Page at /boat-shows/ with [helmful_boat_shows] for the listing. Single show and event URLs use custom Helmful templates automatically (not blog posts). After updating, save Permalinks once.', 'helmful-sync'); ?></p>
+            <form method="post" action="options.php">
+                <?php settings_fields('helmful_sync'); ?>
+                <input type="hidden" name="helmful_active_tab" value="inventory">
 
-            <div class="helmful-shortcode-grid">
-                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Recommended', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_shows]</code>
-                    <p><?php esc_html_e('Displays all boat shows using your saved layout and design settings.', 'helmful-sync'); ?></p>
-                </div>
+                <h2><?php esc_html_e('Inventory Design', 'helmful-sync'); ?></h2>
+                <p class="description"><?php esc_html_e('Controls layout, pagination, quote requests, and styling for [helmful_inventory].', 'helmful-sync'); ?></p>
 
-                <div class="helmful-shortcode-card">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Override layout', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_shows layout="grid"]</code>
-                    <p><?php esc_html_e('Force a specific layout: stacked, grid, timeline, or compact.', 'helmful-sync'); ?></p>
-                </div>
+                <h3><?php esc_html_e('Listing', 'helmful-sync'); ?></h3>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="helmful_inventory_per_page"><?php esc_html_e('Items per page', 'helmful-sync'); ?></label></th>
+                        <td>
+                            <input type="number" min="1" max="100" step="1" id="helmful_inventory_per_page" name="helmful_sync_settings[display][inventory_per_page]" value="<?php echo esc_attr((string) $display['inventory_per_page']); ?>" class="small-text">
+                            <p class="description"><?php esc_html_e('Number of inventory items shown per page.', 'helmful-sync'); ?></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="helmful_inventory_columns"><?php esc_html_e('Grid columns', 'helmful-sync'); ?></label></th>
+                        <td>
+                            <select name="helmful_sync_settings[display][inventory_columns]" id="helmful_inventory_columns">
+                                <option value="3" <?php selected($display['inventory_columns'], 3); ?>><?php esc_html_e('3 columns', 'helmful-sync'); ?></option>
+                                <option value="4" <?php selected($display['inventory_columns'], 4); ?>><?php esc_html_e('4 columns', 'helmful-sync'); ?></option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="helmful_quote_email"><?php esc_html_e('Quote request email', 'helmful-sync'); ?></label></th>
+                        <td>
+                            <input type="email" id="helmful_quote_email" name="helmful_sync_settings[display][quote_email]" value="<?php echo esc_attr($display['quote_email']); ?>" class="regular-text" placeholder="<?php echo esc_attr((string) get_option('admin_email')); ?>">
+                            <p class="description"><?php esc_html_e('Quote requests from the inventory modal are sent here. Leave blank to use the WordPress admin email.', 'helmful-sync'); ?></p>
+                        </td>
+                    </tr>
+                </table>
 
-                <div class="helmful-shortcode-card">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Single show', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_shows slug="miami-boat-show"]</code>
-                    <p><?php esc_html_e('Display one boat show by its Helmful slug.', 'helmful-sync'); ?></p>
-                </div>
+                <h3><?php esc_html_e('Colors', 'helmful-sync'); ?></h3>
+                <p class="description"><?php esc_html_e('Inventory uses the accent color from Boat Show Design for badges, filters, and buttons.', 'helmful-sync'); ?></p>
+                <table class="form-table" role="presentation">
+                    <?php $renderColorFields(Helmful_Sync_Display_Settings::inventory_color_labels(), $display); ?>
+                </table>
 
-                <div class="helmful-shortcode-card">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Events only', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_show_events]</code>
-                    <p><?php esc_html_e('List boat show events without the parent show wrapper.', 'helmful-sync'); ?></p>
-                </div>
-
-                <div class="helmful-shortcode-card">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter by year', 'helmful-sync'); ?></p>
-                    <code>[helmful_boat_show_events year="2026"]</code>
-                    <p><?php esc_html_e('Show only events from a specific year.', 'helmful-sync'); ?></p>
-                </div>
-
-                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Brands landing page', 'helmful-sync'); ?></p>
-                    <code>[helmful_brands]</code>
-                    <p><?php esc_html_e('Grid of all synced brands with logos. Each brand links to your inventory page filtered by brand.', 'helmful-sync'); ?></p>
-                </div>
-
-                <div class="helmful-shortcode-card">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Brand grid columns', 'helmful-sync'); ?></p>
-                    <code>[helmful_brands columns="3"]</code>
-                    <p><?php esc_html_e('Adjust the number of brand columns (2–6).', 'helmful-sync'); ?></p>
-                </div>
-
-                <div class="helmful-shortcode-card helmful-shortcode-card--featured">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Inventory listing', 'helmful-sync'); ?></p>
-                    <code>[helmful_inventory]</code>
-                    <p><?php esc_html_e('All synced inventory with a brand filter bar. Create a page at /inventory/ for the listing.', 'helmful-sync'); ?></p>
-                </div>
-
-                <div class="helmful-shortcode-card">
-                    <p class="helmful-shortcode-card__label"><?php esc_html_e('Filter inventory by brand', 'helmful-sync'); ?></p>
-                    <code>[helmful_inventory brand="sea-ray"]</code>
-                    <p><?php esc_html_e('Show inventory for one brand by slug. Visitors can also filter via ?helmful_brand=slug in the URL.', 'helmful-sync'); ?></p>
-                </div>
-            </div>
+                <?php submit_button(__('Save inventory design', 'helmful-sync')); ?>
+            </form>
         </div>
 
-    </div><!-- /shortcodes -->
+    </div><!-- /inventory -->
+
+    <!-- ====================================================
+         BRANDS DESIGN TAB
+         ==================================================== -->
+    <div class="helmful-admin-panel<?php echo $activeTab === 'brands' ? ' is-active' : ''; ?>" data-panel="brands">
+
+        <div class="helmful-section">
+            <form method="post" action="options.php">
+                <?php settings_fields('helmful_sync'); ?>
+                <input type="hidden" name="helmful_active_tab" value="brands">
+
+                <h2><?php esc_html_e('Brands Design', 'helmful-sync'); ?></h2>
+                <p class="description"><?php esc_html_e('Controls layout and styling for [helmful_brands].', 'helmful-sync'); ?></p>
+
+                <h3><?php esc_html_e('Layout', 'helmful-sync'); ?></h3>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="helmful_brands_columns"><?php esc_html_e('Grid columns', 'helmful-sync'); ?></label></th>
+                        <td>
+                            <select name="helmful_sync_settings[display][brands_columns]" id="helmful_brands_columns">
+                                <?php for ($brandCols = 2; $brandCols <= 6; $brandCols++) { ?>
+                                    <option value="<?php echo esc_attr((string) $brandCols); ?>" <?php selected($display['brands_columns'], $brandCols); ?>>
+                                        <?php echo esc_html(sprintf(__('%d columns', 'helmful-sync'), $brandCols)); ?>
+                                    </option>
+                                <?php } ?>
+                            </select>
+                            <p class="description"><?php esc_html_e('Default column count for the brands grid. Can be overridden with [helmful_brands columns="3"].', 'helmful-sync'); ?></p>
+                        </td>
+                    </tr>
+                </table>
+
+                <h3><?php esc_html_e('Colors', 'helmful-sync'); ?></h3>
+                <table class="form-table" role="presentation">
+                    <?php $renderColorFields(Helmful_Sync_Display_Settings::brands_color_labels(), $display); ?>
+                </table>
+
+                <?php submit_button(__('Save brands design', 'helmful-sync')); ?>
+            </form>
+        </div>
+
+    </div><!-- /brands -->
 
 </div>

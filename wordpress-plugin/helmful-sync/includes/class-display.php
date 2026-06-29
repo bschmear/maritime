@@ -961,7 +961,7 @@ final class Helmful_Sync_Display
         echo '<span>'.esc_html(get_the_title($show)).'</span>';
         echo '</nav>';
 
-        echo '<header class="helmful-single-hero">';
+        echo '<div class="helmful-single-hero">';
         if ($showMeta['logo_url'] !== '') {
             echo '<div class="helmful-single-hero__logo">';
             self::render_image($showMeta['logo_url'], get_the_title($show), 'helmful-single-hero__logo-img');
@@ -978,7 +978,7 @@ final class Helmful_Sync_Display
             echo '<a class="helmful-link helmful-link--primary" href="'.esc_url($website).'" target="_blank" rel="noopener noreferrer">'.esc_html__('Official website', 'helmful-sync').'</a>';
             echo '</div>';
         }
-        echo '</div></header>';
+        echo '</div></div>';
 
         $partitioned = self::partition_events_by_timing($events);
         $nextEvent = $partitioned['upcoming'][0] ?? null;
@@ -1205,6 +1205,35 @@ final class Helmful_Sync_Display
         wp_add_inline_style('helmful-sync-display', Helmful_Sync_Display_Settings::css_variables());
     }
 
+    public static function enqueue_inventory_assets(): void
+    {
+        self::enqueue_assets();
+
+        wp_enqueue_script(
+            'helmful-sync-inventory',
+            HELMFUL_SYNC_URL.'assets/js/inventory.js',
+            [],
+            HELMFUL_SYNC_VERSION,
+            true,
+        );
+
+        wp_localize_script('helmful-sync-inventory', 'helmfulInventory', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('helmful_inventory_quote'),
+            'strings' => [
+                'modalTitle' => __('Request a Quote', 'helmful-sync'),
+                'nameLabel' => __('Your name', 'helmful-sync'),
+                'emailLabel' => __('Email address', 'helmful-sync'),
+                'phoneLabel' => __('Phone', 'helmful-sync'),
+                'messageLabel' => __('Message', 'helmful-sync'),
+                'submit' => __('Send Request', 'helmful-sync'),
+                'cancel' => __('Cancel', 'helmful-sync'),
+                'sending' => __('Sending...', 'helmful-sync'),
+                'itemLabel' => __('Inventory item', 'helmful-sync'),
+            ],
+        ]);
+    }
+
     /**
      * @param  array<string, string>|string  $atts
      */
@@ -1213,7 +1242,7 @@ final class Helmful_Sync_Display
         self::enqueue_assets();
 
         $atts = shortcode_atts([
-            'columns' => '4',
+            'columns' => (string) Helmful_Sync_Display_Settings::get()['brands_columns'],
             'limit' => '0',
         ], is_array($atts) ? $atts : [], 'helmful_brands');
 
@@ -1222,42 +1251,109 @@ final class Helmful_Sync_Display
         ]);
 
         if ($brands === []) {
-            return self::empty_message(__('No brands found. Sync from Helmful first.', 'helmful-sync'));
+            return self::render_brands_empty();
         }
 
         $columns = max(2, min(6, (int) $atts['columns']));
-        $inventoryBaseUrl = self::inventory_page_url();
 
         ob_start();
-        echo '<div class="helmful-boat-shows-shell"><div class="helmful-brands helmful-layout-grid" style="--helmful-columns:'.$columns.'">';
+        echo '<div class="helmful-boat-shows-shell helmful-brands-shell">';
+        echo '<div class="helmful-brands-results">';
+        echo '<div class="helmful-brands-results__inner">';
+        echo '<div class="helmful-brands-grid" style="--helmful-brands-columns:'.$columns.';">';
 
         foreach ($brands as $brand) {
-            $meta = self::brand_meta($brand);
-            $filterUrl = $meta['slug'] !== ''
-                ? add_query_arg('helmful_brand', $meta['slug'], $inventoryBaseUrl)
-                : '';
-
-            echo '<article class="helmful-brand-card">';
-            if ($filterUrl !== '') {
-                echo '<a class="helmful-brand-card__link" href="'.esc_url($filterUrl).'">';
-            } else {
-                echo '<div class="helmful-brand-card__link">';
-            }
-
-            if ($meta['logo_url'] !== '') {
-                echo '<div class="helmful-brand-card__logo">';
-                self::render_image($meta['logo_url'], $brand->name, 'helmful-brand-card__logo-img');
-                echo '</div>';
-            }
-
-            echo '<h3 class="helmful-brand-card__title">'.esc_html($brand->name).'</h3>';
-            echo $filterUrl !== '' ? '</a>' : '</div>';
-            echo '</article>';
+            self::render_brand_card($brand);
         }
 
-        echo '</div></div>';
+        echo '</div></div></div></div>';
 
         return (string) ob_get_clean();
+    }
+
+    private static function render_brands_empty(): string
+    {
+        ob_start();
+        echo '<div class="helmful-boat-shows-shell helmful-brands-shell">';
+        echo '<div class="helmful-brands-results">';
+        echo '<div class="helmful-brands-results__inner">';
+        echo '<div class="helmful-brands-empty">';
+        echo '<svg class="helmful-brands-empty__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">';
+        echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>';
+        echo '</svg>';
+        echo '<h2 class="helmful-brands-empty__title">'.esc_html__('No Brands Found', 'helmful-sync').'</h2>';
+        echo '<p class="helmful-brands-empty__text">'.esc_html__('Check back later for new boat brands.', 'helmful-sync').'</p>';
+        echo '</div></div></div></div>';
+
+        return (string) ob_get_clean();
+    }
+
+    private static function brand_inventory_count(WP_Term $brand): int
+    {
+        $query = new WP_Query([
+            'post_type' => Helmful_Sync_CPT::INVENTORY_POST_TYPE,
+            'post_status' => 'publish',
+            'posts_per_page' => 1,
+            'fields' => 'ids',
+            'no_found_rows' => false,
+            'tax_query' => [
+                [
+                    'taxonomy' => Helmful_Sync_CPT::BRAND_TAXONOMY,
+                    'field' => 'term_id',
+                    'terms' => $brand->term_id,
+                ],
+            ],
+        ]);
+
+        $count = (int) $query->found_posts;
+        wp_reset_postdata();
+
+        return $count;
+    }
+
+    private static function render_brand_card(WP_Term $brand): void
+    {
+        $meta = self::brand_meta($brand);
+        $filterUrl = $meta['slug'] !== ''
+            ? self::brand_page_url($meta['slug'])
+            : '';
+        $inventoryCount = self::brand_inventory_count($brand);
+        $cardTag = $filterUrl !== '' ? 'a' : 'div';
+        $cardAttrs = $filterUrl !== ''
+            ? ' href="'.esc_url($filterUrl).'"'
+            : '';
+
+        echo '<'.$cardTag.$cardAttrs.' class="helmful-brand-card">';
+
+        echo '<div class="helmful-brand-card__media">';
+        if ($meta['logo_url'] !== '') {
+            self::render_image($meta['logo_url'], $brand->name, 'helmful-brand-card__logo-img');
+        } else {
+            echo '<div class="helmful-brand-card__placeholder" aria-hidden="true">';
+            echo '<svg class="helmful-brand-card__placeholder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+            echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>';
+            echo '</svg>';
+            echo '</div>';
+        }
+        echo '<span class="helmful-brand-card__media-overlay" aria-hidden="true"></span>';
+        echo '</div>';
+
+        echo '<div class="helmful-brand-card__body">';
+        echo '<h3 class="helmful-brand-card__title">'.esc_html($brand->name).'</h3>';
+        echo '<p class="helmful-brand-card__count">';
+        echo esc_html((string) $inventoryCount).' ';
+        echo esc_html($inventoryCount === 1 ? __('boat', 'helmful-sync') : __('boats', 'helmful-sync'));
+        echo ' '.esc_html__('available', 'helmful-sync');
+        echo '</p>';
+        echo '<span class="helmful-brand-card__cta">';
+        echo esc_html__('View Collection', 'helmful-sync');
+        echo '<svg class="helmful-brand-card__cta-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">';
+        echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>';
+        echo '</svg>';
+        echo '</span>';
+        echo '</div>';
+
+        echo '</'.$cardTag.'>';
     }
 
     /**
@@ -1265,7 +1361,7 @@ final class Helmful_Sync_Display
      */
     public static function render_shortcode_inventory($atts = []): string
     {
-        self::enqueue_assets();
+        self::enqueue_inventory_assets();
 
         $atts = shortcode_atts([
             'brand' => '',
@@ -1274,64 +1370,212 @@ final class Helmful_Sync_Display
         ], is_array($atts) ? $atts : [], 'helmful_inventory');
 
         $brandFilter = sanitize_text_field($atts['brand']);
-        if ($brandFilter === '' && isset($_GET['helmful_brand'])) {
-            $brandFilter = sanitize_text_field(wp_unslash((string) $_GET['helmful_brand']));
+        if ($brandFilter === '') {
+            $brandFilter = self::current_brand_slug();
         }
 
-        $items = self::query_inventory([
+        $inventoryPage = self::query_inventory_page([
             'brand' => $brandFilter,
             'limit' => $atts['limit'],
         ]);
 
+        $items = $inventoryPage['items'];
+        $totalItems = $inventoryPage['total'];
+        $maxPages = $inventoryPage['max_pages'];
+        $currentPage = $inventoryPage['current_page'];
+
         $brands = self::query_brands([]);
         $showFilter = filter_var($atts['show_filter'], FILTER_VALIDATE_BOOLEAN);
+        $baseUrl = self::current_page_url();
+        $activeBrandName = self::inventory_brand_label($brands, $brandFilter);
 
         ob_start();
-        echo '<div class="helmful-boat-shows-shell"><div class="helmful-inventory">';
+        echo '<div class="helmful-boat-shows-shell helmful-inventory-shell">';
+        echo '<div class="helmful-inventory-layout">';
 
         if ($showFilter && $brands !== []) {
-            $baseUrl = self::current_page_url();
-            echo '<nav class="helmful-inventory-filter" aria-label="'.esc_attr__('Filter by brand', 'helmful-sync').'">';
-            echo '<ul class="helmful-inventory-filter__list">';
-
-            $allActive = $brandFilter === '';
-            echo '<li class="helmful-inventory-filter__item'.($allActive ? ' is-active' : '').'">';
-            echo '<a href="'.esc_url(remove_query_arg('helmful_brand', $baseUrl)).'">'.esc_html__('All brands', 'helmful-sync').'</a>';
-            echo '</li>';
-
-            foreach ($brands as $brand) {
-                $meta = self::brand_meta($brand);
-                if ($meta['slug'] === '') {
-                    continue;
-                }
-
-                $isActive = $brandFilter === $meta['slug'] || $brandFilter === $meta['uuid'];
-                $url = add_query_arg('helmful_brand', $meta['slug'], remove_query_arg('helmful_brand', $baseUrl));
-
-                echo '<li class="helmful-inventory-filter__item'.($isActive ? ' is-active' : '').'">';
-                echo '<a href="'.esc_url($url).'">'.esc_html($brand->name).'</a>';
-                echo '</li>';
-            }
-
-            echo '</ul></nav>';
+            self::render_inventory_filter_sidebar($brands, $brandFilter, $baseUrl);
         }
+
+        echo '<div class="helmful-inventory-main">';
+        echo '<div class="helmful-inventory-results">';
+        echo '<div class="helmful-inventory-results__inner">';
 
         if ($items === []) {
-            echo self::empty_message(__('No inventory found. Sync from Helmful first.', 'helmful-sync'), false);
-            echo '</div></div>';
+            self::render_inventory_empty($baseUrl);
+        } else {
+            self::render_inventory_results_header($totalItems, $activeBrandName);
 
-            return (string) ob_get_clean();
+            echo '<div class="helmful-inventory-grid">';
+
+            foreach ($items as $item) {
+                self::render_inventory_card($item);
+            }
+
+            echo '</div>';
+
+            if ($maxPages > 1) {
+                self::render_inventory_pagination($baseUrl, $brandFilter, $currentPage, $maxPages);
+            }
         }
 
-        echo '<div class="helmful-inventory-grid">';
-
-        foreach ($items as $item) {
-            self::render_inventory_card($item);
-        }
-
-        echo '</div></div></div>';
+        echo '</div></div></div></div>';
+        self::render_inventory_quote_modal();
+        echo '</div>';
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * @param  list<WP_Term>  $brands
+     */
+    private static function inventory_brand_label(array $brands, string $brandFilter): string
+    {
+        if ($brandFilter === '') {
+            return '';
+        }
+
+        foreach ($brands as $brand) {
+            $meta = self::brand_meta($brand);
+            if ($brandFilter === $meta['slug'] || $brandFilter === $meta['uuid']) {
+                return $brand->name;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  list<WP_Term>  $brands
+     */
+    private static function render_inventory_filter_sidebar(array $brands, string $brandFilter, string $baseUrl): void
+    {
+        echo '<aside class="helmful-inventory-sidebar" aria-label="'.esc_attr__('Filter by brand', 'helmful-sync').'">';
+        echo '<div class="helmful-inventory-sidebar__inner">';
+        echo '<p class="helmful-inventory-sidebar__title">';
+        echo '<svg class="helmful-inventory-sidebar__icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">';
+        echo '<circle cx="11" cy="11" r="8"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35"/>';
+        echo '</svg>';
+        echo esc_html__('Filter by Brand', 'helmful-sync');
+        echo '</p>';
+
+        echo '<nav class="helmful-inventory-filter__list">';
+        $allActive = $brandFilter === '';
+        $allInventoryUrl = self::inventory_page_url();
+        echo '<a href="'.esc_url($allInventoryUrl).'" class="helmful-inventory-filter__pill'.($allActive ? ' is-active' : '').'">';
+        echo esc_html__('All Brands', 'helmful-sync');
+        echo '</a>';
+
+        foreach ($brands as $brand) {
+            $meta = self::brand_meta($brand);
+            if ($meta['slug'] === '') {
+                continue;
+            }
+
+            $isActive = $brandFilter === $meta['slug'] || $brandFilter === $meta['uuid'];
+            $url = self::brand_page_url($meta['slug']);
+
+            echo '<a href="'.esc_url($url).'" class="helmful-inventory-filter__pill'.($isActive ? ' is-active' : '').'">';
+            echo esc_html($brand->name);
+            echo '</a>';
+        }
+
+        echo '</nav>';
+        echo '</div>';
+        echo '<div class="helmful-inventory-sidebar__accent" aria-hidden="true"></div>';
+        echo '</aside>';
+    }
+
+    private static function render_inventory_pagination(string $baseUrl, string $brandFilter, int $currentPage, int $maxPages): void
+    {
+        unset($brandFilter);
+        $paginationBase = remove_query_arg('helmful_page', $baseUrl);
+
+        $links = paginate_links([
+            'base' => add_query_arg('helmful_page', '%#%', $paginationBase),
+            'format' => '',
+            'current' => $currentPage,
+            'total' => $maxPages,
+            'prev_text' => __('Previous', 'helmful-sync'),
+            'next_text' => __('Next', 'helmful-sync'),
+            'type' => 'list',
+        ]);
+
+        if (! is_string($links) || $links === '') {
+            return;
+        }
+
+        echo '<nav class="helmful-inventory-pagination" aria-label="'.esc_attr__('Inventory pages', 'helmful-sync').'">';
+        echo $links;
+        echo '</nav>';
+    }
+
+    private static function render_inventory_quote_modal(): void
+    {
+        echo '<div class="helmful-inventory-quote-modal" id="helmful-inventory-quote-modal" hidden>';
+        echo '<div class="helmful-inventory-quote-modal__overlay" data-helmful-quote-close></div>';
+        echo '<div class="helmful-inventory-quote-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="helmful-inventory-quote-title">';
+        echo '<button type="button" class="helmful-inventory-quote-modal__close" data-helmful-quote-close aria-label="'.esc_attr__('Close', 'helmful-sync').'">&times;</button>';
+        echo '<h2 class="helmful-inventory-quote-modal__title" id="helmful-inventory-quote-title">'.esc_html__('Request a Quote', 'helmful-sync').'</h2>';
+        echo '<p class="helmful-inventory-quote-modal__item" id="helmful-inventory-quote-item"></p>';
+        echo '<form class="helmful-inventory-quote-modal__form" id="helmful-inventory-quote-form" novalidate>';
+        echo '<input type="hidden" name="item_id" id="helmful-inventory-quote-item-id" value="">';
+        echo '<div class="helmful-inventory-quote-modal__field">';
+        echo '<label for="helmful-inventory-quote-name">'.esc_html__('Your name', 'helmful-sync').'</label>';
+        echo '<input type="text" id="helmful-inventory-quote-name" name="name" required autocomplete="name">';
+        echo '</div>';
+        echo '<div class="helmful-inventory-quote-modal__field">';
+        echo '<label for="helmful-inventory-quote-email">'.esc_html__('Email address', 'helmful-sync').'</label>';
+        echo '<input type="email" id="helmful-inventory-quote-email" name="email" required autocomplete="email">';
+        echo '</div>';
+        echo '<div class="helmful-inventory-quote-modal__field">';
+        echo '<label for="helmful-inventory-quote-phone">'.esc_html__('Phone', 'helmful-sync').'</label>';
+        echo '<input type="tel" id="helmful-inventory-quote-phone" name="phone" autocomplete="tel">';
+        echo '</div>';
+        echo '<div class="helmful-inventory-quote-modal__field">';
+        echo '<label for="helmful-inventory-quote-message">'.esc_html__('Message', 'helmful-sync').'</label>';
+        echo '<textarea id="helmful-inventory-quote-message" name="message" rows="4"></textarea>';
+        echo '</div>';
+        echo '<p class="helmful-inventory-quote-modal__feedback" id="helmful-inventory-quote-feedback" hidden></p>';
+        echo '<div class="helmful-inventory-quote-modal__actions">';
+        echo '<button type="button" class="helmful-inventory-quote-modal__button helmful-inventory-quote-modal__button--secondary" data-helmful-quote-close>'.esc_html__('Cancel', 'helmful-sync').'</button>';
+        echo '<button type="submit" class="helmful-inventory-quote-modal__button helmful-inventory-quote-modal__button--primary" id="helmful-inventory-quote-submit">'.esc_html__('Send Request', 'helmful-sync').'</button>';
+        echo '</div>';
+        echo '</form>';
+        echo '</div>';
+        echo '</div>';
+    }
+
+    private static function render_inventory_results_header(int $count, string $activeBrandName): void
+    {
+        echo '<div class="helmful-inventory-results__header">';
+        echo '<p class="helmful-inventory-results__count">';
+        echo '<span class="helmful-inventory-results__count-number">'.esc_html((string) $count).'</span> ';
+        echo esc_html($count === 1 ? __('boat', 'helmful-sync') : __('boats', 'helmful-sync'));
+        echo ' '.esc_html__('found', 'helmful-sync');
+        echo '</p>';
+        echo '<div class="helmful-inventory-results__divider"></div>';
+        echo '<span class="helmful-inventory-results__label">';
+        echo esc_html($activeBrandName !== '' ? $activeBrandName : __('All brands', 'helmful-sync'));
+        echo '</span>';
+        echo '</div>';
+    }
+
+    private static function render_inventory_empty(string $baseUrl): void
+    {
+        echo '<div class="helmful-inventory-empty">';
+        echo '<svg class="helmful-inventory-empty__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">';
+        echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+        echo '</svg>';
+        echo '<h3 class="helmful-inventory-empty__title">'.esc_html__('No Boats Found', 'helmful-sync').'</h3>';
+        echo '<p class="helmful-inventory-empty__text">'.esc_html__('No boats match your current filters. Try adjusting your search.', 'helmful-sync').'</p>';
+        echo '<a href="'.esc_url(self::inventory_page_url()).'" class="helmful-inventory-empty__button">';
+        echo esc_html__('Clear Filters', 'helmful-sync');
+        echo '<svg class="helmful-inventory-empty__button-icon" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">';
+        echo '<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>';
+        echo '</svg>';
+        echo '</a>';
+        echo '</div>';
     }
 
     /**
@@ -1377,22 +1621,27 @@ final class Helmful_Sync_Display
 
     /**
      * @param  array<string, string>  $filters
-     * @return list<WP_Post>
+     * @return array{items: list<WP_Post>, total: int, max_pages: int, current_page: int, per_page: int}
      */
-    public static function query_inventory(array $filters): array
+    public static function query_inventory_page(array $filters): array
     {
+        $display = Helmful_Sync_Display_Settings::get();
+        $perPage = $display['inventory_per_page'];
+        $shortcodeLimit = (int) ($filters['limit'] ?? 0);
+        if ($shortcodeLimit > 0) {
+            $perPage = max(1, min(100, $shortcodeLimit));
+        }
+
+        $currentPage = isset($_GET['helmful_page']) ? max(1, (int) $_GET['helmful_page']) : 1;
+
         $args = [
             'post_type' => Helmful_Sync_CPT::INVENTORY_POST_TYPE,
             'post_status' => 'publish',
-            'numberposts' => -1,
+            'posts_per_page' => $perPage,
+            'paged' => $currentPage,
             'orderby' => 'title',
             'order' => 'ASC',
         ];
-
-        $limit = (int) ($filters['limit'] ?? 0);
-        if ($limit > 0) {
-            $args['numberposts'] = $limit;
-        }
 
         $brand = sanitize_text_field($filters['brand'] ?? '');
         if ($brand !== '') {
@@ -1420,9 +1669,26 @@ final class Helmful_Sync_Display
             }
         }
 
-        $posts = get_posts($args);
+        $query = new WP_Query($args);
 
-        return is_array($posts) ? $posts : [];
+        return [
+            'items' => is_array($query->posts) ? $query->posts : [],
+            'total' => (int) $query->found_posts,
+            'max_pages' => (int) $query->max_num_pages,
+            'current_page' => $currentPage,
+            'per_page' => $perPage,
+        ];
+    }
+
+    /**
+     * @param  array<string, string>  $filters
+     * @return list<WP_Post>
+     */
+    public static function query_inventory(array $filters): array
+    {
+        $page = self::query_inventory_page($filters);
+
+        return $page['items'];
     }
 
     /**
@@ -1449,64 +1715,193 @@ final class Helmful_Sync_Display
             return [(int) $term->term_id];
         }
 
+        $termsByMeta = get_terms([
+            'taxonomy' => Helmful_Sync_CPT::BRAND_TAXONOMY,
+            'hide_empty' => false,
+            'number' => 1,
+            'meta_query' => [
+                [
+                    'key' => 'helmful_slug',
+                    'value' => $brand,
+                ],
+            ],
+        ]);
+
+        if (
+            is_array($termsByMeta)
+            && isset($termsByMeta[0])
+            && $termsByMeta[0] instanceof WP_Term
+        ) {
+            return [(int) $termsByMeta[0]->term_id];
+        }
+
         $termId = Helmful_Sync_Handler::term_id_for_uuid(Helmful_Sync_CPT::BRAND_TAXONOMY, $brand);
 
         return $termId > 0 ? [$termId] : [];
     }
 
     /**
-     * @return array{brand_name: string, model: string, year: string, length: string, default_price: string, permalink: string}
+     * @return array{brand_name: string, model: string, year: string, length: string, default_price: string, type: string, image_url: string, permalink: string, specs: list<array{label: string, value: string, unit?: string}>}
      */
     private static function inventory_meta(WP_Post $item): array
     {
+        $imageUrl = Helmful_Sync_Handler::inventory_primary_image_for_post($item->ID);
+        if ($imageUrl === '' && has_post_thumbnail($item)) {
+            $thumbnail = get_the_post_thumbnail_url($item, 'large');
+            $imageUrl = is_string($thumbnail) ? trim($thumbnail) : '';
+        }
+
+        $imageUrl = self::valid_image_url($imageUrl);
+        $specs = Helmful_Sync_Handler::inventory_specs_for_post($item->ID);
+
         return [
             'brand_name' => (string) get_post_meta($item->ID, 'helmful_brand_name', true),
             'model' => (string) get_post_meta($item->ID, 'helmful_model', true),
             'year' => (string) get_post_meta($item->ID, 'helmful_year', true),
             'length' => (string) get_post_meta($item->ID, 'helmful_length', true),
             'default_price' => (string) get_post_meta($item->ID, 'helmful_default_price', true),
+            'type' => (string) get_post_meta($item->ID, 'helmful_type', true),
+            'image_url' => $imageUrl,
             'permalink' => self::post_permalink($item),
+            'specs' => $specs,
         ];
+    }
+
+    private static function valid_image_url(string $url): string
+    {
+        $url = esc_url_raw($url);
+        if ($url === '' || ! wp_http_validate_url($url)) {
+            return '';
+        }
+
+        return esc_url($url);
+    }
+
+    private static function render_inventory_image_placeholder(): void
+    {
+        echo '<div class="helmful-inventory-card__placeholder" aria-hidden="true">';
+        echo '<svg class="helmful-inventory-card__placeholder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">';
+        echo '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>';
+        echo '</svg>';
+        echo '</div>';
     }
 
     private static function render_inventory_card(WP_Post $item): void
     {
         $meta = self::inventory_meta($item);
+        $title = get_the_title($item);
+        $hasLegacySpecs = $meta['length'] !== '' || $meta['year'] !== '' || ($meta['default_price'] !== '' && is_numeric($meta['default_price']));
+        $hasSpecs = $meta['specs'] !== [] || $hasLegacySpecs;
+        $mediaTag = $meta['permalink'] !== '' ? 'a' : 'div';
+        $mediaAttrs = $meta['permalink'] !== ''
+            ? ' href="'.esc_url($meta['permalink']).'"'
+            : '';
 
         echo '<article class="helmful-inventory-card">';
+        echo '<'.$mediaTag.$mediaAttrs.' class="helmful-inventory-card__media">';
 
-        if ($meta['permalink'] !== '') {
-            echo '<a class="helmful-inventory-card__link" href="'.esc_url($meta['permalink']).'">';
+        if ($meta['image_url'] !== '') {
+            self::render_image($meta['image_url'], $title, 'helmful-inventory-card__image');
+        } else {
+            self::render_inventory_image_placeholder();
         }
 
-        echo '<h3 class="helmful-inventory-card__title">'.esc_html(get_the_title($item)).'</h3>';
+        if ($meta['type'] !== '') {
+            echo '<span class="helmful-inventory-card__badge">';
+            echo esc_html($meta['type']);
+            echo '</span>';
+        }
+
+        echo '</'.$mediaTag.'>';
+
+        echo '<div class="helmful-inventory-card__body">';
 
         if ($meta['brand_name'] !== '') {
-            echo '<p class="helmful-inventory-card__brand">'.esc_html($meta['brand_name']).'</p>';
+            echo '<p class="helmful-inventory-card__brand">';
+            echo esc_html($meta['brand_name']);
+            echo '</p>';
         }
 
-        $details = array_filter([
-            $meta['year'] !== '' ? sprintf(__('Year %s', 'helmful-sync'), $meta['year']) : '',
-            $meta['length'] !== '' ? sprintf(__('%s ft', 'helmful-sync'), $meta['length']) : '',
-        ]);
+        echo '<h2 class="helmful-inventory-card__title">';
+        if ($meta['permalink'] !== '') {
+            echo '<a href="'.esc_url($meta['permalink']).'" class="helmful-inventory-card__title-link">';
+            echo esc_html($title);
+            echo '</a>';
+        } else {
+            echo esc_html($title);
+        }
+        echo '</h2>';
 
-        if ($details !== []) {
-            echo '<p class="helmful-inventory-card__meta">'.esc_html(implode(' · ', $details)).'</p>';
+        if ($hasSpecs) {
+            echo '<div class="helmful-inventory-card__specs">';
+
+            if ($meta['specs'] !== []) {
+                foreach ($meta['specs'] as $spec) {
+                    $value = $spec['value'];
+                    if (isset($spec['unit']) && $spec['unit'] !== '' && ! str_contains($value, $spec['unit'])) {
+                        $value .= ' '.$spec['unit'];
+                    }
+
+                    echo '<div class="helmful-inventory-card__spec">';
+                    echo '<span class="helmful-inventory-card__spec-label">'.esc_html($spec['label']).'</span>';
+                    echo '<span class="helmful-inventory-card__spec-value">'.esc_html($value).'</span>';
+                    echo '</div>';
+                }
+
+                if ($meta['default_price'] !== '' && is_numeric($meta['default_price'])) {
+                    echo '<div class="helmful-inventory-card__spec helmful-inventory-card__spec--wide">';
+                    echo '<span class="helmful-inventory-card__spec-label">'.esc_html__('Price', 'helmful-sync').'</span>';
+                    echo '<span class="helmful-inventory-card__spec-value">'.esc_html(self::format_price((float) $meta['default_price'])).'</span>';
+                    echo '</div>';
+                }
+            } else {
+                if ($meta['length'] !== '') {
+                    echo '<div class="helmful-inventory-card__spec">';
+                    echo '<span class="helmful-inventory-card__spec-label">'.esc_html__('Length', 'helmful-sync').'</span>';
+                    echo '<span class="helmful-inventory-card__spec-value">'.esc_html($meta['length']).'′</span>';
+                    echo '</div>';
+                }
+
+                if ($meta['year'] !== '') {
+                    echo '<div class="helmful-inventory-card__spec">';
+                    echo '<span class="helmful-inventory-card__spec-label">'.esc_html__('Year', 'helmful-sync').'</span>';
+                    echo '<span class="helmful-inventory-card__spec-value">'.esc_html($meta['year']).'</span>';
+                    echo '</div>';
+                }
+
+                if ($meta['default_price'] !== '' && is_numeric($meta['default_price'])) {
+                    echo '<div class="helmful-inventory-card__spec helmful-inventory-card__spec--wide">';
+                    echo '<span class="helmful-inventory-card__spec-label">'.esc_html__('Price', 'helmful-sync').'</span>';
+                    echo '<span class="helmful-inventory-card__spec-value">'.esc_html(self::format_price((float) $meta['default_price'])).'</span>';
+                    echo '</div>';
+                }
+            }
+
+            echo '</div>';
         }
 
+        echo '<div class="helmful-inventory-card__actions">';
+        echo '<button type="button" class="helmful-inventory-card__button helmful-inventory-card__button--secondary helmful-inventory-quote-trigger"';
+        echo ' data-item-id="'.esc_attr((string) $item->ID).'"';
+        echo ' data-item-title="'.esc_attr($title).'"';
+        echo ' data-item-brand="'.esc_attr($meta['brand_name']).'"';
+        echo ' data-item-model="'.esc_attr($meta['model']).'"';
+        echo ' data-item-year="'.esc_attr($meta['year']).'"';
+        echo ' data-item-length="'.esc_attr($meta['length']).'"';
         if ($meta['default_price'] !== '' && is_numeric($meta['default_price'])) {
-            echo '<p class="helmful-inventory-card__price">'.esc_html(self::format_price((float) $meta['default_price'])).'</p>';
+            echo ' data-item-price="'.esc_attr(self::format_price((float) $meta['default_price'])).'"';
         }
-
-        if ($item->post_content !== '') {
-            echo '<div class="helmful-inventory-card__description">'.wp_kses_post(wpautop($item->post_content)).'</div>';
-        }
+        echo '>';
+        echo esc_html__('Request Quote', 'helmful-sync');
+        echo '</button>';
 
         if ($meta['permalink'] !== '') {
+            echo '<a href="'.esc_url($meta['permalink']).'" class="helmful-inventory-card__button helmful-inventory-card__button--primary">';
+            echo esc_html__('View Details', 'helmful-sync');
             echo '</a>';
         }
 
-        echo '</article>';
+        echo '</div></div></article>';
     }
 
     private static function format_price(float $amount): string
@@ -1514,23 +1909,61 @@ final class Helmful_Sync_Display
         return '$'.number_format_i18n($amount, 0);
     }
 
-    public static function inventory_page_url(): string
+    public static function brands_page(): ?WP_Post
     {
         static $cached = false;
-        static $url = '';
+        static $page = null;
 
         if ($cached) {
-            return $url;
+            return $page;
         }
 
         $cached = true;
 
-        $byPath = get_page_by_path('inventory');
+        $byPath = get_page_by_path('brands');
         if ($byPath instanceof WP_Post) {
-            $permalink = get_permalink($byPath);
-            $url = is_string($permalink) ? $permalink : home_url('/inventory/');
+            $page = $byPath;
 
-            return $url;
+            return $page;
+        }
+
+        $pages = get_posts([
+            'post_type' => 'page',
+            'post_status' => 'publish',
+            'posts_per_page' => 100,
+        ]);
+
+        foreach ($pages as $candidate) {
+            if (has_shortcode($candidate->post_content, 'helmful_brands')) {
+                $page = $candidate;
+
+                return $page;
+            }
+        }
+
+        return null;
+    }
+
+    public static function inventory_page(): ?WP_Post
+    {
+        static $cached = false;
+        static $page = null;
+
+        if ($cached) {
+            return $page;
+        }
+
+        $cached = true;
+
+        $byPath = get_page_by_path('brands/inventory');
+        if (! $byPath instanceof WP_Post) {
+            $byPath = get_page_by_path('inventory');
+        }
+
+        if ($byPath instanceof WP_Post) {
+            $page = $byPath;
+
+            return $page;
         }
 
         $pages = get_posts([
@@ -1541,20 +1974,116 @@ final class Helmful_Sync_Display
 
         foreach ($pages as $candidate) {
             if (has_shortcode($candidate->post_content, 'helmful_inventory')) {
-                $permalink = get_permalink($candidate);
-                $url = is_string($permalink) ? $permalink : home_url('/inventory/');
+                $page = $candidate;
 
-                return $url;
+                return $page;
             }
         }
 
-        $url = home_url('/inventory/');
+        return null;
+    }
 
-        return $url;
+    public static function brands_page_path(): string
+    {
+        $page = self::brands_page();
+        if ($page instanceof WP_Post) {
+            $path = trim(get_page_uri($page), '/');
+            if ($path !== '') {
+                return $path;
+            }
+        }
+
+        return 'brands';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function reserved_brand_route_segments(): array
+    {
+        $segments = ['inventory'];
+        $brandsPage = self::brands_page();
+
+        if (! $brandsPage instanceof WP_Post) {
+            return $segments;
+        }
+
+        $children = get_pages([
+            'child_of' => $brandsPage->ID,
+            'post_status' => 'publish',
+        ]);
+
+        foreach ($children as $child) {
+            if ($child instanceof WP_Post && $child->post_name !== '') {
+                $segments[] = $child->post_name;
+            }
+        }
+
+        return array_values(array_unique($segments));
+    }
+
+    public static function brand_page_url(string $slug): string
+    {
+        $slug = sanitize_title($slug);
+        if ($slug === '') {
+            return self::inventory_page_url();
+        }
+
+        $brandsPage = self::brands_page();
+        if ($brandsPage instanceof WP_Post) {
+            $permalink = get_permalink($brandsPage);
+            if (is_string($permalink)) {
+                return trailingslashit($permalink).$slug.'/';
+            }
+        }
+
+        return home_url('/'.self::brands_page_path().'/'.$slug.'/');
+    }
+
+    public static function is_valid_brand_slug(string $slug): bool
+    {
+        $slug = sanitize_title($slug);
+        if ($slug === '') {
+            return false;
+        }
+
+        return self::brand_term_ids_for_filter($slug) !== [];
+    }
+
+    public static function current_brand_slug(): string
+    {
+        $fromRewrite = get_query_var('helmful_brand_slug');
+        if (is_string($fromRewrite) && $fromRewrite !== '') {
+            return sanitize_title($fromRewrite);
+        }
+
+        return '';
+    }
+
+    public static function inventory_brand_label_by_slug(string $slug): string
+    {
+        return self::inventory_brand_label(self::query_brands([]), sanitize_title($slug));
+    }
+
+    public static function inventory_page_url(): string
+    {
+        $page = self::inventory_page();
+        if ($page instanceof WP_Post) {
+            $permalink = get_permalink($page);
+
+            return is_string($permalink) ? $permalink : home_url('/inventory/');
+        }
+
+        return home_url('/inventory/');
     }
 
     private static function current_page_url(): string
     {
+        $brandSlug = self::current_brand_slug();
+        if ($brandSlug !== '') {
+            return self::brand_page_url($brandSlug);
+        }
+
         $queried = get_queried_object();
         if ($queried instanceof WP_Post) {
             $permalink = get_permalink($queried);

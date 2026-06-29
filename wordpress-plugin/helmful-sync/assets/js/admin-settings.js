@@ -1,11 +1,17 @@
 (function ($) {
-    const allowedTabs = ['connection', 'display', 'shortcodes'];
+    const allowedTabs = ['general', 'boat-shows', 'inventory', 'brands'];
+    const tabAliases = {
+        connection: 'general',
+        display: 'boat-shows',
+        shortcodes: 'general',
+    };
 
     function activeTab() {
         const params = new URLSearchParams(window.location.search);
-        const tab = params.get('tab') || 'connection';
+        const tab = params.get('tab') || 'general';
+        const resolved = tabAliases[tab] || tab;
 
-        return allowedTabs.includes(tab) ? tab : 'connection';
+        return allowedTabs.includes(resolved) ? resolved : 'general';
     }
 
     function showPanel(tab) {
@@ -24,12 +30,16 @@
         $('.helmful-display-preview__frame').attr('data-preview-layout', layout);
     }
 
-    function syncColorField() {
-        const $color = $('#helmful_accent_color');
-        const $text = $('#helmful_accent_color_text');
-        if ($color.length && $text.length) {
-            $text.val($color.val());
-        }
+    function syncColorFields() {
+        $('.helmful-color-field').each(function () {
+            const $field = $(this);
+            const $color = $field.find('input[type="color"]');
+            const $text = $field.find('.helmful-color-field__text');
+
+            if ($color.length && $text.length) {
+                $text.val($color.val());
+            }
+        });
     }
 
     function preventCredentialAutofill() {
@@ -63,22 +73,32 @@
         });
 
         $('input[name="helmful_sync_settings[display][layout]"]').on('change', syncLayoutUi);
-        $('#helmful_accent_color').on('input', syncColorField);
-        $('#helmful_accent_color_text').on('input', function () {
+
+        $('.helmful-color-field input[type="color"]').on('input', function () {
+            $(this).closest('.helmful-color-field').find('.helmful-color-field__text').val($(this).val());
+        });
+
+        $('.helmful-color-field__text').on('input', function () {
             const value = $(this).val();
             if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-                $('#helmful_accent_color').val(value);
+                $(this).closest('.helmful-color-field').find('input[type="color"]').val(value);
             }
         });
 
         $('form').on('submit', function () {
-            const value = $('#helmful_accent_color_text').val();
-            if (/^#[0-9a-fA-F]{6}$/.test(value)) {
-                $('#helmful_accent_color').val(value);
-            }
+            $('.helmful-color-field').each(function () {
+                const $field = $(this);
+                const $color = $field.find('input[type="color"]');
+                const $text = $field.find('.helmful-color-field__text');
+                const value = $text.val();
+
+                if (/^#[0-9a-fA-F]{6}$/.test(value)) {
+                    $color.val(value);
+                }
+            });
         });
 
         syncLayoutUi();
-        syncColorField();
+        syncColorFields();
     });
 })(jQuery);

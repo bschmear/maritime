@@ -227,6 +227,9 @@ final class Helmful_Sync_Handler
             'helmful_default_price' => self::string($payload['default_price'] ?? ''),
             'helmful_type' => self::string($payload['type'] ?? ''),
             'helmful_active' => $active ? '1' : '0',
+            'helmful_primary_image_url' => self::inventory_primary_image_from_payload($payload),
+            'helmful_specs' => wp_json_encode(self::inventory_specs_from_payload($payload)),
+            'helmful_import_payload' => wp_json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'helmful_app_asset_url' => self::string($payload['app_asset_url'] ?? ''),
             'helmful_updated_at' => self::string($payload['updated_at'] ?? ''),
             'helmful_last_synced_at' => gmdate('c'),
@@ -356,6 +359,124 @@ final class Helmful_Sync_Handler
         foreach ($meta as $key => $value) {
             update_post_meta($postId, $key, $value);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function inventory_primary_image_from_payload(array $payload): string
+    {
+        foreach (['primary_image_url', 'image_url'] as $key) {
+            $url = esc_url_raw(self::string($payload[$key] ?? ''));
+            if ($url !== '') {
+                return $url;
+            }
+        }
+
+        $primaryImage = $payload['primary_image'] ?? null;
+        if (is_array($primaryImage)) {
+            foreach (['url', 'image_url', 'src'] as $key) {
+                $url = esc_url_raw(self::string($primaryImage[$key] ?? ''));
+                if ($url !== '') {
+                    return $url;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return list<array{label: string, value: string, unit?: string}>
+     */
+    public static function inventory_specs_from_payload(array $payload): array
+    {
+        $specs = $payload['specs'] ?? [];
+        if (! is_array($specs)) {
+            return [];
+        }
+
+        $normalized = [];
+
+        foreach ($specs as $spec) {
+            if (! is_array($spec)) {
+                continue;
+            }
+
+            $label = self::string($spec['label'] ?? $spec['name'] ?? '');
+            $value = self::string($spec['value'] ?? $spec['display_value'] ?? '');
+
+            if ($label === '' || $value === '') {
+                continue;
+            }
+
+            $entry = [
+                'label' => $label,
+                'value' => $value,
+            ];
+
+            $unit = self::string($spec['unit'] ?? '');
+            if ($unit !== '') {
+                $entry['unit'] = $unit;
+            }
+
+            $normalized[] = $entry;
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return list<array{label: string, value: string, unit?: string}>
+     */
+    public static function inventory_specs_for_post(int $postId): array
+    {
+        $raw = get_post_meta($postId, 'helmful_specs', true);
+        if (! is_string($raw) || $raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        $specs = [];
+
+        foreach ($decoded as $spec) {
+            if (! is_array($spec)) {
+                continue;
+            }
+
+            $label = self::string($spec['label'] ?? '');
+            $value = self::string($spec['value'] ?? '');
+
+            if ($label === '' || $value === '') {
+                continue;
+            }
+
+            $entry = [
+                'label' => $label,
+                'value' => $value,
+            ];
+
+            $unit = self::string($spec['unit'] ?? '');
+            if ($unit !== '') {
+                $entry['unit'] = $unit;
+            }
+
+            $specs[] = $entry;
+        }
+
+        return $specs;
+    }
+
+    public static function inventory_primary_image_for_post(int $postId): string
+    {
+        $url = esc_url_raw((string) get_post_meta($postId, 'helmful_primary_image_url', true));
+
+        return $url !== '' ? $url : '';
     }
 
     private static function string(mixed $value): string
