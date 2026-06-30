@@ -113,7 +113,7 @@ class AccountController extends Controller
             'has_active_subscription' => $hasActiveSubscription,
             'seat_usage' => $seatUsage,
             'plans' => $plans,
-            'additional_seat_cost' => 15.00, // $15 per additional user
+            'additional_seat_cost' => (float) (config('app.extra_seats.monthly_price') ?: 15.0),
             'current_user' => $user,
             'tenant_workspace_roles' => $tenantRoleRows,
         ]);

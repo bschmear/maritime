@@ -338,7 +338,16 @@ const yearlySavingsPercent = computed(() => {
 });
 
 const seatUsagePercentage = computed(() => {
+    if (! props.seat_usage.seat_limit) {
+        return 0;
+    }
+
     return Math.min(100, (props.seat_usage.current_users / props.seat_usage.seat_limit) * 100);
+});
+
+const formattedAdditionalSeatCost = computed(() => {
+    const price = Number(props.additional_seat_cost);
+    return Number.isInteger(price) ? price.toString() : price.toFixed(2);
 });
 
 // Calculate additional seats needed for selected plan
@@ -497,20 +506,24 @@ const cancelAccount = () => {
                             </svg>
                         </div>
                         <p class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                            {{ seat_usage.current_users }}<span class="text-xl text-gray-500">/{{ seat_usage.seat_limit }}</span>
+                            {{ seat_usage.current_users }}/{{ seat_usage.seat_limit }}
+                            <span class="text-xl font-semibold text-gray-500 dark:text-gray-400">users</span>
                         </p>
-                        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-3">
                             <div
                                 class="h-2.5 rounded-full transition-all"
                                 :class="seat_usage.over_limit > 0 ? 'bg-red-600' : 'bg-blue-600'"
                                 :style="{ width: seatUsagePercentage + '%' }"
                             ></div>
                         </div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400" v-if="seat_usage.over_limit > 0">
-                            <span class="text-red-600 font-medium">{{ seat_usage.over_limit }} seats over limit</span>
+                        <p class="text-sm text-gray-700 dark:text-gray-300" v-if="seat_usage.over_limit > 0">
+                            <span class="font-medium text-red-600 dark:text-red-400">{{ seat_usage.over_limit }} seat{{ seat_usage.over_limit === 1 ? '' : 's' }} over limit</span>
                         </p>
-                        <p class="text-xs text-gray-600 dark:text-gray-400" v-else>
-                            {{ seat_usage.available_seats }} seats available
+                        <p class="text-sm text-gray-700 dark:text-gray-300" v-else>
+                            {{ seat_usage.available_seats }} seat{{ seat_usage.available_seats === 1 ? '' : 's' }} available
+                        </p>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            ${{ formattedAdditionalSeatCost }} per user after
                         </p>
                     </div>
 
