@@ -198,6 +198,7 @@ class InvoiceController extends RecordController
         $qboConnected = $accounting->isConnected();
         $record->loadMissing([
             'contact' => fn ($q) => $q->select(['id', 'email', 'phone', 'mobile']),
+            'workOrder' => fn ($q) => $q->select(['id', 'work_order_number', 'display_name']),
         ]);
         $invoiceViewSms = app(SmsService::class)->invoiceViewSmsCanBeOffered(
             $record->contact,

@@ -206,6 +206,68 @@ class PersistAssetOptionSelectionsForLineItemTest extends TestCase
         }
     }
 
+    #[Test]
+    public function it_persists_custom_zero_price_when_catalog_has_default(): void
+    {
+        $lineItem = EstimateLineItem::query()->create([
+            'itemable_type' => Asset::class,
+            'itemable_id' => $this->asset->id,
+            'position' => 0,
+            'asset_options_fill_mode' => 'staff',
+        ]);
+
+        app(PersistAssetOptionSelectionsForLineItem::class)(
+            $lineItem,
+            [
+                'itemable_type' => Asset::class,
+                'itemable_id' => $this->asset->id,
+                'asset_options_fill_mode' => 'staff',
+            ],
+            [
+                [
+                    'option_id' => $this->assignedOption->id,
+                    'option_value_id' => $this->assignedValue->id,
+                    'price' => 0,
+                ],
+            ],
+        );
+
+        $row = EstimateSelectedOption::query()->first();
+        $this->assertNotNull($row);
+        $this->assertSame('0.00', (string) $row->price);
+    }
+
+    #[Test]
+    public function it_persists_custom_price_over_catalog_default(): void
+    {
+        $lineItem = EstimateLineItem::query()->create([
+            'itemable_type' => Asset::class,
+            'itemable_id' => $this->asset->id,
+            'position' => 0,
+            'asset_options_fill_mode' => 'staff',
+        ]);
+
+        app(PersistAssetOptionSelectionsForLineItem::class)(
+            $lineItem,
+            [
+                'itemable_type' => Asset::class,
+                'itemable_id' => $this->asset->id,
+                'asset_options_fill_mode' => 'staff',
+            ],
+            [
+                [
+                    'option_id' => $this->assignedOption->id,
+                    'option_value_id' => $this->assignedValue->id,
+                    'price' => 550,
+                ],
+            ],
+        );
+
+        $row = EstimateSelectedOption::query()->first();
+        $this->assertNotNull($row);
+        $this->assertSame('550.00', (string) $row->price);
+    }
+
     private function createOption(string $name, bool $isGlobal): AssetOption
     {
         $option = AssetOption::query()->create([

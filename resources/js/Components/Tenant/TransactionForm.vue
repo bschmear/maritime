@@ -19,9 +19,12 @@ import {
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
 import { useFormValidationToast } from '@/composables/useFormValidationToast';
 import AssetLineBoatOptionsPanel from '@/Components/Tenant/AssetLineBoatOptionsPanel.vue';
+import AssetOptionLinePriceModal from '@/Components/Tenant/AssetOptionLinePriceModal.vue';
 import {
     hydrateAddedGlobalOptionIds,
     lineOptionsForDisplay,
+    catalogPriceForOptionValue,
+    resolvedOptionForLine,
 } from '@/Utils/assetLineBoatOptions.js';
 import { LINE_ITEM_ADDONS_UI_ENABLED } from '@/config/lineItemFeatures';
 
@@ -528,12 +531,8 @@ watch(assetItems, () => debouncedRefreshAssetOptionChoices(), { deep: true });
 
 const metaForSelection = (index, optionId, valueId, taxable = true) => {
     const ctx = assetOptionChoices.value[index] || {};
-    const choices = lineOptionsForDisplay(
-        ctx.assigned,
-        ctx.global,
-        assetItems.value[index]?.added_global_option_ids,
-    );
-    const opt = choices.find((o) => Number(o.option_id) === Number(optionId));
+    const asset = assetItems.value[index];
+    const opt = resolvedOptionForLine(ctx.assigned, ctx.global, asset?.added_global_option_ids, optionId);
     const val = opt?.values?.find((v) => Number(v.id) === Number(valueId));
     const taxOk = taxable !== false && taxable !== 0 && taxable !== '0';
     return {
@@ -799,6 +798,68 @@ const taxOnAssetOptionRow = (opt) =>
 const taxOnAssetSelectionsForLine = (item) =>
     (item.selected_asset_options ?? []).reduce((s, o) => s + taxOnAssetOptionRow(o), 0);
 
+const catalogDefaultPriceForSelection = (index, optionId, valueId) => {
+    const ctx = assetOptionChoices.value[index] || {};
+    const item = assetItems.value[index];
+    return catalogPriceForOptionValue(
+        ctx.assigned,
+        ctx.global,
+        item?.added_global_option_ids,
+        optionId,
+        valueId,
+    );
+};
+
+const isOptionPriceCustom = (index, opt) => {
+    const catalog = catalogDefaultPriceForSelection(index, opt.option_id, opt.option_value_id);
+    return roundMoney(selectedOptionUnitPrice(opt)) !== roundMoney(catalog);
+};
+
+const optionPriceModal = ref({
+    show: false,
+    item: null,
+    itemIndex: null,
+    optIdx: null,
+});
+
+const openOptionPriceModal = (item, itemIndex, optIdx) => {
+    const opt = item.selected_asset_options?.[optIdx];
+    if (!opt) return;
+    optionPriceModal.value = { show: true, item, itemIndex, optIdx };
+};
+
+const closeOptionPriceModal = () => {
+    optionPriceModal.value = { show: false, item: null, itemIndex: null, optIdx: null };
+};
+
+const saveOptionPriceModal = (price) => {
+    const { item, optIdx } = optionPriceModal.value;
+    if (item && optIdx != null && item.selected_asset_options?.[optIdx]) {
+        item.selected_asset_options[optIdx].price = price;
+    }
+    closeOptionPriceModal();
+};
+
+const optionPriceModalLabel = computed(() => {
+    const { item, optIdx } = optionPriceModal.value;
+    if (!item || optIdx == null) return '';
+    return selectedOptionLabel(item.selected_asset_options?.[optIdx]);
+});
+
+const optionPriceModalCatalogDefault = computed(() => {
+    const { item, itemIndex, optIdx } = optionPriceModal.value;
+    if (!item || itemIndex == null || optIdx == null) return 0;
+    const opt = item.selected_asset_options?.[optIdx];
+    if (!opt) return 0;
+    return catalogDefaultPriceForSelection(itemIndex, opt.option_id, opt.option_value_id);
+});
+
+const optionPriceModalCurrentPrice = computed(() => {
+    const { item, optIdx } = optionPriceModal.value;
+    if (!item || optIdx == null) return 0;
+    return selectedOptionUnitPrice(item.selected_asset_options?.[optIdx]);
+});
+
 const itemLineTaxTotal = (item) =>
     taxOnItemBase(item)
     + (item.addons || []).reduce((acc, a) => acc + taxOnAddon(a), 0)
@@ -1060,6 +1121,7 @@ const performSubmit = (updateLinkedInvoices) => {
                 selected_asset_options: (item.selected_asset_options || []).map((s) => ({
                     option_id: Number(s.option_id),
                     option_value_id: Number(s.option_value_id),
+                    price: Number(s.price ?? 0),
                     taxable: s.taxable !== false && s.taxable !== 0 && s.taxable !== '0',
                 })),
             }));
@@ -1607,6 +1669,12 @@ const handleCancel = () => emit('cancel');
                         >
                             <td class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300">
                                 <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                <span
+                                    v-if="isOptionPriceCustom(index, opt)"
+                                    class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                >
+                                    Custom
+                                </span>
                             </td>
                             <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">1</td>
                             <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ formatMoney(selectedOptionUnitPrice(opt)) }}</td>
@@ -1626,14 +1694,24 @@ const handleCancel = () => emit('cancel');
                             <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">{{ formatMoney(selectedOptionUnitPrice(opt) + taxOnAssetOptionRow(opt)) }}</td>
                             <td></td>
                             <td v-if="lineItemsEditable" class="px-4 py-2 text-right">
-                                <button
-                                    type="button"
-                                    title="Remove this boat option from the deal line"
-                                    class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
-                                    @click="removeAssetOptionSelection(asset, optIdx)"
-                                >
-                                    <span class="material-icons text-base">close</span>
-                                </button>
+                                <div class="flex items-center justify-end gap-1">
+                                    <button
+                                        type="button"
+                                        class="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                        title="Set a custom price for this option on this deal"
+                                        @click="openOptionPriceModal(asset, index, optIdx)"
+                                    >
+                                        Custom price
+                                    </button>
+                                    <button
+                                        type="button"
+                                        title="Remove this boat option from the deal line"
+                                        class="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 p-1"
+                                        @click="removeAssetOptionSelection(asset, optIdx)"
+                                    >
+                                        <span class="material-icons text-base">close</span>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         <template v-if="lineItemAddonsUiEnabled">
@@ -2052,6 +2130,16 @@ const handleCancel = () => emit('cancel');
 
         <!-- LINE_ITEM_ADDONS_UI: disabled via config/lineItemFeatures.js -->
         <AddonSelect v-if="lineItemAddonsUiEnabled" v-model:open="showAddonModal" accent="blue" @picked="onTransactionAddonPicked" />
+
+        <AssetOptionLinePriceModal
+            :show="optionPriceModal.show"
+            :option-label="optionPriceModalLabel"
+            :catalog-default-price="optionPriceModalCatalogDefault"
+            :current-price="optionPriceModalCurrentPrice"
+            :format-price="formatMoney"
+            @close="closeOptionPriceModal"
+            @save="saveOptionPriceModal"
+        />
 
         <Teleport to="body">
             <Transition

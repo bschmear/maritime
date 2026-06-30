@@ -69,6 +69,10 @@ class EstimateController extends RecordController
                 'selections' => $group->map(fn ($s) => [
                     'option_id' => $s->option_id,
                     'option_value_id' => $s->option_value_id,
+                    'option_name' => $s->option_name,
+                    'value_label' => $s->value_label,
+                    'price' => $s->price,
+                    'taxable' => $s->taxable,
                 ])->values()->all(),
             ];
         }
@@ -273,7 +277,17 @@ class EstimateController extends RecordController
                 'assetVariant',
                 'assetUnit',
                 'selectedAssetOptions' => fn ($q3) => $q3
-                    ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
+                    ->select([
+                        'id',
+                        'estimate_id',
+                        'transaction_line_item_id',
+                        'option_id',
+                        'option_value_id',
+                        'option_name',
+                        'value_label',
+                        'price',
+                        'taxable',
+                    ])
                     ->orderBy('id'),
             ]),
         ]);
@@ -287,7 +301,17 @@ class EstimateController extends RecordController
         $relationships['customer'] = Customer::eagerWithContactSelect(['email', 'phone', 'mobile']);
 
         $relationships['selectedAssetOptions'] = fn ($q) => $q
-            ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
+            ->select([
+                'id',
+                'estimate_id',
+                'transaction_line_item_id',
+                'option_id',
+                'option_value_id',
+                'option_name',
+                'value_label',
+                'price',
+                'taxable',
+            ])
             ->orderBy('id');
 
         $relationships['customerBoatOptionSignoffs'] = fn ($q) => $q
@@ -336,7 +360,17 @@ class EstimateController extends RecordController
                 'assetVariant',
                 'assetUnit',
                 'selectedAssetOptions' => fn ($q3) => $q3
-                    ->select(['id', 'estimate_id', 'transaction_line_item_id', 'option_name', 'value_label', 'price'])
+                    ->select([
+                        'id',
+                        'estimate_id',
+                        'transaction_line_item_id',
+                        'option_id',
+                        'option_value_id',
+                        'option_name',
+                        'value_label',
+                        'price',
+                        'taxable',
+                    ])
                     ->orderBy('id'),
             ]),
         ]);

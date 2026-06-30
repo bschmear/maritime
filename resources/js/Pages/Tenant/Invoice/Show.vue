@@ -339,6 +339,22 @@ const billingAddressDisplay = computed(() => {
 });
 const transactionShowHref = computed(() => props.record.transaction_id ? route('transactions.show', props.record.transaction_id) : null);
 const contractShowHref    = computed(() => props.record.contract_id    ? route('contracts.show',    props.record.contract_id)    : null);
+const resolvedWorkOrder = computed(() => props.record.work_order ?? props.record.workOrder ?? null);
+const workOrderShowHref = computed(() => {
+    const id = props.record.work_order_id ?? resolvedWorkOrder.value?.id;
+    return id ? route('workorders.show', id) : null;
+});
+const workOrderDisplayLabel = computed(() => {
+    const wo = resolvedWorkOrder.value;
+    if (wo?.work_order_number) {
+        return `#${wo.work_order_number}`;
+    }
+    if (wo?.display_name) {
+        return wo.display_name;
+    }
+    const id = props.record.work_order_id ?? wo?.id;
+    return id ? `#${id}` : 'View';
+});
 
 const resolvedSubsidiary = computed(() =>
     props.record.subsidiary ?? props.record.transaction?.subsidiary ?? null,
@@ -1275,6 +1291,11 @@ onMounted(() => {
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Deal</span>
                                 <Link :href="transactionShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">View</Link>
                             </li>
+                            <li v-if="workOrderShowHref" class="flex items-center gap-3 px-5 py-3">
+                                <span class="material-icons text-[16px] text-gray-400 shrink-0">build</span>
+                                <span class="text-gray-500 dark:text-gray-400 flex-1">Work Order</span>
+                                <Link :href="workOrderShowHref" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:underline">{{ workOrderDisplayLabel }}</Link>
+                            </li>
                             <li v-if="contractShowHref" class="flex items-center gap-3 px-5 py-3">
                                 <span class="material-icons text-[16px] text-gray-400 shrink-0">description</span>
                                 <span class="text-gray-500 dark:text-gray-400 flex-1">Contract</span>
@@ -1415,6 +1436,15 @@ onMounted(() => {
                     >
                         <span class="material-icons text-base">handshake</span>
                         Go to deal
+                    </Link>
+                    <Link
+                        v-else-if="workOrderShowHref"
+                        :href="workOrderShowHref"
+                        class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700"
+                        @click="closePaidInFullModal"
+                    >
+                        <span class="material-icons text-base">build</span>
+                        Go to work order
                     </Link>
                     <button
                         type="button"

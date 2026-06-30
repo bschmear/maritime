@@ -1,5 +1,6 @@
 <script setup>
 import PublicBrandingFooter from '@/Components/Tenant/Public/PublicBrandingFooter.vue';
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
 import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
@@ -114,13 +115,14 @@ onMounted(() => {
                     :document-date="formatDate(record.created_at)"
                 >
                     <template #company>
-                        <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
-                            {{ record.subsidiary?.display_name || account?.name || 'Company' }}
-                        </h1>
-                        <p class="mt-1 text-sm text-gray-600">
-                            Warranty claim for vendor:
-                            <span class="font-semibold text-gray-900 break-words">{{ record.vendor?.display_name || '—' }}</span>
-                        </p>
+                        <PublicDocumentCompanyInfo :record="record" fallback-name="Company">
+                            <template #after-title>
+                                <p class="mt-1 text-sm text-gray-600">
+                                    Warranty claim for vendor:
+                                    <span class="font-semibold text-gray-900 break-words">{{ record.vendor?.display_name || '—' }}</span>
+                                </p>
+                            </template>
+                        </PublicDocumentCompanyInfo>
                     </template>
                     <template #meta-extra>
                         <div class="mt-2">

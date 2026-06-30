@@ -1,6 +1,6 @@
 <script setup>
 /**
- * Deal-style line items (assets + parts) for invoices. Mirrors TransactionForm behaviour:
+ * Deal-style line items (assets, services, parts) for invoices. Mirrors TransactionForm behaviour:
  * separate add/edit modals, add-ons, taxable + tax rate from parent form.
  */
 import { computed, onMounted, ref, watch, watchEffect } from 'vue';
@@ -185,6 +185,7 @@ const normalizeItemBase = (item, isNew = false) => ({
         ?? item.assetUnit?.display_name
         ?? item.estimate_line_item?.asset_unit?.display_name
         ?? '',
+    service_item_id: item.service_item_id ? Number(item.service_item_id) : null,
 });
 
 const lines = ref([]);
@@ -248,6 +249,14 @@ const applyItemRows = (src, { preserveIds = false } = {}) => {
                 itemable_id: item.itemable_id ?? null,
                 inventory_item_id: item.itemable_id ?? null,
                 sku: item.itemable?.sku || item.sku || '',
+            });
+        } else if (item.service_item_id) {
+            lines.value.push({
+                kind: 'service',
+                ...base,
+                itemable_type: null,
+                itemable_id: null,
+                service_item_id: Number(item.service_item_id),
             });
         } else {
             lines.value.push({
@@ -580,6 +589,7 @@ const removeAddon = (item, addonIdx) => {
 
 // ─── Per-section filtered lists & subtotals ──────────────────────────────────
 const assetLines = computed(() => lines.value.filter((l) => l.kind === 'asset'));
+const serviceLines = computed(() => lines.value.filter((l) => l.kind === 'service'));
 const inventoryLines = computed(() =>
     lines.value.filter((l) => l.kind === 'inventory' || l.kind === 'legacy'),
 );
@@ -588,6 +598,12 @@ const computedAssetSubtotal = computed(() =>
 );
 const computedAssetTax = computed(() =>
     assetLines.value.reduce((s, i) => s + itemLineTaxTotal(i), 0),
+);
+const computedServiceSubtotal = computed(() =>
+    serviceLines.value.reduce((s, i) => s + lineTotal(i), 0),
+);
+const computedServiceTax = computed(() =>
+    serviceLines.value.reduce((s, i) => s + itemLineTaxTotal(i), 0),
 );
 const computedInventorySubtotal = computed(() =>
     inventoryLines.value.reduce((s, i) => s + lineTotal(i), 0),
@@ -608,6 +624,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
     lines.value.forEach((line) => {
         out.push({
             transaction_line_item_id: line.transaction_line_item_id ?? line.transaction_item_id ?? null,
+            service_item_id: line.service_item_id || null,
             itemable_type: line.itemable_type || null,
             itemable_id: line.itemable_id || null,
             asset_variant_id: line.asset_variant_id || null,
@@ -676,7 +693,7 @@ function buildItemsForSubmitInternal(taxRatePercent) {
 </script>
 
 <template>
-    <div class="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-8">
+    <div class="space-y-8">
 
         <!-- ─── Assets ──────────────────────────────────────────── -->
         <div class="border-gray-200 dark:border-gray-700">
@@ -993,6 +1010,113 @@ function buildItemsForSubmitInternal(taxRatePercent) {
                     <div class="flex justify-between text-sm">
                         <span class="text-gray-600 dark:text-gray-400">Tax on assets</span>
                         <span class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedAssetTax) }}</span>
+                    </div>
+                </div>
+            </div>
+            </template>
+        </div>
+
+        <!-- ─── Services ─────────────────────────────────────────── -->
+        <div class="border-gray-200 dark:border-gray-700">
+            <div class="flex items-center justify-between border-b pb-2 border-gray-200 dark:border-gray-700 mb-4">
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Services</h3>
+            </div>
+
+            <div v-if="serviceLines.length === 0" class="text-center py-12 bg-gray-50 dark:bg-gray-900/20 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 mt-2">
+                <span class="material-icons text-5xl text-gray-400 dark:text-gray-600 mb-3 block">home_repair_service</span>
+                <p class="text-sm text-gray-500 dark:text-gray-400">No service lines added yet</p>
+            </div>
+            <template v-else>
+            <div class="hidden lg:block overflow-x-auto -mx-6 sm:mx-0">
+                <div class="inline-block min-w-full align-middle">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead class="bg-gray-50 dark:bg-gray-900/50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Service</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Qty</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Unit Price</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Discount</th>
+                                <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Warranty</th>
+                                <th class="px-4 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Billable To</th>
+                                <th class="px-4 py-3 text-center text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-20">Taxable</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Pre-tax</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Tax</th>
+                                <th class="px-4 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-28">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                            <template v-for="(line, idx) in lines" :key="`svc-${idx}`">
+                                <tr v-if="line.kind === 'service'" class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                    <td class="px-4 py-3">
+                                        <div class="font-medium text-gray-900 dark:text-white text-sm">{{ line.name }}</div>
+                                        <div v-if="line.description" class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ line.description }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ +line.quantity }}</td>
+                                    <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.unit_price) }}</td>
+                                    <td class="px-4 py-3 text-right text-sm text-gray-700 dark:text-gray-300">{{ formatMoney(line.discount) }}</td>
+                                    <td class="px-4 py-3 text-center align-middle">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ line.is_warranty ? 'Yes' : 'No' }}</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            <template v-if="line.is_warranty">
+                                                {{ line.billable_to === 'manufacturer' ? 'Manufacturer warranty' : 'Dealership warranty (internal)' }}
+                                            </template>
+                                            <template v-else>Customer</template>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-center align-middle">
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">{{ line.taxable ? 'Yes' : 'No' }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">{{ formatMoney(lineBaseTotal(line)) }}</td>
+                                    <td class="px-4 py-3 text-right text-sm text-gray-600 dark:text-gray-300">{{ formatMoney(taxOnItemBase(line)) }}</td>
+                                    <td class="px-4 py-3 text-right text-sm font-semibold text-gray-900 dark:text-white">{{ formatMoney(lineCoreTotalWithTax(line)) }}</td>
+                                </tr>
+                            </template>
+                        </tbody>
+                        <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
+                            <tr>
+                                <td colspan="7" class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">Services subtotal (pre-tax)</td>
+                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{{ formatMoney(computedServiceSubtotal) }}</td>
+                                <td class="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-300">{{ formatMoney(computedServiceTax) }}</td>
+                                <td class="px-4 py-3 text-right text-sm font-bold text-gray-900 dark:text-white">{{ formatMoney(computedServiceSubtotal + computedServiceTax) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            <div class="block lg:hidden divide-y divide-gray-200 dark:divide-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden -mx-6 sm:mx-0">
+                <template v-for="(line, idx) in lines" :key="`svc-m-${idx}`">
+                    <div v-if="line.kind === 'service'" class="p-4 space-y-3 bg-white dark:bg-gray-800">
+                        <div class="min-w-0 space-y-1">
+                            <div class="font-semibold text-base text-gray-900 dark:text-white">{{ line.name }}</div>
+                            <div v-if="line.description" class="text-sm text-gray-500 dark:text-gray-400">{{ line.description }}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Qty</div>
+                                <div class="text-gray-900 dark:text-white">{{ +line.quantity }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Unit price</div>
+                                <div class="text-gray-900 dark:text-white tabular-nums">{{ formatMoney(line.unit_price) }}</div>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-semibold uppercase text-gray-500 dark:text-gray-400">Line + tax</div>
+                                <div class="font-semibold text-gray-900 dark:text-white tabular-nums">{{ formatMoney(lineCoreTotalWithTax(line)) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <div class="border-t-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 p-4 space-y-1">
+                    <div class="flex justify-between text-sm">
+                        <span class="font-semibold text-gray-700 dark:text-gray-300">Services subtotal (pre-tax)</span>
+                        <span class="font-bold tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedServiceSubtotal) }}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600 dark:text-gray-400">Tax on services</span>
+                        <span class="font-medium tabular-nums text-gray-900 dark:text-white">{{ formatMoney(computedServiceTax) }}</span>
                     </div>
                 </div>
             </div>

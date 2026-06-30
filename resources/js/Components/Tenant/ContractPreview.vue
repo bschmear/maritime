@@ -1,6 +1,10 @@
 <script setup>
 import { computed, ref } from 'vue';
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import ResolvedLineItemsEstimateStyle from '@/Components/Tenant/ResolvedLineItemsEstimateStyle.vue';
+import { previewSubsidiaryName } from '@/Utils/documentPreviewLetterhead';
 import {
     resolveLineItemsForContract,
     resolveLineItemsGrandTotalWithTax,
@@ -77,9 +81,7 @@ const paymentTermInfo = computed(() => {
     return { name: String(raw).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), description: '' };
 });
 
-const accountDisplayName = computed(() =>
-    props.account?.settings?.business_name || props.account?.business_name || 'Company'
-);
+const companyName = computed(() => previewSubsidiaryName(props.record, 'Company'));
 
 const hasAnyBilling = (src) => !!(
     src?.billing_address_line1 || src?.billing_address_line2 ||
@@ -112,20 +114,6 @@ const lineItemsResolution = computed(() => resolveLineItemsForContract(props.rec
 const transactionItems = computed(() => lineItemsResolution.value.items);
 const lineItemsFromEstimate = computed(() => lineItemsResolution.value.source === 'estimate');
 
-/** Location on linked deal (DB snake_case + optional camelCase from APIs). */
-const transactionLocationPreview = computed(() => {
-    const loc = props.record?.transaction?.location;
-    if (!loc) return null;
-    const line1 = loc.address_line_1 ?? loc.address_line1 ?? '';
-    const line2 = loc.address_line_2 ?? loc.address_line2 ?? '';
-    const city = loc.city ?? '';
-    const state = loc.state ?? '';
-    const postal = loc.postal_code ?? '';
-    const phone = loc.phone ?? '';
-    const email = loc.email ?? '';
-    if (!line1 && !city && !phone && !email) return null;
-    return { line1, line2, city, state, postal, phone, email };
-});
 const taxRate = computed(() =>
     taxRateForResolvedLines(
         props.record,
@@ -143,10 +131,6 @@ const isSigned = computed(() => !!props.record.signed_at || props.record.status 
 const hasSignatureVisual = computed(
     () => !!props.record.signature_url
         || (Number(props.record.signature_method) === 5 && !!props.record.customer_signature),
-);
-
-const footerPhone = computed(
-    () => transactionLocationPreview.value?.phone || props.account?.phone || null,
 );
 
 const handlePrint = () => {
@@ -216,57 +200,16 @@ const handlePrint = () => {
         <div id="contract-print-root" class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:max-w-none">
             <div id="contract-print-document" class="bg-white shadow-lg print:shadow-none">
 
-                <!-- Header (document title — flows once; not repeated on later pages) -->
-                <div class="contract-print-doc-header border-b-4 border-gray-900 px-8 py-6 print:border-b-2 print:break-inside-avoid">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex items-start gap-6">
-                            <div v-if="effectiveLogoUrl" class="flex-shrink-0">
-                                <img :src="effectiveLogoUrl" alt="Company Logo" class="h-20 w-auto max-w-[150px] object-contain" />
-                            </div>
-                            <div v-else class="flex-shrink-0 h-20 w-20 bg-gray-200 rounded flex items-center justify-center print:hidden">
-                                <span class="material-icons text-4xl text-gray-400">business</span>
-                            </div>
-                            <div>
-                                <h1 class="text-2xl font-bold text-gray-900">{{ accountDisplayName }}</h1>
-                                <p
-                                    v-if="record.transaction?.subsidiary?.display_name"
-                                    class="mt-1 text-sm font-semibold text-gray-700"
-                                >
-                                    {{ record.transaction.subsidiary.display_name }}
-                                </p>
-                                <div
-                                    v-if="transactionLocationPreview"
-                                    class="mt-2 text-sm text-gray-600 space-y-1"
-                                >
-                                    <p v-if="transactionLocationPreview.line1">
-                                        {{ transactionLocationPreview.line1
-                                        }}<span v-if="transactionLocationPreview.line2">, {{ transactionLocationPreview.line2 }}</span>
-                                    </p>
-                                    <p v-if="transactionLocationPreview.city">
-                                        {{ transactionLocationPreview.city
-                                        }}<span v-if="transactionLocationPreview.state">, {{ transactionLocationPreview.state }}</span>
-                                        <template v-if="transactionLocationPreview.postal"> {{ transactionLocationPreview.postal }}</template>
-                                    </p>
-                                    <p v-if="transactionLocationPreview.phone" class="flex items-center gap-1">
-                                        <span class="material-icons text-sm">phone</span>
-                                        {{ transactionLocationPreview.phone }}
-                                    </p>
-                                    <p v-if="transactionLocationPreview.email" class="flex items-center gap-1">
-                                        <span class="material-icons text-sm">email</span>
-                                        {{ transactionLocationPreview.email }}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-sm font-medium text-gray-600 uppercase tracking-wide">Contract</div>
-                            <div class="text-3xl font-bold text-gray-900 font-mono">
-                                {{ record.display_name || record.contract_number || `#${record.id}` }}
-                            </div>
-                            <div class="text-sm text-gray-600 mt-1">{{ formatDate(record.created_at) }}</div>
-                        </div>
-                    </div>
-                </div>
+                <PublicDocumentHeader
+                    :logo-url="effectiveLogoUrl"
+                    document-label="Contract"
+                    :document-number="record.display_name || record.contract_number || `#${record.id}`"
+                    :document-date="formatDate(record.created_at)"
+                >
+                    <template #company>
+                        <PublicDocumentCompanyInfo :record="record" fallback-name="Company" />
+                    </template>
+                </PublicDocumentHeader>
 
                 <!-- Status badges -->
                 <div class="px-8 py-4 flex flex-wrap gap-2 border-b border-gray-200">
@@ -384,7 +327,7 @@ const handlePrint = () => {
                             class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-5"
                         >
                             <p class="whitespace-pre-line text-sm leading-relaxed text-gray-900">
-                                {{ (account.contract_ack_text || account.service_ticket_ack_text).replace('[COMPANY NAME]', accountDisplayName) }}
+                                {{ (account.contract_ack_text || account.service_ticket_ack_text).replace('[COMPANY NAME]', companyName) }}
                             </p>
                         </div>
                         <div class="flex flex-col sm:flex-row gap-6">
@@ -467,7 +410,7 @@ const handlePrint = () => {
 
                             <!-- Company signature -->
                             <div class="space-y-4">
-                                <p class="text-sm font-medium text-gray-700">{{ accountDisplayName }}</p>
+                                <p class="text-sm font-medium text-gray-700">{{ companyName }}</p>
                                 <div>
                                     <div class="border-b-2 border-gray-400 h-12 w-full"></div>
                                     <p class="text-xs text-gray-500 mt-1 uppercase tracking-wide">Authorized Signature</p>
@@ -489,13 +432,7 @@ const handlePrint = () => {
                     </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="px-8 py-4 bg-gray-900 text-white text-center text-xs">
-                    <p>Thank you for your business!</p>
-                    <p v-if="footerPhone" class="mt-1">
-                        Questions? Call us at {{ footerPhone }}
-                    </p>
-                </div>
+                <PublicDocumentFooter :record="record" :account-phone="account?.phone" />
 
             </div>
         </div>

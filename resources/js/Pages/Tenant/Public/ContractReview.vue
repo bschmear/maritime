@@ -1,7 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
 import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
+import { previewSubsidiaryName } from '@/Utils/documentPreviewLetterhead';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { useForm, Head } from '@inertiajs/vue3';
 import { VueSignaturePad } from 'vue-signature-pad';
@@ -65,27 +68,7 @@ const formatPhoneNumber = (phone) => {
     return match ? `(${match[1]}) ${match[2]}-${match[3]}` : phone;
 };
 
-const accountDisplayName = computed(() =>
-    props.account?.settings?.business_name || props.account?.business_name || 'Company'
-);
-
-const companyName = computed(() =>
-    props.record.transaction?.subsidiary?.display_name || accountDisplayName.value
-);
-
-const locationPreview = computed(() => {
-    const loc = props.record?.transaction?.location;
-    if (!loc) return null;
-    const line1 = loc.address_line_1 ?? loc.address_line1 ?? '';
-    const line2 = loc.address_line_2 ?? loc.address_line2 ?? '';
-    const city = loc.city ?? '';
-    const state = loc.state ?? '';
-    const postal = loc.postal_code ?? '';
-    const phone = loc.phone ?? '';
-    const email = loc.email ?? '';
-    if (!line1 && !city && !phone && !email) return null;
-    return { line1, line2, city, state, postal, phone, email };
-});
+const companyName = computed(() => previewSubsidiaryName(props.record, 'Company'));
 
 const customerDisplayName = computed(() =>
     props.record.customer?.display_name || props.record.transaction?.customer_name || '—'
@@ -244,24 +227,7 @@ onMounted(() => {
                     :document-date="formatDate(record.created_at)"
                 >
                     <template #company>
-                        <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">{{ companyName }}</h1>
-                        <div v-if="locationPreview" class="mt-2 space-y-1 text-sm text-gray-600">
-                            <p v-if="locationPreview.line1">
-                                {{ locationPreview.line1 }}<span v-if="locationPreview.line2">, {{ locationPreview.line2 }}</span>
-                            </p>
-                            <p v-if="locationPreview.city">
-                                {{ locationPreview.city }}<span v-if="locationPreview.state">, {{ locationPreview.state }}</span>
-                                {{ locationPreview.postal }}
-                            </p>
-                            <p v-if="locationPreview.phone" class="flex items-center gap-1 break-all">
-                                <span class="material-icons shrink-0 text-sm">phone</span>
-                                {{ locationPreview.phone }}
-                            </p>
-                            <p v-if="locationPreview.email" class="flex items-center gap-1 break-all">
-                                <span class="material-icons shrink-0 text-sm">email</span>
-                                {{ locationPreview.email }}
-                            </p>
-                        </div>
+                        <PublicDocumentCompanyInfo :record="record" fallback-name="Company" />
                     </template>
                 </PublicDocumentHeader>
 
@@ -621,13 +587,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="bg-gray-900 px-4 py-4 text-center text-xs text-white sm:px-8 print:px-0">
-                    <p>Thank you for your business!</p>
-                    <p v-if="locationPreview?.phone" class="mt-1">
-                        Questions? Call us at {{ formatPhoneNumber(locationPreview.phone) }}
-                    </p>
-                </div>
+                <PublicDocumentFooter :record="record" :account-phone="account?.phone" />
             </div>
         </div>
     </div>

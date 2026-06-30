@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
 import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import { previewSubsidiaryName, previewLocationPhone } from '@/Utils/documentPreviewLetterhead';
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { useForm, Head } from '@inertiajs/vue3';
@@ -34,29 +37,9 @@ const isApproved = computed(() => statusIs('approved', 4) || !!props.record.appr
 const isDeclined = computed(() => statusIs('declined', 5) || !!props.record.declined_at);
 const canAct = computed(() => !isApproved.value && !isDeclined.value);
 
-const companyName = computed(
-    () => props.record.subsidiary?.display_name || props.account?.name || 'Company Name',
-);
+const companyName = computed(() => previewSubsidiaryName(props.record));
 
-const locationLine1 = computed(() => {
-    const loc = props.record.location;
-    if (!loc) return '';
-    const a1 = loc.address_line_1 ?? loc.address_line1;
-    const a2 = loc.address_line_2 ?? loc.address_line2;
-    const parts = [a1, a2].filter(Boolean);
-    return parts.join(', ');
-});
-
-const locationLine2 = computed(() => {
-    const loc = props.record.location;
-    if (!loc) return '';
-    const city = loc.city;
-    const state = loc.state;
-    const postal = loc.postal_code ?? loc.postalCode;
-    const parts = [city, state].filter(Boolean);
-    const line = parts.join(', ');
-    return [line, postal].filter(Boolean).join(' ');
-});
+const footerPhone = computed(() => previewLocationPhone(props.record, props.account?.phone));
 
 const formatCurrency = (value) =>
     value != null
@@ -100,8 +83,6 @@ const formatPhoneNumber = (phone) => {
     }
     return phone;
 };
-
-const footerPhone = computed(() => props.record.location?.phone || props.account?.phone || null);
 
 const lineItemTotal = (item) => {
     const addonsTotal = (item.addons ?? []).reduce(
@@ -257,21 +238,7 @@ onMounted(() => {
                         :document-date="formatDate(record.issue_date || record.created_at)"
                     >
                         <template #company>
-                            <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
-                                {{ companyName }}
-                            </h1>
-                            <div class="mt-2 space-y-1 text-sm text-gray-600">
-                                <p v-if="locationLine1">{{ locationLine1 }}</p>
-                                <p v-if="locationLine2">{{ locationLine2 }}</p>
-                                <p v-if="record.location?.phone" class="flex items-center gap-1 break-all">
-                                    <span class="material-icons shrink-0 text-sm">phone</span>
-                                    {{ record.location.phone }}
-                                </p>
-                                <p v-if="record.location?.email" class="flex items-center gap-1 break-all">
-                                    <span class="material-icons shrink-0 text-sm">email</span>
-                                    {{ record.location.email }}
-                                </p>
-                            </div>
+                            <PublicDocumentCompanyInfo :record="record" />
                         </template>
                     </PublicDocumentHeader>
 
@@ -616,10 +583,7 @@ onMounted(() => {
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-4 sm:px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
-                        <p>Thank you for your business!</p>
-                        <p v-if="footerPhone" class="mt-1">Questions? Call us at {{ formatPhoneNumber(footerPhone) }}</p>
-                    </div>
+                    <PublicDocumentFooter :record="record" :account-phone="account?.phone" />
                 </div>
             </div>
         </div>

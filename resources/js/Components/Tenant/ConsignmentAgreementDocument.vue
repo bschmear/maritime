@@ -1,4 +1,6 @@
 <script setup>
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
 import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
@@ -18,9 +20,7 @@ const props = defineProps({
 const unit = computed(() => props.record.asset_unit ?? props.record.assetUnit ?? null);
 const subsidiary = computed(() => unit.value?.subsidiary ?? null);
 
-const companyName = computed(
-    () => subsidiary.value?.display_name || props.account?.settings?.business_name || props.account?.name || 'Company',
-);
+const companyName = computed(() => subsidiary.value?.display_name?.trim() || 'Company');
 
 const isSigned = computed(() => !!props.record.signed_at);
 const canAct = computed(() => !props.previewMode && !isSigned.value);
@@ -65,18 +65,6 @@ const formatCurrency = (value) =>
     value != null && value !== ''
         ? `$${parseFloat(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : '—';
-
-const formatPhoneNumber = (phone) => {
-    if (!phone) {
-        return '';
-    }
-    const cleaned = phone.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
-    if (match) {
-        return `(${match[1]}) ${match[2]}-${match[3]}`;
-    }
-    return phone;
-};
 
 const acknowledgementText = computed(() => {
     const fee = props.account?.consignment_fee_percent;
@@ -174,27 +162,12 @@ const pricingRows = computed(() => [
                 dark
             >
                 <template #company>
-                    <h1 class="text-xl font-bold text-gray-900 break-words dark:text-white sm:text-2xl">
-                        {{ companyName }}
-                    </h1>
-                    <div class="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-                        <p v-if="subsidiary?.address_line_1">
-                            {{ subsidiary.address_line_1 }}
-                            <span v-if="subsidiary?.address_line_2">, {{ subsidiary.address_line_2 }}</span>
-                        </p>
-                        <p v-if="subsidiary?.city">
-                            {{ subsidiary.city }}<span v-if="subsidiary?.state">, {{ subsidiary.state }}</span>
-                            {{ subsidiary?.postal_code }}
-                        </p>
-                        <p v-if="subsidiary?.phone" class="flex items-center gap-1 break-all">
-                            <span class="material-icons shrink-0 text-sm">phone</span>
-                            {{ subsidiary.phone }}
-                        </p>
-                        <p v-if="subsidiary?.email" class="flex items-center gap-1 break-all">
-                            <span class="material-icons shrink-0 text-sm">email</span>
-                            {{ subsidiary.email }}
-                        </p>
-                    </div>
+                    <PublicDocumentCompanyInfo
+                        :subsidiary="subsidiary"
+                        :location="subsidiary"
+                        fallback-name="Company"
+                        dark
+                    />
                 </template>
             </PublicDocumentHeader>
 
@@ -414,12 +387,7 @@ const pricingRows = computed(() => [
                 </div>
             </div>
 
-            <div class="consignment-agreement-footer px-4 sm:px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
-                <p>Thank you for your business!</p>
-                <p v-if="footerPhone" class="mt-1">
-                    Questions? Call us at {{ formatPhoneNumber(footerPhone) }}
-                </p>
-            </div>
+            <PublicDocumentFooter :phone="footerPhone" />
         </div>
     </div>
 </template>

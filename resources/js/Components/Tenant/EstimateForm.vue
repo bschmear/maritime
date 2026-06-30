@@ -13,12 +13,15 @@ import { useSubsidiaryLocationAutofill } from '@/composables/useSubsidiaryLocati
 import {
     hydrateAddedGlobalOptionIds,
     lineOptionsForDisplay,
+    catalogPriceForOptionValue,
+    resolvedOptionForLine,
 } from '@/Utils/assetLineBoatOptions.js';
 import AssetLineBoatOptionsPanel from '@/Components/Tenant/AssetLineBoatOptionsPanel.vue';
+import AssetOptionLinePriceModal from '@/Components/Tenant/AssetOptionLinePriceModal.vue';
 import { LINE_ITEM_ADDONS_UI_ENABLED, lineItemTableColspan } from '@/config/lineItemFeatures';
 
 const lineItemAddonsUiEnabled = LINE_ITEM_ADDONS_UI_ENABLED;
-const assetLineBoatOptionsColspan = lineItemTableColspan(11);
+const assetLineBoatOptionsColspan = lineItemTableColspan(10);
 const assetSubtotalTrailingColspan = LINE_ITEM_ADDONS_UI_ENABLED ? 2 : 1;
 const inventorySubtotalTrailingColspan = LINE_ITEM_ADDONS_UI_ENABLED ? 2 : 1;
 
@@ -435,7 +438,7 @@ const emptyAssetForm = () => ({
     asset_description: '',
     catalog_description: '',
     line_position: null,
-    asset_option_selections: [],
+    selected_asset_options: [],
     asset_options_fill_mode: 'staff',
     added_global_option_ids: [],
     customer_offered_option_ids: [],
@@ -446,32 +449,24 @@ const assetForm = ref(emptyAssetForm());
 const assetBaseLineTotal = (item) =>
     Math.max(0, Number(item.unit_price || 0) * Number(item.quantity || 1) - Number(item.discount || 0));
 
-const assetOptionPremiumForLine = (item, index) => {
+const assetOptionPremiumForLine = (item) => {
     if (item.asset_options_fill_mode === 'customer') return 0;
-    const ctx = assetOptionChoices.value[index] || {};
-    const choices = lineOptionsForDisplay(ctx.assigned, ctx.global, item.added_global_option_ids);
-    let sum = 0;
-    for (const s of item.asset_option_selections || []) {
-        const opt = choices.find((o) => Number(o.option_id) === Number(s.option_id));
-        const val = opt?.values?.find((v) => Number(v.id) === Number(s.option_value_id));
-        if (val) sum += Number(val.price || 0);
-    }
-    return sum;
+    return (item.selected_asset_options ?? []).reduce((sum, s) => sum + Number(s.price ?? 0), 0);
 };
 
-const assetLinePreTaxBeforeAddons = (item, index) =>
-    assetBaseLineTotal(item) + assetOptionPremiumForLine(item, index);
+const assetLinePreTaxBeforeAddons = (item) =>
+    assetBaseLineTotal(item) + assetOptionPremiumForLine(item);
 
-const assetLineTotal = (item, index) => {
+const assetLineTotal = (item) => {
     const addonsTotal = (item.addons || []).reduce(
         (sum, addon) => sum + Number(addon.price || 0) * Number(addon.quantity || 1),
         0,
     );
-    return assetLinePreTaxBeforeAddons(item, index) + addonsTotal;
+    return assetLinePreTaxBeforeAddons(item) + addonsTotal;
 };
 
 const assetSubtotal = computed(() =>
-    assetItems.value.reduce((sum, item, idx) => sum + assetLineTotal(item, idx), 0),
+    assetItems.value.reduce((sum, item) => sum + assetLineTotal(item), 0),
 );
 
 const openAddAssetModal = () => {
@@ -578,9 +573,11 @@ const taxOnPreTax = (preTax) => {
 
 const assetSectionTax = computed(() => {
     let sum = 0;
-    for (let i = 0; i < assetItems.value.length; i++) {
-        const item = assetItems.value[i];
-        sum += taxOnPreTax(assetLinePreTaxBeforeAddons(item, i));
+    for (const item of assetItems.value) {
+        sum += taxOnPreTax(assetBaseLineTotal(item));
+        for (const opt of item.selected_asset_options ?? []) {
+            sum += taxOnAssetOptionRow(opt);
+        }
         for (const a of item.addons || []) {
             sum += taxOnPreTax(addonPreTaxTotal(a));
         }
@@ -631,10 +628,119 @@ const showBoatOptionsRow = (index, item) => {
     return (
         onLine.length > 0 ||
         global.length > 0 ||
-        (item.asset_option_selections ?? []).length > 0 ||
+        (item.selected_asset_options ?? []).length > 0 ||
         item.asset_options_fill_mode === 'customer'
     );
 };
+
+const hydrateAssetSelectionsFromRows = (rows) =>
+    (rows ?? []).map((r) => ({
+        option_id: Number(r.option_id),
+        option_value_id: Number(r.option_value_id),
+        option_name: r.option_name ?? '',
+        value_label: r.value_label ?? '',
+        price: r.price != null ? Number(r.price) : 0,
+        taxable: r.taxable !== false && r.taxable !== 0 && r.taxable !== '0',
+    }));
+
+const metaForSelection = (index, optionId, valueId, taxable = true) => {
+    const ctx = assetOptionChoices.value[index] || {};
+    const item = assetItems.value[index];
+    const opt = resolvedOptionForLine(ctx.assigned, ctx.global, item?.added_global_option_ids, optionId);
+    const val = opt?.values?.find((v) => Number(v.id) === Number(valueId));
+    const taxOk = taxable !== false && taxable !== 0 && taxable !== '0';
+    return {
+        option_id: Number(optionId),
+        option_value_id: Number(valueId),
+        option_name: opt?.name ?? '',
+        value_label: val?.label ?? '',
+        price: val?.price != null ? Number(val.price) : 0,
+        taxable: taxOk,
+    };
+};
+
+const lineAssetSelectedOptions = (item) => item.selected_asset_options ?? [];
+
+const selectedOptionLabel = (opt) => {
+    const name = String(opt?.option_name ?? '').trim();
+    const val = String(opt?.value_label ?? '').trim();
+    if (name && val) return `${name}: ${val}`;
+    return name || val || 'Option';
+};
+
+const selectedOptionUnitPrice = (opt) => Number(opt?.price ?? 0);
+
+const optionRowTaxable = (opt) => opt.taxable !== false && opt.taxable !== 0 && opt.taxable !== '0';
+
+const taxOnAssetOptionRow = (opt) =>
+    optionRowTaxable(opt) ? taxOnPreTax(selectedOptionUnitPrice(opt)) : 0;
+
+const catalogDefaultPriceForSelection = (index, optionId, valueId) => {
+    const ctx = assetOptionChoices.value[index] || {};
+    const item = assetItems.value[index];
+    return catalogPriceForOptionValue(
+        ctx.assigned,
+        ctx.global,
+        item?.added_global_option_ids,
+        optionId,
+        valueId,
+    );
+};
+
+const isOptionPriceCustom = (index, opt) => {
+    const catalog = catalogDefaultPriceForSelection(index, opt.option_id, opt.option_value_id);
+    return roundMoney(selectedOptionUnitPrice(opt)) !== roundMoney(catalog);
+};
+
+const removeAssetOptionSelection = (item, optIdx) => {
+    if (!item.selected_asset_options) item.selected_asset_options = [];
+    item.selected_asset_options.splice(optIdx, 1);
+};
+
+const optionPriceModal = ref({
+    show: false,
+    item: null,
+    itemIndex: null,
+    optIdx: null,
+});
+
+const openOptionPriceModal = (item, itemIndex, optIdx) => {
+    const opt = item.selected_asset_options?.[optIdx];
+    if (!opt) return;
+    optionPriceModal.value = { show: true, item, itemIndex, optIdx };
+};
+
+const closeOptionPriceModal = () => {
+    optionPriceModal.value = { show: false, item: null, itemIndex: null, optIdx: null };
+};
+
+const saveOptionPriceModal = (price) => {
+    const { item, optIdx } = optionPriceModal.value;
+    if (item && optIdx != null && item.selected_asset_options?.[optIdx]) {
+        item.selected_asset_options[optIdx].price = price;
+    }
+    closeOptionPriceModal();
+};
+
+const optionPriceModalLabel = computed(() => {
+    const { item, optIdx } = optionPriceModal.value;
+    if (!item || optIdx == null) return '';
+    return selectedOptionLabel(item.selected_asset_options?.[optIdx]);
+});
+
+const optionPriceModalCatalogDefault = computed(() => {
+    const { item, itemIndex, optIdx } = optionPriceModal.value;
+    if (!item || itemIndex == null || optIdx == null) return 0;
+    const opt = item.selected_asset_options?.[optIdx];
+    if (!opt) return 0;
+    return catalogDefaultPriceForSelection(itemIndex, opt.option_id, opt.option_value_id);
+});
+
+const optionPriceModalCurrentPrice = computed(() => {
+    const { item, optIdx } = optionPriceModal.value;
+    if (!item || optIdx == null) return 0;
+    return selectedOptionUnitPrice(item.selected_asset_options?.[optIdx]);
+});
 
 const refreshAssetOptionChoices = async () => {
     const next = { ...assetOptionChoices.value };
@@ -659,7 +765,7 @@ const refreshAssetOptionChoices = async () => {
                 assigned: data.options || [],
                 global: data.global_options || [],
             };
-            hydrateAddedGlobalOptionIds(item, next[i].assigned, next[i].global);
+            hydrateAddedGlobalOptionIds(item, next[i].assigned, next[i].global, 'selected_asset_options');
         } catch {
             delete next[i];
         }
@@ -722,10 +828,7 @@ onMounted(() => {
                 asset_description: desc,
                 catalog_description: catalogDesc,
                 line_position: assetIdx,
-                asset_option_selections: (asset.opportunity_selected_options || []).map((r) => ({
-                    option_id: r.option_id,
-                    option_value_id: r.option_value_id,
-                })),
+                selected_asset_options: hydrateAssetSelectionsFromRows(asset.opportunity_selected_options),
                 asset_options_fill_mode: 'staff',
             });
         });
@@ -798,8 +901,15 @@ onMounted(() => {
                     lineItem.asset_options_fill_mode === 'customer' ? 'customer' : 'staff';
                 lineData.customer_offered_option_ids = lineItem.customer_offered_option_ids ?? [];
                 lineData.added_global_option_ids = lineItem.added_global_option_ids ?? [];
+                const nestedOptions =
+                    lineItem.selected_asset_options ??
+                    lineItem.selectedAssetOptions ??
+                    [];
                 const match = (props.initialSelectedAssetOptions || []).find((g) => g.line_position === lineItem.position);
-                lineData.asset_option_selections = match?.selections ? [...match.selections] : [];
+                lineData.selected_asset_options =
+                    nestedOptions.length > 0
+                        ? hydrateAssetSelectionsFromRows(nestedOptions)
+                        : hydrateAssetSelectionsFromRows(match?.selections ?? []);
                 lineData.notes = splitLineNotesFromStoredDescription(
                     lineItem.description || '',
                     lineData.catalog_description,
@@ -919,7 +1029,12 @@ const submit = () => {
                 selections:
                     item.asset_options_fill_mode === 'customer'
                         ? []
-                        : [...(item.asset_option_selections || [])],
+                        : (item.selected_asset_options || []).map((s) => ({
+                            option_id: Number(s.option_id),
+                            option_value_id: Number(s.option_value_id),
+                            price: Number(s.price ?? 0),
+                            taxable: s.taxable !== false && s.taxable !== 0 && s.taxable !== '0',
+                        })),
             };
         })
         .filter(Boolean);
@@ -1317,7 +1432,6 @@ const handleCancel = () => emit('cancelled');
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Asset</th>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Variant</th>
                                         <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide min-w-[7rem]">Unit</th>
-                                        <th class="px-4 py-3 text-left text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Year</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-28">Unit Price</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-24">Discount</th>
                                         <th class="px-4 py-3 text-right text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide w-20">Qty</th>
@@ -1346,14 +1460,13 @@ const handleCancel = () => emit('cancelled');
                                                 </span>
                                                 <span v-else class="text-gray-400 dark:text-gray-500">—</span>
                                             </td>
-                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400">{{ item.year || '—' }}</td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(item.unit_price) }}</td>
                                             <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
                                                 {{ item.discount > 0 ? `-${formatCurrency(item.discount)}` : '—' }}
                                             </td>
                                             <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ item.quantity }}</td>
-                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetLinePreTaxBeforeAddons(item, index)) }}</td>
-                                            <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetLinePreTaxBeforeAddons(item, index))) }}</td>
+                                            <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(assetBaseLineTotal(item)) }}</td>
+                                            <td class="px-4 py-3 text-right text-md text-gray-600 dark:text-gray-300">{{ formatCurrency(taxOnPreTax(assetBaseLineTotal(item))) }}</td>
                                             <td v-if="lineItemAddonsUiEnabled" class="px-4 py-3">
                                                 <button
                                                     v-if="mode !== 'view'"
@@ -1395,14 +1508,65 @@ const handleCancel = () => emit('cancelled');
                                                     :global-options="globalOptionsForLine(index)"
                                                     :format-price="formatCurrency"
                                                     :editable="mode !== 'view'"
+                                                    selections-key="selected_asset_options"
                                                     input-name-prefix="est"
+                                                    :format-selection-meta="(optionId, valueId, taxable) => metaForSelection(index, optionId, valueId, taxable)"
                                                 />
+                                            </td>
+                                        </tr>
+                                        <tr
+                                            v-for="(opt, optIdx) in lineAssetSelectedOptions(item)"
+                                            :key="`asset-opt-${index}-${optIdx}`"
+                                            class="bg-sky-50/80 dark:bg-sky-900/10"
+                                        >
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300" colspan="3">
+                                                <span class="text-sky-600/80 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
+                                                <span
+                                                    v-if="isOptionPriceCustom(index, opt)"
+                                                    class="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
+                                                >
+                                                    Custom
+                                                </span>
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">
+                                                {{ formatCurrency(selectedOptionUnitPrice(opt)) }}
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-400">—</td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">1</td>
+                                            <td class="px-4 py-2 text-right text-sm font-medium text-gray-800 dark:text-gray-200">
+                                                {{ formatCurrency(selectedOptionUnitPrice(opt)) }}
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">
+                                                {{ formatCurrency(taxOnAssetOptionRow(opt)) }}
+                                            </td>
+                                            <td v-if="lineItemAddonsUiEnabled" class="px-4 py-2"></td>
+                                            <td class="px-4 py-2 text-right">
+                                                <div v-if="mode !== 'view'" class="flex items-center justify-end gap-1">
+                                                    <button
+                                                        type="button"
+                                                        class="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                        title="Set a custom price for this option on this estimate"
+                                                        @click="openOptionPriceModal(item, index, optIdx)"
+                                                    >
+                                                        Custom price
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="p-1 text-gray-400 hover:text-red-500 rounded"
+                                                        title="Remove this boat option"
+                                                        @click="removeAssetOptionSelection(item, optIdx)"
+                                                    >
+                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                         <!-- Add-ons sub-rows -->
                                         <template v-if="lineItemAddonsUiEnabled">
                                         <tr v-for="(addon, addonIdx) in (item.addons || [])" :key="`asset-addon-${index}-${addonIdx}`" class="bg-primary-50/40 dark:bg-primary-900/10">
-                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="4">
+                                            <td class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic" colspan="3">
                                                 ↳ {{ addon.name }}
                                             </td>
                                             <td class="px-4 py-2 text-right text-sm text-gray-500 dark:text-gray-400">{{ formatCurrency(addon.price) }}</td>
@@ -1424,7 +1588,7 @@ const handleCancel = () => emit('cancelled');
                                 </tbody>
                                 <tfoot class="bg-gray-50 dark:bg-gray-700/50 border-t-2 border-gray-200 dark:border-gray-600">
                                     <tr>
-                                        <td colspan="7" class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
+                                        <td colspan="6" class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">Assets Subtotal</td>
                                         <td class="px-4 py-3 text-right text-lg font-bold text-gray-900 dark:text-white">{{ formatCurrency(assetSubtotal) }}</td>
                                         <td class="px-4 py-3 text-right text-md font-semibold text-gray-700 dark:text-gray-300">{{ formatCurrency(assetSectionTax) }}</td>
                                         <td :colspan="assetSubtotalTrailingColspan"></td>
@@ -1760,6 +1924,16 @@ const handleCancel = () => emit('cancelled');
             accent="primary"
             :context-subtitle="addonModalSubtitle"
             @picked="onAddonPicked"
+        />
+
+        <AssetOptionLinePriceModal
+            :show="optionPriceModal.show"
+            :option-label="optionPriceModalLabel"
+            :catalog-default-price="optionPriceModalCatalogDefault"
+            :current-price="optionPriceModalCurrentPrice"
+            :format-price="formatCurrency"
+            @close="closeOptionPriceModal"
+            @save="saveOptionPriceModal"
         />
 
         <!-- ============================

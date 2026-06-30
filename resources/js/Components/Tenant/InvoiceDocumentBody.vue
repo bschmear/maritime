@@ -1,4 +1,7 @@
 <script setup>
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
+import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
 import { computed } from 'vue';
@@ -74,49 +77,9 @@ const invoiceLineBoatOptions = (item) => {
 
 const effectiveLogoUrl = computed(() => props.logoUrl ?? props.account?.logo_url ?? null);
 
-const transactionLocationPreview = computed(() => {
-    const loc = props.record?.transaction?.location;
-    if (!loc) return null;
-    const line1 = loc.address_line_1 ?? loc.address_line1 ?? '';
-    const line2 = loc.address_line_2 ?? loc.address_line2 ?? '';
-    const city = loc.city ?? '';
-    const state = loc.state ?? '';
-    const postal = loc.postal_code ?? '';
-    const phone = loc.phone ?? '';
-    const email = loc.email ?? '';
-    if (!line1 && !city && !phone && !email) return null;
-    return { line1, line2, city, state, postal, phone, email };
-});
-
 const invoiceHeaderTitle = computed(
     () => props.record.display_name || `INV-${props.record.sequence ?? props.record.id}`,
 );
-
-const accountDisplayName = computed(() =>
-    props.account?.settings?.business_name ?? props.account?.business_name ?? 'Company'
-);
-
-const transaction = computed(() => props.record?.transaction ?? null);
-
-const companyLocation = computed(() => transaction.value?.location ?? null);
-
-const companyAddressLines = computed(() => {
-    const loc = companyLocation.value;
-    if (!loc) return [];
-    const lines = [];
-    if (loc.display_name) lines.push(loc.display_name);
-    const a1 = loc.address_line_1 ?? loc.address_line1;
-    if (a1) lines.push(a1);
-    const a2 = loc.address_line_2 ?? loc.address_line2;
-    if (a2) lines.push(a2);
-    const cityLine = [loc.city, loc.state, loc.postal_code].filter(Boolean).join(', ');
-    if (cityLine) lines.push(cityLine);
-    if (loc.country) lines.push(loc.country);
-    return lines;
-});
-
-const companyPhone = computed(() => companyLocation.value?.phone ?? null);
-const companyEmail = computed(() => companyLocation.value?.email ?? null);
 
 const statusLabel = computed(() => {
     const opts = props.enumOptions?.[STATUS_ENUM_KEY] ?? [];
@@ -487,71 +450,16 @@ const lineItemColspan = computed(() => (showLineTax.value ? 7 : 5));
         id="invoice-print-document"
         class="invoice-document-for-print bg-white text-gray-900 shadow-lg print:shadow-none"
     >
-        <!-- Contract-style document header -->
-        <div class="border-b-4 border-gray-900 px-8 py-6 print:border-b-2 print:break-inside-avoid">
-            <div class="flex items-start justify-between gap-4">
-                <div class="flex items-start gap-6">
-                    <div v-if="effectiveLogoUrl" class="flex-shrink-0">
-                        <img :src="effectiveLogoUrl" alt="" class="h-20 w-auto max-w-[150px] object-contain">
-                    </div>
-                    <div v-else class="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded bg-gray-200 print:hidden">
-                        <span class="material-icons text-4xl text-gray-400">business</span>
-                    </div>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">{{ accountDisplayName }}</h1>
-                        <p
-                            v-if="record.transaction?.subsidiary?.display_name"
-                            class="mt-1 text-sm font-semibold text-gray-700"
-                        >
-                            {{ record.transaction.subsidiary.display_name }}
-                        </p>
-                        <div
-                            v-if="transactionLocationPreview"
-                            class="mt-2 space-y-1 text-sm text-gray-600"
-                        >
-                            <p v-if="transactionLocationPreview.line1">
-                                {{ transactionLocationPreview.line1
-                                }}<span v-if="transactionLocationPreview.line2">, {{ transactionLocationPreview.line2 }}</span>
-                            </p>
-                            <p v-if="transactionLocationPreview.city">
-                                {{ transactionLocationPreview.city
-                                }}<span v-if="transactionLocationPreview.state">, {{ transactionLocationPreview.state }}</span>
-                                <template v-if="transactionLocationPreview.postal"> {{ transactionLocationPreview.postal }}</template>
-                            </p>
-                            <p v-if="transactionLocationPreview.phone" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">phone</span>
-                                {{ transactionLocationPreview.phone }}
-                            </p>
-                            <p v-if="transactionLocationPreview.email" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">email</span>
-                                {{ transactionLocationPreview.email }}
-                            </p>
-                        </div>
-                        <div
-                            v-else-if="companyAddressLines.length"
-                            class="mt-2 space-y-1 text-sm text-gray-600"
-                        >
-                            <p v-for="(addrLine, idx) in companyAddressLines" :key="idx" class="leading-snug">{{ addrLine }}</p>
-                            <p v-if="companyPhone" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">phone</span>{{ companyPhone }}
-                            </p>
-                            <p v-if="companyEmail" class="flex items-center gap-1">
-                                <span class="material-icons text-sm">email</span>{{ companyEmail }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm font-medium uppercase tracking-wide text-gray-600">Invoice</div>
-                    <div class="font-mono text-3xl font-bold text-gray-900">
-                        {{ invoiceHeaderTitle }}
-                    </div>
-                    <div class="mt-1 text-sm text-gray-600">
-                        {{ formatDate(record.created_at) }}
-                    </div>
-                </div>
-            </div>
-        </div>
+        <PublicDocumentHeader
+            :logo-url="effectiveLogoUrl"
+            document-label="Invoice"
+            :document-number="invoiceHeaderTitle"
+            :document-date="formatDate(record.created_at)"
+        >
+            <template #company>
+                <PublicDocumentCompanyInfo :record="record" fallback-name="Company" />
+            </template>
+        </PublicDocumentHeader>
 
         <div class="flex flex-wrap gap-2 border-b border-gray-200 px-8 py-4">
             <span :class="['inline-flex items-center rounded-full px-3 py-1 text-sm font-medium', statusBadgeClass]">
@@ -811,6 +719,8 @@ const lineItemColspan = computed(() => (showLineTax.value ? 7 : 5));
                 </ul>
             </div>
         </div>
+
+        <PublicDocumentFooter :record="record" :account-phone="account?.phone" />
 
     </div>
 </template>

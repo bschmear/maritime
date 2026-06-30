@@ -246,8 +246,28 @@ useSubsidiaryLocationAutofill(form, () => props.fieldsSchema, {
 });
 
 const lineItemsRef = ref(null);
-const sourceType = ref(
-    form.work_order_id ? 'work_order' : (form.transaction_id ? 'transaction' : 'transaction'),
+const resolveInitialSourceType = () => {
+    if (form.work_order_id) {
+        return 'work_order';
+    }
+    if (form.transaction_id) {
+        return 'transaction';
+    }
+    if (fromWorkOrder.value) {
+        return 'work_order';
+    }
+    if (fromTransaction.value) {
+        return 'transaction';
+    }
+
+    return 'standalone';
+};
+const sourceType = ref(resolveInitialSourceType());
+const sourceTypeLocked = computed(
+    () => isView.value
+        || fromTransaction.value
+        || fromWorkOrder.value
+        || (props.mode === 'edit' && (!!props.record?.transaction_id || !!props.record?.work_order_id)),
 );
 const lineItemsReadonly = computed(
     () => isView.value || props.mode === 'edit' || !!form.transaction_id || !!form.work_order_id,
@@ -424,7 +444,10 @@ watch(
             sourceType.value = 'work_order';
             return;
         }
-        sourceType.value = 'transaction';
+        if (sourceTypeLocked.value) {
+            return;
+        }
+        sourceType.value = 'standalone';
     },
     { immediate: true },
 );
@@ -437,6 +460,9 @@ watch(
         } else if (type === 'work_order') {
             form.transaction_id = null;
             form.contract_id = null;
+        } else if (type === 'standalone') {
+            form.transaction_id = null;
+            form.work_order_id = null;
         }
     },
 );
@@ -820,6 +846,10 @@ const performSubmit = (updateQuickbooks, updateLinkedTransaction) => {
         if (sourceType.value === 'work_order' && !next.work_order_id && props.workOrder?.id) {
             next.work_order_id = props.workOrder.id;
         }
+        if (sourceType.value === 'standalone') {
+            next.transaction_id = null;
+            next.work_order_id = null;
+        }
         next.allow_partial_payment = Boolean(next.allow_partial_payment);
         next.surcharge_percent =
             next.surcharge_percent === '' || next.surcharge_percent == null
@@ -918,7 +948,7 @@ const handleCancel = () => {
             </div>
         </div>
 
-        <form @submit.prevent="submit">
+        <form id="invoice-form" class="pb-28" @submit.prevent="submit">
             <div class="grid gap-6 lg:grid-cols-12">
 
                 <!-- ============================
@@ -974,14 +1004,25 @@ const handleCancel = () => {
                                         <p v-if="form.errors.contact_id" class="mt-1 text-xs text-red-600 dark:text-red-400">{{ form.errors.contact_id }}</p>
                                     </div>
 
-                                    <!-- Transaction -->
+                                    <!-- Invoice source -->
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Invoice Source</label>
-                                        <div class="inline-flex p-1 bg-gray-100 dark:bg-gray-700 rounded-lg gap-1">
+                                        <div class="inline-flex flex-wrap p-1 bg-gray-100 dark:bg-gray-700 rounded-lg gap-1">
+                                            <button
+                                                type="button"
+                                                @click="sourceType = 'standalone'"
+                                                :disabled="sourceTypeLocked"
+                                                class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+                                                :class="sourceType === 'standalone'
+                                                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'"
+                                            >
+                                                Standalone
+                                            </button>
                                             <button
                                                 type="button"
                                                 @click="sourceType = 'transaction'"
-                                                :disabled="isView"
+                                                :disabled="sourceTypeLocked"
                                                 class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
                                                 :class="sourceType === 'transaction'
                                                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow'
@@ -992,7 +1033,7 @@ const handleCancel = () => {
                                             <button
                                                 type="button"
                                                 @click="sourceType = 'work_order'"
-                                                :disabled="isView"
+                                                :disabled="sourceTypeLocked"
                                                 class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
                                                 :class="sourceType === 'work_order'
                                                     ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow'
@@ -1002,7 +1043,13 @@ const handleCancel = () => {
                                             </button>
                                         </div>
 
-                                        <div v-if="sourceType === 'transaction'" class="mt-2">
+                                        <div v-if="sourceType === 'standalone'" class="mt-2">
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                                One-off invoice not linked to a deal or work order. Add line items below.
+                                            </p>
+                                        </div>
+
+                                        <div v-else-if="sourceType === 'transaction'" class="mt-2">
                                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Transaction</label>
                                             <RecordSelect
                                                 id="transaction_id"
@@ -1334,20 +1381,6 @@ const handleCancel = () => {
                                     {{ form.errors.billing_postal }}
                                 </p>
                             </div>
-
-                            <p
-                                v-if="!isView && form.transaction_id"
-                                class="text-sm text-yellow-500 dark:text-yellow-400 -mt-2 mb-2"
-                            >
-                                Line items come from this transaction and can’t be edited on the invoice.
-                            </p>
-                            <InvoiceLineItemsEditor
-                                ref="lineItemsRef"
-                                :form="form"
-                                :readonly="lineItemsReadonly"
-                                :initial-items="lineItemsInitialItems"
-                                :show-totals-panel="false"
-                            />
                         </div>
                     </div>
 
@@ -1442,34 +1475,6 @@ const handleCancel = () => {
                      Sidebar
                      ============================ -->
                 <div class="lg:col-span-4 space-y-6">
-
-                    <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
-                        <div class="flex justify-between items-center px-5 py-4 bg-gray-700 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                            <span class="text-sm font-semibold text-white">Actions</span>
-                        </div>
-                        <div class="p-5 space-y-3">
-                            <button
-                                v-if="!isView"
-                                type="submit"
-                                :disabled="form.processing"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-[18px]" :class="{ 'animate-spin': form.processing }">
-                                    {{ form.processing ? 'sync' : 'check' }}
-                                </span>
-                                {{ form.processing ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Invoice') }}
-                            </button>
-                            <button
-                                v-if="!isView"
-                                type="button"
-                                @click="handleCancel"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-colors"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
 
                     <!-- Line-item totals (same fields as editor; lives in sidebar on invoice form) -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
@@ -1644,6 +1649,56 @@ const handleCancel = () => {
                     </div>
                 </div>
             </div>
+
+            <!-- Line items (full width below columns) -->
+            <div class="space-y-6 mt-6">
+                <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
+                    <div class="p-6">
+                        <p
+                            v-if="!isView && form.transaction_id"
+                            class="text-sm text-yellow-500 dark:text-yellow-400 mb-4"
+                        >
+                            Line items come from this transaction and can’t be edited on the invoice.
+                        </p>
+                        <InvoiceLineItemsEditor
+                            ref="lineItemsRef"
+                            :form="form"
+                            :readonly="lineItemsReadonly"
+                            :initial-items="lineItemsInitialItems"
+                            :show-totals-panel="false"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            <Teleport v-if="!isView" to="body">
+                <div class="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 py-3 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/90 dark:border-gray-700 dark:bg-gray-900/95 dark:supports-[backdrop-filter]:bg-gray-900/90">
+                    <div class="flex w-full items-center justify-end gap-3">
+                        <button
+                            type="button"
+                            @click="handleCancel"
+                            class="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="invoice-form"
+                            :disabled="form.processing"
+                            class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            <svg v-if="form.processing" class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                            </svg>
+                            <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            {{ form.processing ? 'Saving...' : (mode === 'edit' ? 'Save Changes' : 'Create Invoice') }}
+                        </button>
+                    </div>
+                </div>
+            </Teleport>
         </form>
 
         <!-- Contact billing address picker / add address -->

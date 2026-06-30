@@ -34,6 +34,9 @@ class EstimateSelectedOptionSync
                 'selected_asset_options.*.selections' => ['nullable', 'array'],
                 'selected_asset_options.*.selections.*.option_id' => ['required', 'integer'],
                 'selected_asset_options.*.selections.*.option_value_id' => ['required', 'integer'],
+                'selected_asset_options.*.selections.*.price' => ['nullable', 'numeric', 'min:0'],
+                'selected_asset_options.*.selections.*.cost' => ['nullable', 'numeric', 'min:0'],
+                'selected_asset_options.*.selections.*.taxable' => ['nullable', 'boolean'],
             ]
         );
 

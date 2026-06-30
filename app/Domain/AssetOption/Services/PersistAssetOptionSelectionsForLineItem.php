@@ -59,11 +59,18 @@ final class PersistAssetOptionSelectionsForLineItem
             if (! is_array($sel)) {
                 continue;
             }
-            $normalizedSelections[] = [
+            $row = [
                 'option_id' => (int) ($sel['option_id'] ?? 0),
                 'option_value_id' => (int) ($sel['option_value_id'] ?? 0),
                 'taxable' => ComputeTransactionLineTax::boolish($sel['taxable'] ?? true),
             ];
+            if (array_key_exists('price', $sel)) {
+                $row['price'] = max(0, (float) $sel['price']);
+            }
+            if (array_key_exists('cost', $sel)) {
+                $row['cost'] = max(0, (float) $sel['cost']);
+            }
+            $normalizedSelections[] = $row;
         }
 
         $selectedByOption = [];
@@ -140,8 +147,12 @@ final class PersistAssetOptionSelectionsForLineItem
                 'option_value_id' => $vid,
                 'option_name' => $optionPayload['name'],
                 'value_label' => $valueMeta['label'],
-                'cost' => $valueMeta['cost'],
-                'price' => $valueMeta['price'],
+                'cost' => array_key_exists('cost', $sel)
+                    ? $sel['cost']
+                    : $valueMeta['cost'],
+                'price' => array_key_exists('price', $sel)
+                    ? $sel['price']
+                    : $valueMeta['price'],
                 'taxable' => $sel['taxable'] ?? true,
             ]);
         }

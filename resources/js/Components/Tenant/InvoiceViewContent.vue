@@ -1,6 +1,9 @@
 <script setup>
 import InvoiceDocumentBody from '@/Components/Tenant/InvoiceDocumentBody.vue';
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
 import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
+import { previewSubsidiaryName } from '@/Utils/documentPreviewLetterhead';
 import { Link, useForm } from '@inertiajs/vue3';
 import { computed, watch } from 'vue';
 
@@ -48,20 +51,7 @@ const quickbooksInvoiceUrl = computed(
     () => props.quickbooks?.invoice_url || props.record?.quickbooks_invoice_url || null,
 );
 
-const accountDisplayName = computed(() =>
-    props.account?.settings?.business_name ?? props.account?.business_name ?? 'Company Name',
-);
-
-const headerSubsidiary = computed(
-    () => props.record?.transaction?.subsidiary ?? props.record?.subsidiary ?? null,
-);
-
-const headerLocation = computed(
-    () => props.record?.transaction?.location ?? props.record?.location ?? null,
-);
-
-const companyPhone = computed(() => headerLocation.value?.phone ?? null);
-const companyEmail = computed(() => headerLocation.value?.email ?? null);
+const companyName = computed(() => previewSubsidiaryName(props.record, 'Company Name'));
 
 const paymentTermLabel = computed(() => {
     const raw = props.record?.payment_term;
@@ -302,27 +292,7 @@ const contactForDetailsHint = computed(() => {
             :document-date="formatDate(record.created_at)"
         >
             <template #company>
-                <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
-                    {{ headerSubsidiary?.display_name || accountDisplayName }}
-                </h1>
-                <div class="mt-2 space-y-1 text-sm text-gray-600">
-                    <p v-if="headerLocation && (headerLocation.address_line1 || headerLocation.address_line_1)">
-                        {{ headerLocation.address_line1 || headerLocation.address_line_1 }}<span
-                            v-if="headerLocation.address_line2 || headerLocation.address_line_2"
-                        >, {{ headerLocation.address_line2 || headerLocation.address_line_2 }}</span>
-                    </p>
-                    <p v-if="headerLocation?.city">
-                        {{ headerLocation.city }}<span v-if="headerLocation.state">, {{ headerLocation.state }}</span> {{ headerLocation.postal_code }}
-                    </p>
-                    <p v-if="companyPhone" class="flex items-center gap-1 break-all">
-                        <span class="material-icons shrink-0 text-sm">phone</span>
-                        {{ formatPhoneNumber(companyPhone) }}
-                    </p>
-                    <p v-if="companyEmail" class="flex items-center gap-1 break-all">
-                        <span class="material-icons shrink-0 text-sm">email</span>
-                        {{ companyEmail }}
-                    </p>
-                </div>
+                <PublicDocumentCompanyInfo :record="record" />
             </template>
         </PublicDocumentHeader>
 
@@ -622,8 +592,7 @@ const contactForDetailsHint = computed(() => {
                 class="mt-5 border-t border-gray-200 pt-4 text-sm text-gray-500"
             >
                 Online payment isn’t available for this invoice. Use the instructions you
-                received or contact
-                {{ account?.settings?.business_name ?? account?.business_name ?? 'us' }}.
+                received or contact {{ companyName }}.
             </p>
 
             <p
@@ -634,12 +603,7 @@ const contactForDetailsHint = computed(() => {
             </p>
         </div>
 
-        <div class="bg-gray-900 px-4 py-4 text-center text-xs text-white sm:px-8">
-            <p>Thank you for your business!</p>
-            <p v-if="companyPhone" class="mt-1">
-                Questions? Call us at {{ formatPhoneNumber(companyPhone) }}
-            </p>
-        </div>
+        <PublicDocumentFooter :record="record" />
     </div>
 </template>
 

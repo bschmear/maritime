@@ -27,6 +27,39 @@ export function lineOptionsForDisplay(assignedOptions, globalOptions, addedGloba
     return [...assigned, ...globals];
 }
 
+/**
+ * Catalog default price for an option value (assigned or global on the line).
+ * Falls back to the full resolver lists when the option is selected but not yet in added_global_option_ids.
+ */
+export function catalogPriceForOptionValue(assignedOptions, globalOptions, addedGlobalOptionIds, optionId, valueId) {
+    const oid = Number(optionId);
+    const vid = Number(valueId);
+    const choices = lineOptionsForDisplay(assignedOptions, globalOptions, addedGlobalOptionIds);
+    let opt = choices.find((o) => Number(o.option_id) === oid);
+    if (!opt) {
+        const all = [...(assignedOptions ?? []), ...(globalOptions ?? [])];
+        opt = all.find((o) => Number(o.option_id) === oid);
+    }
+    const val = opt?.values?.find((v) => Number(v.id) === vid);
+
+    return val?.price != null ? Number(val.price) : 0;
+}
+
+/**
+ * Find resolved option payload for an option id (display list, then full assigned + global).
+ */
+export function resolvedOptionForLine(assignedOptions, globalOptions, addedGlobalOptionIds, optionId) {
+    const oid = Number(optionId);
+    const choices = lineOptionsForDisplay(assignedOptions, globalOptions, addedGlobalOptionIds);
+    let opt = choices.find((o) => Number(o.option_id) === oid);
+    if (!opt) {
+        const all = [...(assignedOptions ?? []), ...(globalOptions ?? [])];
+        opt = all.find((o) => Number(o.option_id) === oid);
+    }
+
+    return opt ?? null;
+}
+
 export function allAvailableLineOptionIds(assignedOptions, globalOptions, addedGlobalOptionIds) {
     return lineOptionsForDisplay(assignedOptions, globalOptions, addedGlobalOptionIds).map((o) =>
         Number(o.option_id),

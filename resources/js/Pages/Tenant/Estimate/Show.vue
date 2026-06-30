@@ -892,15 +892,6 @@ const confirmDelete = () => {
                         </div>
                     </div>
 
-                    <ResolvedLineItemsEstimateStyle
-                        :items="displayLineItems"
-                        variant="tenant"
-                        :format-money="formatCurrency"
-                        :show-per-line-deal-tax="showLineTax"
-                        :deal-tax-rate-percent="taxRate"
-                        empty-message="No line items on this estimate."
-                    />
-
                     <!-- Customer boat option submissions (secure form — same idea as Opportunity feature requests) -->
                     <div
                         v-if="boatOptionCustomerSubmissions.length > 0"
@@ -992,107 +983,7 @@ const confirmDelete = () => {
                      ============================ -->
                 <div class="lg:col-span-4 space-y-6">
 
-                    <!-- Actions -->
-                    <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden ">
-                        <div class="px-5 py-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-                            <span class="text-sm font-semibold text-gray-900 dark:text-white">Actions</span>
-                        </div>
-                        <div class="p-5 space-y-3">
-
-
-                            <!-- Email boat options -->
-                            <button
-                                v-if="canSendBoatOptionsInvite"
-                                type="button"
-                                @click="openBoatOptionsModal"
-                                :disabled="sendBoatOptionsForm.processing"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 rounded-lg transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                {{ sendBoatOptionsForm.processing ? 'Sending…' : 'Email boat options' }}
-                            </button>
-
-                            <!-- Send for Approval -->
-                            <button
-                                v-if="canSendApproval"
-                                @click="openApprovalDeliveryModal"
-                                :disabled="sendApprovalForm.processing"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 rounded-lg transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                </svg>
-                                {{ sendApprovalForm.processing ? 'Sending…' : (record.sent_at ? 'Resend for Approval' : 'Send for Approval') }}
-                            </button>
-
-                            <!-- Sent at info -->
-                            <div v-if="record.sent_at" class="text-sm text-gray-500 dark:text-gray-400 text-center">
-                                Last sent {{ formatDateTime(record.sent_at) }}
-                            </div>
-
-                            <!-- Create Revision (locked) -->
-                            <button
-                                v-if="isLocked && !hasRevision"
-                                @click="createRevision"
-                                :disabled="revisionForm.processing"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 disabled:opacity-60 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-base">content_copy</span>
-                                {{ revisionForm.processing ? 'Creating Revision…' : 'Create Revision' }}
-                            </button>
-
-                            <!-- View Latest (superseded) -->
-                            <Link
-                                v-if="hasRevision"
-                                :href="route('estimates.show', record.revision.id)"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-base">arrow_forward</span>
-                                View Latest Version
-                            </Link>
-
-                            <!-- View Deal / Create Deal -->
-                            <Link
-                                v-if="hasDeal"
-                                :href="route('transactions.show', record.transaction_id)"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-                            >
-                                <span class="material-icons text-base">handshake</span>
-                                View Deal
-                            </Link>
-                            <button
-                                v-else-if="canCreateDeal"
-                                type="button"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-                                @click="showCreateDealModal = true"
-                            >
-                                <span class="material-icons text-base">add_business</span>
-                                Create Deal
-                            </button>
-
-                            <!-- Edit (unlocked and not approved) -->
-                            <Link
-                                v-if="!isLocked && !isApproved"
-                                :href="route('estimates.edit', record.id)"
-                                class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                                Edit Estimate
-                            </Link>
-                            <button
-                                v-if="!isApproved"
-                                @click="handleDelete"
-                                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-white dark:bg-gray-700 border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                            >
-                                Delete Estimate
-                            </button>
-                        </div>
-                    </div>
-
+           
                     <!-- Estimate Total -->
                     <div class="bg-white dark:bg-gray-800 shadow-lg sm:rounded-lg overflow-hidden">
                         <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-600">
@@ -1254,6 +1145,17 @@ const confirmDelete = () => {
                         </div>
                     </div>
 
+                </div>
+
+                <div class="col-span-full">
+                    <ResolvedLineItemsEstimateStyle
+                        :items="displayLineItems"
+                        variant="tenant"
+                        :format-money="formatCurrency"
+                        :show-per-line-deal-tax="showLineTax"
+                        :deal-tax-rate-percent="taxRate"
+                        empty-message="No line items on this estimate."
+                    />
                 </div>
             </div>
         </div>

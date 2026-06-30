@@ -307,10 +307,6 @@ const inventoryDealRollup = computed(() => {
                             </div>
                         </div>
                         <div>
-                            <div :class="labelMuted">Year</div>
-                            <div :class="textBody">{{ item.itemable?.year || '—' }}</div>
-                        </div>
-                        <div>
                             <div :class="labelMuted">Unit price</div>
                             <div :class="[textBody, 'tabular-nums']">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</div>
                         </div>
@@ -409,7 +405,6 @@ const inventoryDealRollup = computed(() => {
                             <th :class="th">Asset</th>
                             <th :class="[th, 'min-w-[7rem]']">Variant</th>
                             <th :class="[th, 'min-w-[7rem]']">Unit</th>
-                            <th :class="[th, 'w-24']">Year</th>
                             <th :class="[thRight, 'w-28']">Unit Price</th>
                             <th :class="[thRight, 'w-24']">Discount</th>
                             <th :class="[thRight, 'w-20']">Qty</th>
@@ -466,7 +461,6 @@ const inventoryDealRollup = computed(() => {
                                     </span>
                                     <span v-else :class="cx('text-gray-400', 'dark:text-gray-500')">—</span>
                                 </td>
-                                <td :class="cx('px-4 py-3 text-gray-500', 'dark:text-gray-400')">{{ item.itemable?.year || '—' }}</td>
                                 <td :class="cx('px-4 py-3 text-right text-gray-700', 'dark:text-gray-300')">{{ formatMoney(lineEffectiveUnitPrice(item)) }}</td>
                                 <td class="px-4 py-3 text-right text-red-500 dark:text-red-400">
                                     {{ item.discount > 0 ? `-${formatMoney(item.discount)}` : '—' }}
@@ -495,7 +489,7 @@ const inventoryDealRollup = computed(() => {
                             >
                                 <td
                                     class="pl-10 pr-4 py-2 text-sm text-gray-700 dark:text-gray-300"
-                                    :colspan="dealTaxMode ? 7 : 4"
+                                    :colspan="dealTaxMode ? 6 : 3"
                                 >
                                     <span class="text-sky-600/90 dark:text-sky-400 mr-1">↳</span>{{ selectedOptionLabel(opt) }}
                                 </td>
@@ -532,7 +526,7 @@ const inventoryDealRollup = computed(() => {
                             >
                                 <td
                                     class="pl-10 pr-4 py-2 text-sm text-gray-600 dark:text-gray-400 italic"
-                                    :colspan="dealTaxMode ? 7 : 4"
+                                    :colspan="dealTaxMode ? 6 : 3"
                                 >
                                     ↳ {{ addon.name }}
                                 </td>
@@ -566,7 +560,7 @@ const inventoryDealRollup = computed(() => {
                     </tbody>
                     <tfoot :class="cx('bg-gray-50 border-t-2 border-gray-200', 'dark:bg-gray-700/50 dark:border-gray-600')">
                         <tr v-if="dealTaxMode && assetDealRollup">
-                            <td colspan="7" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
+                            <td colspan="6" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
                                 Assets subtotal (pre-tax)
                             </td>
                             <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">
@@ -580,7 +574,7 @@ const inventoryDealRollup = computed(() => {
                             </td>
                         </tr>
                         <tr v-else>
-                            <td colspan="7" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
+                            <td colspan="6" :class="cx('px-4 py-3 text-right text-sm font-semibold text-gray-700', 'dark:text-gray-300')">
                                 Assets Subtotal
                             </td>
                             <td :class="cx('px-4 py-3 text-right text-base font-bold text-gray-900', 'dark:text-white')">

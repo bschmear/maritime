@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import PublicDocumentCompanyInfo from '@/Components/Tenant/Public/PublicDocumentCompanyInfo.vue';
+import PublicDocumentFooter from '@/Components/Tenant/Public/PublicDocumentFooter.vue';
 import PublicDocumentHeader from '@/Components/Tenant/Public/PublicDocumentHeader.vue';
 import PublicDocumentLineItemCard from '@/Components/Tenant/Public/PublicDocumentLineItemCard.vue';
 import PublicDocumentLineItemField from '@/Components/Tenant/Public/PublicDocumentLineItemField.vue';
@@ -246,26 +248,7 @@ const signaturePadOptions = {
                         :document-date="formatDate(record.created_at)"
                     >
                         <template #company>
-                            <h1 class="text-xl font-bold text-gray-900 break-words sm:text-2xl">
-                                {{ record.subsidiary?.display_name || 'Company Name' }}
-                            </h1>
-                            <div class="mt-2 space-y-1 text-sm text-gray-600">
-                                <p v-if="record.location?.address_line1">
-                                    {{ record.location.address_line1 }}
-                                    <span v-if="record.location?.address_line2">, {{ record.location.address_line2 }}</span>
-                                </p>
-                                <p v-if="record.location?.city">
-                                    {{ record.location.city }}<span v-if="record.location?.state">, {{ record.location.state }}</span> {{ record.location?.postal_code }}
-                                </p>
-                                <p v-if="record.location?.phone" class="flex items-center gap-1 break-all">
-                                    <span class="material-icons shrink-0 text-sm">phone</span>
-                                    {{ formatPhoneNumber(record.location.phone) }}
-                                </p>
-                                <p v-if="record.location?.email" class="flex items-center gap-1 break-all">
-                                    <span class="material-icons shrink-0 text-sm">email</span>
-                                    {{ record.location.email }}
-                                </p>
-                            </div>
+                            <PublicDocumentCompanyInfo :record="record" />
                         </template>
                     </PublicDocumentHeader>
 
@@ -727,12 +710,7 @@ const signaturePadOptions = {
                     </div>
 
                     <!-- Footer -->
-                    <div class="px-4 sm:px-8 print:px-0 py-4 bg-gray-900 text-white text-center text-xs">
-                        <p>Thank you for your business!</p>
-                        <p v-if="record.location?.phone" class="mt-1">
-                            Questions? Call us at {{ formatPhoneNumber(record.location.phone) }}
-                        </p>
-                    </div>
+                    <PublicDocumentFooter :record="record" />
                 </div>
             </div>
         </div>
