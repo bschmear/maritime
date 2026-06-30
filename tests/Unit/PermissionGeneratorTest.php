@@ -101,15 +101,17 @@ class PermissionGeneratorTest extends TestCase
         $this->assertTrue($admin->hasPermission('financing.view'));
         $this->assertTrue($admin->hasPermission('bill.view'));
         $this->assertTrue($admin->hasPermission('billpayment.create'));
+        $this->assertTrue($admin->hasPermission('navigationmenu.edit'));
 
         $manager = Role::query()->where('slug', 'manager')->first();
         $this->assertFalse($manager->hasPermission('user.create'));
         $this->assertFalse($manager->hasPermission('user.delete'));
+        $this->assertFalse($manager->hasPermission('navigationmenu.edit'));
         $this->assertTrue($manager->hasPermission('user.view'));
         $this->assertTrue($manager->hasPermission('financing.view'));
         $this->assertTrue($manager->hasPermission('bill.edit'));
         $this->assertTrue($manager->hasPermission('billpayment.delete'));
-        $this->assertSame($total - 2, $manager->permissions()->count());
+        $this->assertSame($total - 6, $manager->permissions()->count());
 
         $employee = Role::query()->where('slug', 'employee')->first();
         $this->assertTrue($employee->hasPermission('invoice.view'));
@@ -118,7 +120,8 @@ class PermissionGeneratorTest extends TestCase
         $this->assertFalse($employee->hasPermission('financing.view'));
         $this->assertFalse($employee->hasPermission('bill.view'));
         $this->assertFalse($employee->hasPermission('billpayment.view'));
-        $this->assertSame((count(RecordType::cases()) * 2) - ($restrictedCount / 4 * 2), $employee->permissions()->count());
+        $this->assertFalse($employee->hasPermission('navigationmenu.view'));
+        $this->assertSame((count(RecordType::cases()) * 2) - ($restrictedCount / 4 * 2) - 2, $employee->permissions()->count());
 
         $guest = Role::query()->where('slug', 'guest')->first();
         $this->assertTrue($guest->hasPermission('invoice.view'));
@@ -126,6 +129,7 @@ class PermissionGeneratorTest extends TestCase
         $this->assertFalse($guest->hasPermission('financing.view'));
         $this->assertFalse($guest->hasPermission('bill.view'));
         $this->assertFalse($guest->hasPermission('billpayment.view'));
-        $this->assertSame(count(RecordType::cases()) - count(self::RESTRICTED_DOMAINS), $guest->permissions()->count());
+        $this->assertFalse($guest->hasPermission('navigationmenu.view'));
+        $this->assertSame(count(RecordType::cases()) - count(self::RESTRICTED_DOMAINS) - 1, $guest->permissions()->count());
     }
 }

@@ -51,6 +51,13 @@ class AccountController extends Controller
                 'stats' => null,
             ],
             [
+                'title' => 'Navigation menus',
+                'description' => 'Customize the top navigation labels, groupings, and role-specific menus for your workspace.',
+                'icon' => 'menu',
+                'href' => route('navigation-menus.index'),
+                'stats' => null,
+            ],
+            [
                 'title' => 'Subsidiaries',
                 'description' => 'Manage your subsidiary companies and organizational structure. Track and organize related entities.',
                 'icon' => 'corporate_fare',

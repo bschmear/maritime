@@ -29,6 +29,13 @@ class PermissionGenerator
     ];
 
     /**
+     * Permission domains granted to administrators only.
+     */
+    private const ADMIN_ONLY_DOMAINS = [
+        'navigationmenu',
+    ];
+
+    /**
      * @return array{created: int, existing: int}
      */
     public function sync(): array
@@ -90,6 +97,7 @@ class PermissionGenerator
         if ($manager) {
             $ids = Permission::query()
                 ->whereNotIn('key', self::MANAGER_EXCLUDED_PERMISSION_KEYS)
+                ->whereNotIn('domain', self::ADMIN_ONLY_DOMAINS)
                 ->pluck('id')
                 ->all();
             $manager->permissions()->sync($ids);
@@ -99,7 +107,7 @@ class PermissionGenerator
         if ($employee) {
             $ids = Permission::query()
                 ->whereIn('action', ['view', 'edit'])
-                ->whereNotIn('domain', self::ADMIN_AND_MANAGER_RECORD_TYPE_KEYS)
+                ->whereNotIn('domain', array_merge(self::ADMIN_AND_MANAGER_RECORD_TYPE_KEYS, self::ADMIN_ONLY_DOMAINS))
                 ->pluck('id')
                 ->all();
             $employee->permissions()->sync($ids);
@@ -109,7 +117,7 @@ class PermissionGenerator
         if ($guest) {
             $ids = Permission::query()
                 ->where('action', 'view')
-                ->whereNotIn('domain', self::ADMIN_AND_MANAGER_RECORD_TYPE_KEYS)
+                ->whereNotIn('domain', array_merge(self::ADMIN_AND_MANAGER_RECORD_TYPE_KEYS, self::ADMIN_ONLY_DOMAINS))
                 ->pluck('id')
                 ->all();
             $guest->permissions()->sync($ids);

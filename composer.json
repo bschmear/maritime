@@ -12,6 +12,7 @@
         "php": "^8.2",
         "aws/aws-sdk-php": "^3.342",
         "barryvdh/laravel-dompdf": "^3.1",
+        "easypost/easypost-php": "^8.8",
         "endroid/qr-code": "^5.0",
         "google/apiclient": "^2.19",
         "guzzlehttp/guzzle": "^7.10",

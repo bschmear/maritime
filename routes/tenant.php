@@ -63,7 +63,7 @@ use App\Http\Controllers\Tenant\LocationController;
 use App\Http\Controllers\Tenant\LocationLayoutController;
 use App\Http\Controllers\Tenant\MaintenanceTypeController;
 use App\Http\Controllers\Tenant\MsoController;
-use App\Http\Controllers\Tenant\MsoRecordController;
+use App\Http\Controllers\Tenant\NavigationMenuController;
 use App\Http\Controllers\Tenant\NotificationController;
 use App\Http\Controllers\Tenant\OnboardingController;
 use App\Http\Controllers\Tenant\OperationsController;
@@ -813,6 +813,14 @@ Route::middleware([
 
         Route::post('document-requests/{documentRequest}/cancel', [DocumentRequestController::class, 'cancel'])
             ->name('document-requests.cancel');
+
+        Route::prefix('navigation-menus')->name('navigation-menus.')->group(function () {
+            Route::get('/', [NavigationMenuController::class, 'index'])->name('index');
+            Route::post('/', [NavigationMenuController::class, 'store'])->name('store');
+            Route::get('/{navigationMenu}/edit', [NavigationMenuController::class, 'edit'])->name('edit');
+            Route::put('/{navigationMenu}', [NavigationMenuController::class, 'update'])->name('update');
+            Route::delete('/{navigationMenu}', [NavigationMenuController::class, 'destroy'])->name('destroy');
+        });
 
         Route::prefix('account')->name('account.')->group(function () {
             Route::get('/', [AccountController::class, 'index'])->name('index');

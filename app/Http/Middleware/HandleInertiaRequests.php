@@ -7,6 +7,7 @@ use App\Domain\Delivery\Models\Delivery;
 use App\Models\AccountSettings;
 use App\Services\Help\HelpArticleSearch;
 use App\Services\Help\HelpCategoryTree;
+use App\Services\TenantNavigation\TenantNavigationResolver;
 use App\Services\TenantStaffResolver;
 use App\Services\WorkspaceNavCache;
 use App\Services\WorkspacePlanCache;
@@ -148,9 +149,24 @@ class HandleInertiaRequests extends Middleware
             'tenant_role_slug' => fn () => tenancy()->initialized
                 ? app(CurrentTenantProfile::class)->roleSlug()
                 : null,
+            'tenant_nav' => fn () => $this->tenantNav($request),
             'tenant_user_signature' => fn () => $this->tenantUserSignature(),
             'account_setup' => fn () => $this->accountSetupPayload($request),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function tenantNav(Request $request): array
+    {
+        if (! tenancy()->initialized || $this->rootView($request) !== 'tenant') {
+            return [];
+        }
+
+        $profile = app(CurrentTenantProfile::class);
+
+        return app(TenantNavigationResolver::class)->resolve($profile->roleSlug());
     }
 
     /**
