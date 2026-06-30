@@ -71,7 +71,7 @@ class HelpDocumentationSeeder extends Seeder
             [
                 'name' => 'Workspace settings',
                 'slug' => 'workspace-settings',
-                'description' => 'Account preferences inside your dealership workspace, including sandbox mode for safe testing.',
+                'description' => 'Account preferences inside your dealership workspace, including sandbox mode, navigation menus, and safe testing.',
                 'sort_order' => 2,
             ],
             [
@@ -121,6 +121,12 @@ class HelpDocumentationSeeder extends Seeder
                 'slug' => 'warranty-vendor-portal',
                 'description' => 'Manufacturer warranty claims and the vendor portal for approvals.',
                 'sort_order' => 10,
+            ],
+            [
+                'name' => 'Integrations',
+                'slug' => 'integrations',
+                'description' => 'Connect Helmful to external systems such as your WordPress marketing site.',
+                'sort_order' => 11,
             ],
         ];
     }
@@ -267,6 +273,58 @@ HTML,
 <p>When sandbox mode is active, an amber <strong>Sandbox</strong> badge appears in the top navigation; click it to jump to account settings.</p>
 <h3>Before you go live</h3>
 <p>New workspaces often start with sandbox mode enabled. Turn it <strong>off</strong> when you are ready for real customers to receive email and text notifications. If SMS does not send in sandbox, confirm your staff profile has a phone number and that your login email matches that staff user.</p>
+HTML,
+            ],
+            [
+                'category_slug' => 'workspace-settings',
+                'title' => 'Customize navigation menus',
+                'slug' => 'customize-navigation-menus',
+                'excerpt' => 'Rename top navigation links, regroup pages, and create role-specific menus for your workspace.',
+                'article_type' => 'guide',
+                'sort_order' => 1,
+                'featured' => true,
+                'body' => <<<'HTML'
+<p>Every workspace has a <strong>top navigation bar</strong> (Overview, Sales, Operations, Inventory, and similar sections). Administrators can customize what appears there—change labels, reorder items, group pages differently, or show a different menu to each role.</p>
+<h3>Who can customize menus</h3>
+<p>Only users with the <strong>Administrator</strong> workspace role can open the menu builder. Managers, employees, and guests see the menu you configure for their role but cannot edit it.</p>
+<h3>Where to open the menu builder</h3>
+<ol>
+<li>Open your workspace.</li>
+<li>Go to <strong>Company → Overview</strong> (the account landing page).</li>
+<li>Click the <strong>Navigation menus</strong> card.</li>
+</ol>
+<p>You can also go directly to <strong>Navigation menus</strong> from that account page if you have administrator access.</p>
+<h3>Default menu vs role menus</h3>
+<ul>
+<li><strong>Default menu</strong> — Used for every role unless you create a custom menu for that role. New workspaces are seeded with a standard menu that matches Helmful’s default page groupings.</li>
+<li><strong>Role menu</strong> — A full replacement menu for one role (for example Manager or Employee). Create one from the default menu, then edit it independently.</li>
+</ul>
+<p>If a role has no custom menu, users with that role see the <strong>default</strong> menu.</p>
+<h3>Edit the menu structure</h3>
+<p>Open a menu and click <strong>Edit</strong>. In the builder you can:</p>
+<ul>
+<li><strong>Change labels</strong> — Rename any link (for example “Service Yard” → “Yard”).</li>
+<li><strong>Pick a route</strong> — Each row links to a workspace page. Choose <strong>Group (no link)</strong> for a parent that only expands a dropdown.</li>
+<li><strong>Reorder</strong> — Drag the handle on the left to move items up or down within a group.</li>
+<li><strong>Add or remove</strong> — Use <strong>Add group</strong> or <strong>Add link</strong> to build new sections; use the trash icon to remove a row.</li>
+<li><strong>Collapse groups</strong> — Click the chevron on rows with children, or use <strong>Collapse all groups</strong> / <strong>Expand all groups</strong> at the top to scan a large menu quickly.</li>
+</ul>
+<p>Click <strong>Save menu</strong> when you are finished. Changes apply on the next page load for users who use that menu.</p>
+<h3>Role menus and permissions</h3>
+<p>When editing a <strong>role</strong> menu, rows may show a badge such as <strong>Missing permission</strong> if that role cannot access the linked page. The item can still be saved in the menu; users without access will not see that link when they sign in. Use the badges to spot links that would be hidden for that role.</p>
+<h3>Create a menu for a role</h3>
+<ol>
+<li>On the Navigation menus page, choose a role under <strong>Create role menu</strong>.</li>
+<li>Click <strong>Create from default</strong>. Helmful copies the current default menu as a starting point.</li>
+<li>Edit and save. Users with that role will see this menu instead of the default.</li>
+</ol>
+<p>To remove a role override, delete that role’s menu from the list. The role will fall back to the default menu.</p>
+<h3>Tips</h3>
+<ul>
+<li>Keep group names short—they appear in the top bar on desktop and in the mobile menu.</li>
+<li>If someone reports a missing page, check both their <strong>role menu</strong> (if any) and their <strong>role permissions</strong> under Company → Roles.</li>
+<li>The default menu is not deletable; you can only edit it.</li>
+</ul>
 HTML,
             ],
             [
@@ -653,6 +711,8 @@ HTML,
 <li>Review <strong>event leads</strong> in CRM and let follow-up emails run automatically.</li>
 </ol>
 <p>Each event also has <strong>checklists</strong> and <strong>tasks</strong> so your team can coordinate setup and breakdown.</p>
+<h3>WordPress (Beta)</h3>
+<p>If your dealership website runs on WordPress, you can sync boat shows and events to your marketing site with the <strong>Helmful Sync</strong> plugin. See <strong>Integrations → WordPress integration (Beta)</strong> in Help for setup steps, shortcodes, and display options.</p>
 HTML,
             ],
             [
@@ -1197,6 +1257,79 @@ HTML,
 <p>They may also open a <strong>review link</strong> from email without signing in first; full approve/reject actions require the vendor portal when that is your process.</p>
 <h3>Public review link</h3>
 <p>Submitted claims have a guest <strong>review</strong> URL (from notification emails) for read-only preview. The review page links to the vendor portal for official approval.</p>
+HTML,
+            ],
+            [
+                'category_slug' => 'integrations',
+                'title' => 'WordPress integration (Beta)',
+                'slug' => 'wordpress-integration-beta',
+                'excerpt' => 'Sync boat shows, events, brands, and inventory to WordPress with the Helmful Sync plugin.',
+                'article_type' => 'guide',
+                'sort_order' => 0,
+                'featured' => true,
+                'body' => <<<'HTML'
+<p><strong>Beta:</strong> The WordPress integration is in active development. Core sync and shortcode display work today, but features and plugin behavior may change between releases. Report issues to your Helmful contact before relying on it for a live marketing launch.</p>
+<h3>What it does</h3>
+<p>Helmful pushes (or WordPress pulls) content into your WordPress site as local custom posts—no live API calls when visitors load pages.</p>
+<ul>
+<li><strong>Boat shows</strong> — Exhibition records with name, logo, description, and website.</li>
+<li><strong>Events</strong> — Yearly participation (dates, venue, booth) linked to each boat show.</li>
+<li><strong>Brands</strong> — Manufacturer brands from your workspace catalog.</li>
+<li><strong>Inventory</strong> — Boats and related catalog items for public browsing and quote requests.</li>
+</ul>
+<p>Shortcodes on WordPress pages render synced data with layouts you control in the plugin. Links on the public site go to WordPress URLs (for example <code>/boat-shows/your-show/</code>), not back into Helmful.</p>
+<h3>Before you start</h3>
+<ul>
+<li>A self-hosted WordPress site where you can install plugins and save permalinks.</li>
+<li>Admin access to both Helmful and WordPress.</li>
+<li>Boat shows and events already created in Helmful (or ready to sync after setup).</li>
+</ul>
+<h3>Step 1 — Install the plugin</h3>
+<ol>
+<li>In Helmful, open <strong>Integrations → WordPress</strong>.</li>
+<li>Download <strong>helmful-sync.zip</strong> and note the plugin version shown on the page.</li>
+<li>In WordPress, go to <strong>Plugins → Add New → Upload Plugin</strong>, upload the zip, and activate <strong>Helmful Sync</strong>.</li>
+</ol>
+<h3>Step 2 — Connect Helmful → WordPress</h3>
+<ol>
+<li>On the Helmful WordPress page, click <strong>Generate integration key</strong> (or replace an existing key) and copy the <strong>Helmful integration key</strong> and <strong>tenant domain</strong>.</li>
+<li>Paste the tenant domain and Helmful key into WordPress under <strong>Settings → Helmful Sync → Connection</strong>, then save.</li>
+<li>In WordPress, click <strong>Generate new API key</strong> and copy the WordPress API key shown once.</li>
+<li>Back in Helmful, enter your <strong>WordPress site URL</strong> and the WordPress API key, then click <strong>Save settings</strong>.</li>
+<li>Use <strong>Test connection</strong> on either side to confirm credentials.</li>
+</ol>
+<h3>Step 3 — Sync content</h3>
+<p>You can move data in either direction:</p>
+<ul>
+<li><strong>Push all to WordPress</strong> (Helmful) — Sends all boat shows and events from your workspace.</li>
+<li><strong>Pull from Helmful</strong> (WordPress → Settings → Helmful Sync) — Boat shows, events, brands, and inventory each have separate pull buttons. Pull <strong>brands</strong> before inventory if you filter inventory by brand on the site.</li>
+<li><strong>Auto-push</strong> (Helmful) — When enabled, saving boat shows and events in Helmful queues an update to WordPress.</li>
+</ul>
+<p>After a plugin update, open WordPress <strong>Settings → Permalinks</strong> and click <strong>Save Changes</strong> once so single show and event URLs work.</p>
+<h3>Step 4 — Add pages and shortcodes</h3>
+<p>Create regular WordPress <strong>Pages</strong> (not post-type archives) and paste shortcodes from <strong>Settings → Helmful Sync → Shortcodes</strong>.</p>
+<ul>
+<li><code>[helmful_boat_shows]</code> — Recommended listing page (for example slug <code>boat-shows</code>). Layout comes from plugin Display settings.</li>
+<li><code>[helmful_boat_shows layout="grid"]</code> — Override layout: stacked, grid, timeline, or compact.</li>
+<li><code>[helmful_boat_show_events]</code> — Events only; optional <code>year="2026"</code> filter.</li>
+<li><code>[helmful_brands]</code> — Brand grid linking to inventory filtered by brand.</li>
+<li>Inventory shortcodes — See the Shortcodes tab in the plugin for catalog listing and detail embeds.</li>
+</ul>
+<p>Single boat show and event URLs use Helmful templates automatically (hero, events, maps link)—you do not need a shortcode on those URLs.</p>
+<h3>Display settings (WordPress)</h3>
+<p>Under <strong>Settings → Helmful Sync → Display</strong> choose default layout, grid columns, accent color, card style, and spacing for boat show shortcodes. Inventory display options are on the <strong>Inventory</strong> tab.</p>
+<h3>Where to manage content</h3>
+<ul>
+<li><strong>Source of truth</strong> — Edit boat shows, events, brands, and inventory in Helmful, then sync.</li>
+<li><strong>WordPress admin</strong> — <strong>Boat Shows</strong> and <strong>Events</strong> appear under the Boat Shows menu for reference; synced fields are read-only from Helmful’s perspective.</li>
+</ul>
+<h3>Beta limitations</h3>
+<ul>
+<li>Requires the Helmful Sync plugin—there is no generic REST export without it.</li>
+<li>Theme CSS on some sites may need extra spacing around shortcodes; use the plugin’s scoped shell classes if your theme overrides lists or typography.</li>
+<li>Re-install or update the plugin from Helmful when your contact ships a new zip—version numbers are shown on the integration page.</li>
+</ul>
+<p>When you are ready for production, run a full push or pull, test every shortcode page on mobile, and confirm event dates and logos on at least one boat show single page.</p>
 HTML,
             ],
         ];
