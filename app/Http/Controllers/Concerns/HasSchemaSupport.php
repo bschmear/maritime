@@ -21,6 +21,16 @@ trait HasSchemaSupport
      */
     private static array $schemaTableColumnListingCache = [];
 
+    /**
+     * @var array<string, list<string>>
+     */
+    private static array $recordOptionSelectColumnsCache = [];
+
+    /**
+     * @var array<string, list<array{id: mixed, name: string, value: mixed}>>
+     */
+    private static array $recordSelectOptionsCache = [];
+
     protected function getTableSchema()
     {
         $domainName = $this->domainName ?? $this->recordTitle ?? $this->recordType;
@@ -143,6 +153,7 @@ trait HasSchemaSupport
     public static function enumOptionsFromUnwrappedFields(array $fieldsSchema): array
     {
         $enumOptions = [];
+        $recordOptionsByModel = [];
 
         foreach ($fieldsSchema as $fieldKey => $fieldDef) {
             $fieldType = $fieldDef['type'] ?? 'text';
@@ -161,35 +172,11 @@ trait HasSchemaSupport
 
                 if (class_exists($modelClass)) {
                     try {
-                        if ($domainName === 'BoatShow') {
-                            $records = $modelClass::query()->select(['id', 'display_name'])->orderBy('display_name')->get();
-                            $options = $records->map(function ($record) {
-                                return [
-                                    'id' => $record->id,
-                                    'name' => $record->display_name,
-                                    'value' => $record->id,
-                                ];
-                            })->toArray();
-                        } elseif ($domainName === 'Customer') {
-                            $model = new $modelClass;
-                            $profileTable = $model->getTable();
-                            $records = $modelClass::query()
-                                ->join('contacts', 'contacts.id', '=', $profileTable.'.contact_id')
-                                ->select([$profileTable.'.id', 'contacts.display_name'])
-                                ->orderBy('contacts.display_name')
-                                ->get();
-                            $options = $records->map(function ($record) {
-                                return [
-                                    'id' => $record->id,
-                                    'name' => $record->display_name,
-                                    'value' => $record->id,
-                                ];
-                            })->toArray();
-                        } else {
-                            $options = static::loadRecordSelectOptions($modelClass);
-                        }
-
-                        $enumOptions[$fieldKey] = $options;
+                        $enumOptions[$fieldKey] = static::recordSelectOptionsForField(
+                            $domainName,
+                            $modelClass,
+                            $recordOptionsByModel,
+                        );
                     } catch (\Exception $e) {
                         \Log::warning("Failed to load record options for {$domainName}: ".$e->getMessage());
                         $enumOptions[$fieldKey] = [];
@@ -202,11 +189,58 @@ trait HasSchemaSupport
     }
 
     /**
+     * @param  array<class-string, list<array{id: mixed, name: string, value: mixed}>>  $recordOptionsByModel
+     * @return list<array{id: mixed, name: string, value: mixed}>
+     */
+    protected static function recordSelectOptionsForField(
+        string $domainName,
+        string $modelClass,
+        array &$recordOptionsByModel,
+    ): array {
+        if ($domainName === 'BoatShow') {
+            $records = $modelClass::query()->select(['id', 'display_name'])->orderBy('display_name')->get();
+
+            return $records->map(fn ($record) => [
+                'id' => $record->id,
+                'name' => $record->display_name,
+                'value' => $record->id,
+            ])->all();
+        }
+
+        if ($domainName === 'Customer') {
+            $model = new $modelClass;
+            $profileTable = $model->getTable();
+            $records = $modelClass::query()
+                ->join('contacts', 'contacts.id', '=', $profileTable.'.contact_id')
+                ->select([$profileTable.'.id', 'contacts.display_name'])
+                ->orderBy('contacts.display_name')
+                ->get();
+
+            return $records->map(fn ($record) => [
+                'id' => $record->id,
+                'name' => $record->display_name,
+                'value' => $record->id,
+            ])->all();
+        }
+
+        if (! array_key_exists($modelClass, $recordOptionsByModel)) {
+            $recordOptionsByModel[$modelClass] = static::loadRecordSelectOptions($modelClass);
+        }
+
+        return $recordOptionsByModel[$modelClass];
+    }
+
+    /**
      * @param  class-string<Model>  $modelClass
      * @return list<array{id: mixed, name: string, value: mixed}>
      */
     public static function loadRecordSelectOptions(string $modelClass, int $limit = 500): array
     {
+        $cacheKey = $modelClass.'@'.$limit;
+        if (isset(self::$recordSelectOptionsCache[$cacheKey])) {
+            return self::$recordSelectOptionsCache[$cacheKey];
+        }
+
         $model = new $modelClass;
         $columns = static::recordOptionSelectColumns($model);
         $orderColumn = $columns[1] ?? 'id';
@@ -217,11 +251,13 @@ trait HasSchemaSupport
             ->limit($limit)
             ->get();
 
-        return $records->map(fn (Model $record) => [
+        self::$recordSelectOptionsCache[$cacheKey] = $records->map(fn (Model $record) => [
             'id' => $record->id,
             'name' => static::recordOptionDisplayName($record),
             'value' => $record->id,
         ])->all();
+
+        return self::$recordSelectOptionsCache[$cacheKey];
     }
 
     /**
@@ -231,19 +267,32 @@ trait HasSchemaSupport
      */
     protected static function recordOptionSelectColumns(Model $model): array
     {
-        $table = $model->getTable();
         $connection = $model->getConnectionName();
+        if (! is_string($connection) || $connection === '') {
+            $connection = $model->getConnection()->getName();
+        }
+
+        $table = $model->getTable();
+        $cacheKey = $connection.'.'.$table;
+
+        if (isset(self::$recordOptionSelectColumnsCache[$cacheKey])) {
+            return self::$recordOptionSelectColumnsCache[$cacheKey];
+        }
+
+        $listing = array_flip(static::getTableColumnListingFor($connection, $table));
 
         $columns = ['id'];
-        if (Schema::connection($connection)->hasColumn($table, 'display_name')) {
+        if (isset($listing['display_name'])) {
             $columns[] = 'display_name';
-        } elseif (Schema::connection($connection)->hasColumn($table, 'sequence')) {
+        } elseif (isset($listing['sequence'])) {
             $columns[] = 'sequence';
-        } elseif (Schema::connection($connection)->hasColumn($table, 'name')) {
+        } elseif (isset($listing['name'])) {
             $columns[] = 'name';
-        } elseif (Schema::connection($connection)->hasColumn($table, 'work_order_number')) {
+        } elseif (isset($listing['work_order_number'])) {
             $columns[] = 'work_order_number';
         }
+
+        self::$recordOptionSelectColumnsCache[$cacheKey] = $columns;
 
         return $columns;
     }
@@ -803,7 +852,7 @@ trait HasSchemaSupport
     /**
      * @return list<string>
      */
-    protected function getTableColumnListingFor(string $connection, string $table): array
+    protected static function getTableColumnListingFor(string $connection, string $table): array
     {
         $key = $connection.'.'.$table;
 
@@ -969,7 +1018,7 @@ trait HasSchemaSupport
         }
 
         $connection = $this->modelConnectionName($relatedModel);
-        if (! in_array($joinColumn, $this->getTableColumnListingFor($connection, $joinTable), true)) {
+        if (! in_array($joinColumn, static::getTableColumnListingFor($connection, $joinTable), true)) {
             return false;
         }
 

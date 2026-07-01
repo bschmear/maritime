@@ -43,6 +43,61 @@ class NavigationMenuSyncService
         $this->sync($menu, $nodes);
     }
 
+    public function syncFromActiveDefault(NavigationMenu $target): void
+    {
+        $workspaceDefault = NavigationMenu::query()
+            ->where('is_default', true)
+            ->whereNull('role_id')
+            ->first();
+
+        if ($workspaceDefault !== null && $workspaceDefault->id !== $target->id) {
+            $this->syncFromMenu($workspaceDefault, $target);
+
+            return;
+        }
+
+        $this->syncFromDefaultFile($target);
+    }
+
+    public function syncFromMenu(NavigationMenu $source, NavigationMenu $target): void
+    {
+        $nodes = $this->editorNodesFromMenu($source);
+        $this->sync($target, $nodes);
+    }
+
+    /**
+     * @return list<array{label: string, route_name: string|null, children: list<array<string, mixed>>}>
+     */
+    private function editorNodesFromMenu(NavigationMenu $menu): array
+    {
+        $items = NavigationMenuItem::query()
+            ->where('navigation_menu_id', $menu->id)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return $this->buildEditorBranch($items, null);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, NavigationMenuItem>  $items
+     * @return list<array{label: string, route_name: string|null, children: list<array<string, mixed>>}>
+     */
+    private function buildEditorBranch($items, ?int $parentId): array
+    {
+        $branch = [];
+
+        foreach ($items->where('parent_id', $parentId) as $item) {
+            $branch[] = [
+                'label' => $item->label,
+                'route_name' => $item->route_name,
+                'children' => $this->buildEditorBranch($items, $item->id),
+            ];
+        }
+
+        return $branch;
+    }
+
     /**
      * @param  array<string, mixed>  $node
      * @return array{label: string, route_name: string|null, children: list<array<string, mixed>>}

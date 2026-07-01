@@ -28,6 +28,7 @@ use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
 
 class LeadController extends BaseController
 {
@@ -138,7 +139,7 @@ class LeadController extends BaseController
             ->all();
     }
 
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = [], array $overview = []): array
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = [], bool $deferEnumOptions = false, array $overview = []): array
     {
         return [
             'records' => $records,
@@ -148,7 +149,9 @@ class LeadController extends BaseController
             'schema' => $schema,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
-            'enumOptions' => $enumOptions,
+            'enumOptions' => $deferEnumOptions
+                ? Inertia::defer(fn () => $this->getEnumOptions(), $this->recordType.'-table')
+                : $enumOptions,
             'appliedFilters' => $appliedFilters,
             'stats' => $overview['stats'] ?? [],
             'charts' => $overview['charts'] ?? [],

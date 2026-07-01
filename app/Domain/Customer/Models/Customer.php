@@ -364,6 +364,73 @@ class Customer extends Model
             ->orderByDesc('created_at');
     }
 
+    protected function hasJoinedAttribute(string $key): bool
+    {
+        return array_key_exists($key, $this->attributes);
+    }
+
+    protected function attributeFromJoinedOrContact(string $key): mixed
+    {
+        if ($this->hasJoinedAttribute($key)) {
+            return $this->attributes[$key];
+        }
+
+        return $this->contact?->{$key};
+    }
+
+    protected function attributeFromJoinedOrPrimaryAddress(string $key): mixed
+    {
+        if ($this->hasJoinedAttribute($key)) {
+            return $this->attributes[$key];
+        }
+
+        return $this->primaryAddressRow()?->{$key};
+    }
+
+    /**
+     * Contact-backed accessors exposed on the index table (skip the rest on list pages).
+     *
+     * @return list<string>
+     */
+    public static function indexAppends(): array
+    {
+        return [
+            'display_name',
+            'email',
+            'phone',
+            'mobile',
+            'company',
+            'city',
+            'state',
+        ];
+    }
+
+    /**
+     * Contact + primary address columns selected via join on the customers index.
+     *
+     * @return list<string>
+     */
+    public static function indexJoinedContactColumns(): array
+    {
+        return [
+            'display_name',
+            'first_name',
+            'last_name',
+            'email',
+            'phone',
+            'mobile',
+            'company',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function indexJoinedAddressColumns(): array
+    {
+        return ['city', 'state'];
+    }
+
     protected function primaryAddressRow(): ?ContactAddress
     {
         $contact = $this->relationLoaded('contact') ? $this->contact : $this->contact()->first();
@@ -380,37 +447,37 @@ class Customer extends Model
 
     public function getDisplayNameAttribute(): ?string
     {
-        return $this->contact?->display_name;
+        return $this->attributeFromJoinedOrContact('display_name');
     }
 
     public function getFirstNameAttribute(): ?string
     {
-        return $this->contact?->first_name;
+        return $this->attributeFromJoinedOrContact('first_name');
     }
 
     public function getLastNameAttribute(): ?string
     {
-        return $this->contact?->last_name;
+        return $this->attributeFromJoinedOrContact('last_name');
     }
 
     public function getEmailAttribute(): ?string
     {
-        return $this->contact?->email;
+        return $this->attributeFromJoinedOrContact('email');
     }
 
     public function getPhoneAttribute(): ?string
     {
-        return $this->contact?->phone;
+        return $this->attributeFromJoinedOrContact('phone');
     }
 
     public function getMobileAttribute(): ?string
     {
-        return $this->contact?->mobile;
+        return $this->attributeFromJoinedOrContact('mobile');
     }
 
     public function getCompanyAttribute(): ?string
     {
-        return $this->contact?->company;
+        return $this->attributeFromJoinedOrContact('company');
     }
 
     public function getPositionAttribute(): ?string
@@ -475,12 +542,12 @@ class Customer extends Model
 
     public function getCityAttribute(): ?string
     {
-        return $this->primaryAddressRow()?->city;
+        return $this->attributeFromJoinedOrPrimaryAddress('city');
     }
 
     public function getStateAttribute(): ?string
     {
-        return $this->primaryAddressRow()?->state;
+        return $this->attributeFromJoinedOrPrimaryAddress('state');
     }
 
     public function getPostalCodeAttribute(): ?string

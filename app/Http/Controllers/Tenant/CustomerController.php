@@ -14,7 +14,7 @@ use App\Support\Survey\SurveyResponsesForRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
+use Inertia\Inertia;
 
 class CustomerController extends RecordController
 {
@@ -101,57 +101,30 @@ class CustomerController extends RecordController
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $schema = $this->getTableSchema();
         $formSchema = $this->getFormSchema();
-        $enumOptions = $this->getEnumOptions();
-
-        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['type']) && $fieldDef['type'] === 'record' && isset($fieldDef['typeDomain'])) {
-                $relationshipName = $fieldDef['relationship'] ?? str_replace('_id', '', $fieldKey);
-                $selectFields = ['id'];
-
-                if ($fieldDef['typeDomain'] === 'AssetUnit') {
-                    $selectFields = ['id', 'serial_number', 'hin', 'sku', 'asset_id'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                            ->with(['asset' => function ($q) {
-                                $q->select(['id', 'display_name']);
-                            }]);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Qualification') {
-                    $selectFields = ['id', 'sequence'];
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'sequence']);
-                    };
-                } elseif ($fieldDef['typeDomain'] === 'Customer') {
-                    $relationships[$relationshipName] = function ($query) {
-                        $query->select(['id', 'contact_id'])
-                            ->with(['contact' => function ($q) {
-                                $q->select(['id', 'display_name', 'first_name', 'last_name']);
-                            }]);
-                    };
-                } else {
-                    $selectFields[] = 'display_name';
-                }
-
-                if (isset($fieldDef['displayField']) && $fieldDef['displayField'] !== 'display_name') {
-                    $selectFields[] = $fieldDef['displayField'];
-                }
-
-                $selectFields = array_unique($selectFields);
-
-                if (! isset($relationships[$relationshipName])) {
-                    $relationships[$relationshipName] = function ($query) use ($selectFields) {
-                        $query->select($selectFields);
-                    };
-                }
-            }
-        }
 
         $table = $this->recordModel->getTable();
-        $query = RecordModel::query()->with($relationships)
+        $connection = $this->recordModel->getConnectionName() ?? $this->recordModel->getConnection()->getName();
+
+        $query = RecordModel::query()
+            ->without(['contact.primaryAddress'])
+            ->with([
+                'subsidiary' => fn ($q) => $q->select(['id', 'display_name']),
+                'assigned_user',
+            ])
             ->join('contacts', 'contacts.id', '=', $table.'.contact_id')
-            ->select($table.'.*');
+            ->leftJoin('contact_addresses', function ($join) {
+                $join->on('contact_addresses.contact_id', '=', 'contacts.id')
+                    ->where('contact_addresses.is_primary', '=', true);
+            })
+            ->select(array_merge(
+                ["{$table}.*"],
+                collect(RecordModel::indexJoinedContactColumns())
+                    ->map(fn (string $column) => "contacts.{$column}")
+                    ->all(),
+                collect(RecordModel::indexJoinedAddressColumns())
+                    ->map(fn (string $column) => "contact_addresses.{$column}")
+                    ->all(),
+            ));
 
         $searchQuery = $request->get('search');
         if ($searchQuery && ! empty(trim($searchQuery))) {
@@ -176,13 +149,20 @@ class CustomerController extends RecordController
             $query = $this->applyFilters($query, $appliedFilters, $fieldsSchema);
         }
 
-        $dbColumns = Schema::connection($this->recordModel->getConnectionName())->getColumnListing($table);
+        $dbColumns = static::getTableColumnListingFor($connection, $table);
         if (! $this->applyJoinedContactIndexSort($query, $request, $schema, $table, $dbColumns, $fieldsSchema)) {
             $query->orderByRaw('LOWER(contacts.display_name) ASC');
         }
 
         $perPage = table_per_page($request);
         $records = $query->paginate($perPage);
+        $records->setCollection(
+            $records->getCollection()->map(function (RecordModel $customer) {
+                $customer->setAppends(RecordModel::indexAppends());
+
+                return $customer;
+            })
+        );
 
         if ($request->ajax() && ! $request->header('X-Inertia')) {
             return response()->json([
@@ -200,7 +180,16 @@ class CustomerController extends RecordController
 
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
-            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters)
+            $this->indexInertiaProps(
+                $request,
+                $records,
+                $schema,
+                $fieldsSchema,
+                $formSchema,
+                [],
+                $appliedFilters,
+                deferEnumOptions: true,
+            )
         );
     }
 

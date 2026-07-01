@@ -17,11 +17,17 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    hasWorkspaceDefault: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const createForm = useForm({
     role_id: props.availableRoles[0]?.id ?? null,
 });
+
+const workspaceDefaultForm = useForm({});
 
 const breadcrumbItems = computed(() => [
     { label: 'Home', href: route('dashboard') },
@@ -37,12 +43,32 @@ const createRoleMenu = () => {
     createForm.post(route('navigation-menus.store'));
 };
 
+const createWorkspaceDefault = () => {
+    workspaceDefaultForm.post(route('navigation-menus.store-workspace-default'));
+};
+
 const deleteMenu = (menu) => {
-    if (!confirm(`Delete the menu for ${menu.role?.display_name ?? menu.name}?`)) {
+    const message = menu.is_workspace_default
+        ? 'Remove your workspace default menu? All roles without a custom menu will fall back to the application default.'
+        : `Delete the menu for ${menu.role?.display_name ?? menu.name}?`;
+
+    if (!confirm(message)) {
         return;
     }
 
     router.delete(route('navigation-menus.destroy', menu.id));
+};
+
+const menuDescription = (menu) => {
+    if (menu.is_file_default) {
+        return 'Shipped with Helmful; used when no workspace or role menu exists';
+    }
+
+    if (menu.is_workspace_default) {
+        return 'Applies to all roles until a role-specific menu overrides it';
+    }
+
+    return `Overrides the workspace default for the ${menu.role.display_name} role`;
 };
 </script>
 
@@ -79,14 +105,14 @@ const deleteMenu = (menu) => {
                 <div class="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-gray-700">
                     <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Navigation menus</h1>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Customize the top navigation for your workspace. The application default menu applies to all roles unless you create a role-specific menu.
+                        Role menus override your workspace default, which overrides the application default shipped with Helmful.
                     </p>
                 </div>
 
                 <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                     <li
                         v-for="menu in menus"
-                        :key="menu.is_file_default ? 'default' : menu.id"
+                        :key="menu.is_file_default ? 'file-default' : menu.id"
                         class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6"
                     >
                         <div>
@@ -99,20 +125,23 @@ const deleteMenu = (menu) => {
                                     Application default
                                 </span>
                                 <span
-                                    v-else-if="menu.is_default"
+                                    v-else-if="menu.is_workspace_default"
+                                    class="ml-2 inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200"
+                                >
+                                    Workspace default
+                                </span>
+                                <span
+                                    v-else
                                     class="ml-2 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
                                 >
-                                    Workspace override
+                                    Role menu
                                 </span>
                             </p>
                             <p v-if="menu.role" class="text-sm text-gray-500 dark:text-gray-400">
                                 Role: {{ menu.role.display_name }}
                             </p>
-                            <p v-else-if="menu.is_file_default" class="text-sm text-gray-500 dark:text-gray-400">
-                                Shipped with Helmful; used when no workspace or role menu exists
-                            </p>
                             <p v-else class="text-sm text-gray-500 dark:text-gray-400">
-                                Used when no role-specific menu exists
+                                {{ menuDescription(menu) }}
                             </p>
                         </div>
 
@@ -124,16 +153,38 @@ const deleteMenu = (menu) => {
                                 {{ menu.is_file_default ? 'View' : 'Edit' }}
                             </Link>
                             <button
-                                v-if="!menu.is_default && !menu.is_file_default"
+                                v-if="menu.is_workspace_default || menu.role"
                                 type="button"
                                 class="inline-flex items-center rounded-lg border border-transparent bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
                                 @click="deleteMenu(menu)"
                             >
-                                Delete
+                                {{ menu.is_workspace_default ? 'Remove' : 'Delete' }}
                             </button>
                         </div>
                     </li>
                 </ul>
+            </div>
+
+            <div
+                v-if="!hasWorkspaceDefault"
+                class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800"
+            >
+                <div class="px-4 py-5 sm:px-6">
+                    <h2 class="text-lg font-medium text-gray-900 dark:text-white">Create workspace default</h2>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Customize navigation for your entire workspace. This replaces the application default for every role until you add role-specific menus.
+                    </p>
+
+                    <button
+                        type="button"
+                        class="mt-4 inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                        :disabled="workspaceDefaultForm.processing"
+                        @click="createWorkspaceDefault"
+                    >
+                        Create from application default
+                    </button>
+                    <p v-if="workspaceDefaultForm.errors.menu" class="mt-2 text-sm text-red-600">{{ workspaceDefaultForm.errors.menu }}</p>
+                </div>
             </div>
 
             <div
@@ -143,7 +194,7 @@ const deleteMenu = (menu) => {
                 <div class="px-4 py-5 sm:px-6">
                     <h2 class="text-lg font-medium text-gray-900 dark:text-white">Create role menu</h2>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Start from a copy of the default menu, then customize links and groupings for that role.
+                        Start from a copy of the active default menu, then customize links and groupings for that role.
                     </p>
 
                     <div class="mt-4 flex flex-wrap items-end gap-3">

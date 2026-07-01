@@ -26,6 +26,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
+use Inertia\Inertia;
 
 class ServiceTicketController extends BaseController
 {
@@ -54,19 +55,7 @@ class ServiceTicketController extends BaseController
     public function index(Request $request)
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
-        $enumOptions = $this->getEnumOptions();
         $schema = $this->getTableSchema();
-        $relationships = $this->getRelationshipsToLoad($fieldsSchema);
-
-        $relationships['assetUnit'] = function ($query) {
-            $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
-                ->with(['asset' => function ($q) {
-                    $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
-                        ->with(['make' => function ($mq) {
-                            $mq->select(['id', 'display_name']);
-                        }]);
-                }]);
-        };
 
         $completedId = ServiceTicketStatus::Completed->id();
         // Same as "completed = false": all workflow statuses except Completed. Use any_of so
@@ -109,7 +98,7 @@ class ServiceTicketController extends BaseController
         $this->domainName = 'ServiceTicket';
         $this->recordModel = new ServiceTicket;
 
-        $query = ServiceTicket::query()->with($relationships);
+        $query = ServiceTicket::query()->with($this->indexEagerLoads());
 
         $searchQuery = $request->get('search');
         if ($searchQuery && ! empty(trim((string) $searchQuery))) {
@@ -130,8 +119,9 @@ class ServiceTicketController extends BaseController
             $query = $this->applyFilters($query, $activeFilters, $fieldsSchema);
         }
 
-        $table = (new ServiceTicket)->getTable();
-        $dbColumns = \Schema::connection((new ServiceTicket)->getConnectionName())->getColumnListing($table);
+        $table = $this->recordModel->getTable();
+        $connection = $this->recordModel->getConnectionName() ?? $this->recordModel->getConnection()->getName();
+        $dbColumns = static::getTableColumnListingFor($connection, $table);
 
         if (! $this->applyRecordIndexSort($query, $request, $schema, $dbColumns, $table, $dbColumns, $fieldsSchema)) {
             $query->orderBy($table.'.created_at', 'desc');
@@ -144,26 +134,13 @@ class ServiceTicketController extends BaseController
             return $json;
         }
 
-        $stats = [
-            'open' => ServiceTicket::whereIn('status', [
-                ServiceTicketStatus::Draft->id(),
-                ServiceTicketStatus::Open->id(),
-                ServiceTicketStatus::InProgress->id(),
-            ])->count(),
-            'approved' => ServiceTicket::where('approved', true)
-                ->whereNotIn('status', [ServiceTicketStatus::Closed->id(), ServiceTicketStatus::Cancelled->id()])
-                ->count(),
-            'in_progress' => ServiceTicket::where('status', ServiceTicketStatus::InProgress->id())->count(),
-            'needs_reauth' => ServiceTicket::where('requires_reauthorization', true)->where('approved', false)->count(),
-        ];
-
         return inertia('Tenant/ServiceTicket/Index', [
             'records' => $records,
             'schema' => $schema,
             'formSchema' => $this->getFormSchema(),
             'fieldsSchema' => $fieldsSchema,
-            'enumOptions' => $enumOptions,
-            'stats' => $stats,
+            'enumOptions' => Inertia::defer(fn () => $this->getEnumClassOptions(), 'serviceticket-table'),
+            'stats' => $this->indexStats(),
         ]);
     }
 
@@ -718,56 +695,178 @@ class ServiceTicketController extends BaseController
     }
 
     /**
-     * Helper: get enum options from fields schema.
+     * Eager loads for the index list (card/table views).
+     *
+     * @return array<string, mixed>
      */
-    protected function getEnumOptions(): array
+    protected function indexEagerLoads(): array
+    {
+        return [
+            'customer' => Customer::eagerWithContactSelect(),
+            'location' => fn ($query) => $query->select(['id', 'display_name']),
+            'subsidiary' => fn ($query) => $query->select(['id', 'display_name']),
+            'assetUnit' => function ($query) {
+                $query->select(['id', 'serial_number', 'hin', 'sku', 'asset_id', 'customer_id'])
+                    ->with(['asset' => function ($q) {
+                        $q->select(['id', 'display_name', 'model', 'year', 'make_id'])
+                            ->with(['make' => function ($mq) {
+                                $mq->select(['id', 'display_name']);
+                            }]);
+                    }]);
+            },
+        ];
+    }
+
+    /**
+     * @return array{open: int, approved: int, in_progress: int, needs_reauth: int}
+     */
+    protected function indexStats(): array
+    {
+        $draft = ServiceTicketStatus::Draft->id();
+        $open = ServiceTicketStatus::Open->id();
+        $inProgress = ServiceTicketStatus::InProgress->id();
+        $closed = ServiceTicketStatus::Closed->id();
+        $cancelled = ServiceTicketStatus::Cancelled->id();
+
+        $row = ServiceTicket::query()
+            ->selectRaw(
+                'sum(case when status in (?, ?, ?) then 1 else 0 end) as open_count,
+                 sum(case when approved = ? and status not in (?, ?) then 1 else 0 end) as approved_count,
+                 sum(case when status = ? then 1 else 0 end) as in_progress_count,
+                 sum(case when requires_reauthorization = ? and approved = ? then 1 else 0 end) as needs_reauth_count',
+                [$draft, $open, $inProgress, true, $closed, $cancelled, $inProgress, true, false],
+            )
+            ->first();
+
+        return [
+            'open' => (int) ($row->open_count ?? 0),
+            'approved' => (int) ($row->approved_count ?? 0),
+            'in_progress' => (int) ($row->in_progress_count ?? 0),
+            'needs_reauth' => (int) ($row->needs_reauth_count ?? 0),
+        ];
+    }
+
+    /**
+     * PHP enum options only (no record dropdown queries). Enough for index filters and status badges.
+     *
+     * @return array<string, mixed>
+     */
+    protected function getEnumClassOptions(): array
     {
         $fieldsSchema = $this->getUnwrappedFieldsSchema();
         $enumOptions = [];
 
-        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
-            if (isset($fieldDef['enum']) && ! empty($fieldDef['enum'])) {
-                $enumClass = $fieldDef['enum'];
-                if (class_exists($enumClass) && method_exists($enumClass, 'options')) {
-                    $enumOptions[$enumClass] = $enumClass::options();
-                }
+        foreach ($fieldsSchema as $fieldDef) {
+            if (! isset($fieldDef['enum']) || empty($fieldDef['enum'])) {
+                continue;
             }
 
-            if (($fieldDef['type'] ?? '') === 'record' && isset($fieldDef['typeDomain'])) {
-                $domainName = $fieldDef['typeDomain'];
-                $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
-                if (class_exists($modelClass)) {
-                    try {
-                        if ($domainName === 'Customer') {
-                            $records = Customer::queryOrderedByContactDisplayName()->get();
-                        } elseif ($domainName === 'AssetUnit') {
-                            $records = AssetUnit::query()
-                                ->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
-                                ->with(['asset' => fn ($q) => $q->select(['id', 'display_name'])])
-                                ->orderBy('id')
-                                ->get();
-                        } elseif ($domainName === 'Qualification') {
-                            $records = $modelClass::query()
-                                ->select(['id', 'sequence'])
-                                ->orderBy('sequence')
-                                ->get();
-                        } else {
-                            $records = $modelClass::select('id', 'display_name')->get();
-                        }
-                        $enumOptions[$fieldKey] = $records->map(fn ($r) => [
-                            'id' => $r->id,
-                            'name' => $r->display_name,
-                            'value' => $r->id,
-                        ])->toArray();
-                    } catch (\Exception $e) {
-                        \Log::warning("Failed to load record options for {$domainName}: ".$e->getMessage());
-                        $enumOptions[$fieldKey] = [];
-                    }
-                }
+            $enumClass = $fieldDef['enum'];
+            if (class_exists($enumClass) && method_exists($enumClass, 'options')) {
+                $enumOptions[$enumClass] = $enumClass::options();
             }
         }
 
         return $enumOptions;
+    }
+
+    /**
+     * Record-picker options for forms (create/edit/show).
+     *
+     * @return array<string, list<array{id: mixed, name: string, value: mixed}>>
+     */
+    protected function getRecordEnumOptions(): array
+    {
+        $fieldsSchema = $this->getUnwrappedFieldsSchema();
+        $enumOptions = [];
+        $recordOptionsByModel = [];
+
+        foreach ($fieldsSchema as $fieldKey => $fieldDef) {
+            if (($fieldDef['type'] ?? '') !== 'record' || ! isset($fieldDef['typeDomain'])) {
+                continue;
+            }
+
+            $domainName = $fieldDef['typeDomain'];
+            $modelClass = "App\\Domain\\{$domainName}\\Models\\{$domainName}";
+            if (! class_exists($modelClass)) {
+                continue;
+            }
+
+            try {
+                $enumOptions[$fieldKey] = $this->recordSelectOptionsForDomain(
+                    $domainName,
+                    $modelClass,
+                    $recordOptionsByModel,
+                );
+            } catch (\Exception $e) {
+                \Log::warning("Failed to load record options for {$domainName}: ".$e->getMessage());
+                $enumOptions[$fieldKey] = [];
+            }
+        }
+
+        return $enumOptions;
+    }
+
+    /**
+     * @param  array<class-string, list<array{id: mixed, name: string, value: mixed}>>  $recordOptionsByModel
+     * @return list<array{id: mixed, name: string, value: mixed}>
+     */
+    protected function recordSelectOptionsForDomain(
+        string $domainName,
+        string $modelClass,
+        array &$recordOptionsByModel,
+    ): array {
+        if ($domainName === 'Customer') {
+            return Customer::queryOrderedByContactDisplayName()->get()
+                ->map(fn ($record) => [
+                    'id' => $record->id,
+                    'name' => $record->display_name,
+                    'value' => $record->id,
+                ])->all();
+        }
+
+        if ($domainName === 'AssetUnit') {
+            if (! array_key_exists($modelClass, $recordOptionsByModel)) {
+                $recordOptionsByModel[$modelClass] = AssetUnit::query()
+                    ->select(['id', 'serial_number', 'hin', 'sku', 'asset_id'])
+                    ->with(['asset' => fn ($q) => $q->select(['id', 'display_name'])])
+                    ->orderBy('id')
+                    ->get()
+                    ->map(fn ($record) => [
+                        'id' => $record->id,
+                        'name' => $record->display_name,
+                        'value' => $record->id,
+                    ])->all();
+            }
+
+            return $recordOptionsByModel[$modelClass];
+        }
+
+        if ($domainName === 'Qualification') {
+            return $modelClass::query()
+                ->select(['id', 'sequence'])
+                ->orderBy('sequence')
+                ->get()
+                ->map(fn ($record) => [
+                    'id' => $record->id,
+                    'name' => $record->display_name,
+                    'value' => $record->id,
+                ])->all();
+        }
+
+        if (! array_key_exists($modelClass, $recordOptionsByModel)) {
+            $recordOptionsByModel[$modelClass] = static::loadRecordSelectOptions($modelClass);
+        }
+
+        return $recordOptionsByModel[$modelClass];
+    }
+
+    /**
+     * Helper: get enum options from fields schema.
+     */
+    protected function getEnumOptions(): array
+    {
+        return array_merge($this->getEnumClassOptions(), $this->getRecordEnumOptions());
     }
 
     /**

@@ -48,6 +48,10 @@ const subtitle = computed(() => {
         return 'Read-only preview of the application default menu shipped with Helmful.';
     }
 
+    if (props.menu.is_workspace_default) {
+        return 'Workspace default menu used for all roles without a role-specific menu.';
+    }
+
     if (props.menu.is_default) {
         return 'Workspace default menu used for all roles without a custom menu.';
     }
@@ -87,7 +91,14 @@ const onItemsChange = (items) => {
                 v-if="readOnly"
                 class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-100"
             >
-                This menu is managed in the application configuration file (<code class="font-mono text-xs">tenant_navigation.json</code>) and cannot be edited here. Role menus are copied from this default when you create them.
+                This menu is managed in the application configuration file (<code class="font-mono text-xs">tenant_navigation.json</code>) and cannot be edited here. Create a workspace default to customize navigation for your account.
+            </div>
+
+            <div
+                v-else-if="menu.is_workspace_default"
+                class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-100"
+            >
+                This menu applies to every role in your workspace. Role-specific menus override it. Remove it from the navigation menus page to fall back to the application default.
             </div>
 
             <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">

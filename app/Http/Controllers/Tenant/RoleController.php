@@ -48,9 +48,9 @@ class RoleController extends RecordController
         return $staff->role && $staff->role->slug === 'admin';
     }
 
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
+    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = [], bool $deferEnumOptions = false): array
     {
-        $props = parent::indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters);
+        $props = parent::indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters, $deferEnumOptions);
 
         if (! $this->tenantStaffIsAdministrator()) {
             $props['schema'] = array_merge($props['schema'] ?? [], ['hide_create_button' => true]);

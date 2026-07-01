@@ -35,34 +35,48 @@ class NavigationMenuController extends Controller
                 'canManage' => false,
                 'menus' => [],
                 'availableRoles' => [],
+                'hasWorkspaceDefault' => false,
             ]);
         }
+
+        $workspaceDefault = $this->workspaceDefaultMenu();
 
         $menus = collect([
             [
                 'id' => null,
-                'name' => 'Default',
-                'is_default' => true,
+                'name' => 'Application default',
+                'is_default' => false,
                 'is_file_default' => true,
+                'is_workspace_default' => false,
                 'role' => null,
                 'edit_url' => route('navigation-menus.default'),
             ],
-        ])->merge(
+        ]);
+
+        if ($workspaceDefault !== null) {
+            $menus->push([
+                'id' => $workspaceDefault->id,
+                'name' => $workspaceDefault->name,
+                'is_default' => true,
+                'is_file_default' => false,
+                'is_workspace_default' => true,
+                'role' => null,
+                'edit_url' => route('navigation-menus.edit', $workspaceDefault),
+            ]);
+        }
+
+        $menus = $menus->merge(
             NavigationMenu::query()
                 ->with('role:id,display_name,slug')
-                ->where(function ($query) {
-                    $query->whereNotNull('role_id')
-                        ->orWhere('is_default', true);
-                })
-                ->orderByDesc('is_default')
+                ->whereNotNull('role_id')
                 ->orderBy('name')
                 ->get()
-                ->reject(fn (NavigationMenu $menu) => $menu->is_default && $menu->role_id === null)
                 ->map(fn (NavigationMenu $menu) => [
                     'id' => $menu->id,
                     'name' => $menu->name,
-                    'is_default' => $menu->is_default,
+                    'is_default' => false,
                     'is_file_default' => false,
+                    'is_workspace_default' => false,
                     'role' => $menu->role ? [
                         'id' => $menu->role->id,
                         'display_name' => $menu->role->display_name,
@@ -87,6 +101,7 @@ class NavigationMenuController extends Controller
             'canManage' => true,
             'menus' => $menus,
             'availableRoles' => $availableRoles,
+            'hasWorkspaceDefault' => $workspaceDefault !== null,
         ]);
     }
 
@@ -97,9 +112,10 @@ class NavigationMenuController extends Controller
         return Inertia::render('Tenant/NavigationMenu/Edit', [
             'menu' => [
                 'id' => null,
-                'name' => 'Default',
-                'is_default' => true,
+                'name' => 'Application default',
+                'is_default' => false,
                 'is_file_default' => true,
+                'is_workspace_default' => false,
                 'role' => null,
             ],
             'items' => TenantDefaultNavigation::editorNodes(),
@@ -107,6 +123,29 @@ class NavigationMenuController extends Controller
             'rolePermissionKeys' => [],
             'readOnly' => true,
         ]);
+    }
+
+    public function storeWorkspaceDefault(): RedirectResponse
+    {
+        $this->authorizeManage();
+
+        if ($this->workspaceDefaultMenu() !== null) {
+            throw ValidationException::withMessages([
+                'menu' => ['A workspace default menu already exists.'],
+            ]);
+        }
+
+        $menu = NavigationMenu::query()->create([
+            'name' => 'Workspace default',
+            'role_id' => null,
+            'is_default' => true,
+        ]);
+
+        $this->syncService->syncFromDefaultFile($menu);
+
+        return redirect()
+            ->route('navigation-menus.edit', $menu)
+            ->with('success', 'Workspace default menu created from the application default.');
     }
 
     public function store(Request $request): RedirectResponse
@@ -125,11 +164,11 @@ class NavigationMenuController extends Controller
             'is_default' => false,
         ]);
 
-        $this->syncService->syncFromDefaultFile($menu);
+        $this->syncService->syncFromActiveDefault($menu);
 
         return redirect()
             ->route('navigation-menus.edit', $menu)
-            ->with('success', 'Role menu created from the default menu.');
+            ->with('success', 'Role menu created from the active default menu.');
     }
 
     public function edit(NavigationMenu $navigationMenu): Response
@@ -144,6 +183,7 @@ class NavigationMenuController extends Controller
                 'name' => $navigationMenu->name,
                 'is_default' => $navigationMenu->is_default,
                 'is_file_default' => false,
+                'is_workspace_default' => $navigationMenu->is_default && $navigationMenu->role_id === null,
                 'role' => $navigationMenu->role ? [
                     'id' => $navigationMenu->role->id,
                     'display_name' => $navigationMenu->role->display_name,
@@ -178,12 +218,6 @@ class NavigationMenuController extends Controller
     {
         $this->authorizeManage();
 
-        if ($navigationMenu->is_default && $navigationMenu->role_id === null) {
-            throw ValidationException::withMessages([
-                'menu' => ['The application default menu is managed in tenant_navigation.json and cannot be edited here.'],
-            ]);
-        }
-
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'items' => ['required', 'array'],
@@ -204,18 +238,18 @@ class NavigationMenuController extends Controller
     {
         $this->authorizeManage();
 
-        if ($navigationMenu->is_default && $navigationMenu->role_id === null) {
-            throw ValidationException::withMessages([
-                'menu' => ['The application default menu cannot be deleted.'],
-            ]);
-        }
+        $isWorkspaceDefault = $navigationMenu->is_default && $navigationMenu->role_id === null;
 
         $navigationMenu->delete();
         TenantNavigationCache::bumpVersion();
 
+        $message = $isWorkspaceDefault
+            ? 'Workspace default menu removed. Navigation will use the application default.'
+            : 'Role menu deleted.';
+
         return redirect()
             ->route('navigation-menus.index')
-            ->with('success', 'Role menu deleted.');
+            ->with('success', $message);
     }
 
     /**
@@ -235,6 +269,14 @@ class NavigationMenuController extends Controller
                 $this->validateRouteNames($item['children']);
             }
         }
+    }
+
+    private function workspaceDefaultMenu(): ?NavigationMenu
+    {
+        return NavigationMenu::query()
+            ->where('is_default', true)
+            ->whereNull('role_id')
+            ->first();
     }
 
     private function authorizeManage(): void

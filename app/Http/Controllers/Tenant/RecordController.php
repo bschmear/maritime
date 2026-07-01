@@ -23,6 +23,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Support\Str;
+use Inertia\Inertia;
 use Illuminate\Validation\ValidationException;
 
 class RecordController extends BaseController
@@ -370,8 +371,16 @@ class RecordController extends BaseController
      *
      * @param  LengthAwarePaginator  $records
      */
-    protected function indexInertiaProps(Request $request, $records, $schema, array $fieldsSchema, $formSchema, array $enumOptions, array $appliedFilters = []): array
-    {
+    protected function indexInertiaProps(
+        Request $request,
+        $records,
+        $schema,
+        array $fieldsSchema,
+        $formSchema,
+        array $enumOptions,
+        array $appliedFilters = [],
+        bool $deferEnumOptions = false,
+    ): array {
         return [
             'records' => $records,
             'recordType' => $this->recordType,
@@ -380,7 +389,9 @@ class RecordController extends BaseController
             'schema' => $schema,
             'formSchema' => $formSchema,
             'fieldsSchema' => $fieldsSchema,
-            'enumOptions' => $enumOptions,
+            'enumOptions' => $deferEnumOptions
+                ? Inertia::defer(fn () => $this->getEnumOptions(), $this->recordType.'-table')
+                : $enumOptions,
             'appliedFilters' => $appliedFilters,
         ];
     }
