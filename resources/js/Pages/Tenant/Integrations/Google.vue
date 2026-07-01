@@ -176,7 +176,6 @@ function disconnect() {
     router.delete(route('google.destroy'));
 }
 </script>
-
 <template>
     <Head :title="integration.name" />
 
@@ -187,206 +186,303 @@ function disconnect() {
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ integration.name }}</h2>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ integration.description }}</p>
+                        <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Google Sheets inventory and model sync</p>
                     </div>
                     <Link
                         :href="route('integrations')"
-                        class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
                     >
+                        <span class="material-icons text-[15px]">arrow_back</span>
                         All integrations
                     </Link>
                 </div>
             </div>
         </template>
 
-        <div class="mx-auto w-full max-w-3xl space-y-6 px-4 py-6">
-            <p
+        <div class="mx-auto w-full max-w-3xl space-y-5 px-4 py-6">
+
+            <!-- OAuth notice -->
+            <div
                 v-if="oauthNotice"
-                class="rounded-lg px-4 py-3 text-sm"
+                class="flex items-start gap-3 rounded-lg border px-4 py-3 text-md"
                 :class="oauthNotice.type === 'success'
-                    ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-                    : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'"
+                    ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-200'
+                    : 'border-red-200 bg-red-50 text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200'"
             >
+                <span
+                    class="material-icons mt-0.5 shrink-0 text-[16px]"
+                    :class="oauthNotice.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'"
+                >{{ oauthNotice.type === 'success' ? 'check_circle' : 'error' }}</span>
                 {{ oauthNotice.message }}
-            </p>
+            </div>
 
-            <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Connection</h3>
-                <p v-if="isConnected" class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    Connected{{ googleEmail ? ` as ${googleEmail}` : '' }}.
-                </p>
-                <p v-else class="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    Connect any Google account for this workspace. The Google account does not need to match your Helmful login email.
-                </p>
+            <!-- Action feedback -->
+            <div v-if="actionMessage" class="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-md text-green-800 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-200">
+                <span class="material-icons mt-0.5 shrink-0 text-[16px] text-green-600 dark:text-green-400">check_circle</span>
+                {{ actionMessage }}
+            </div>
+            <div v-if="actionError" class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-md text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
+                <span class="material-icons mt-0.5 shrink-0 text-[16px] text-red-600 dark:text-red-400">error</span>
+                {{ actionError }}
+            </div>
 
-                <div class="mt-4 flex flex-wrap gap-2">
+            <!-- ── What is Google Sheets ───────────────────────────── -->
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+
+                <!-- Header strip -->
+                <div class="flex items-center gap-4 border-b border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/60">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-700">
+                        <span class="material-icons text-[22px] text-green-600 dark:text-green-400">table_chart</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Google Sheets</h3>
+                            <span
+                                v-if="isConnected"
+                                class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-md font-semibold text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                            >
+                                <span class="h-1.5 w-1.5 rounded-full bg-green-500" />
+                                Connected{{ googleEmail ? ` as ${googleEmail}` : '' }}
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-md font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                                Not connected
+                            </span>
+                        </div>
+                        <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Spreadsheet sync via Google Workspace</p>
+                    </div>
                     <a
-                        v-if="!isConnected && canConnect"
-                        :href="route('google.connect')"
-                        class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                        href="https://sheets.google.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-md font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                     >
-                        Connect Google
+                        sheets.google.com
+                        <span class="material-icons text-[13px]">open_in_new</span>
                     </a>
-                    <p
-                        v-else-if="!isConnected && !canConnect"
-                        class="text-sm text-amber-700 dark:text-amber-300"
-                    >
-                        Google OAuth is not fully configured on the server (check GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REDIRECT_URI).
+                </div>
+
+                <!-- Body -->
+                <div class="px-6 py-5">
+                    <p class="text-md leading-relaxed text-gray-700 dark:text-gray-300">
+                        Connect a Google account to sync Helmful inventory and model data with Google Sheets. Helmful creates and manages two dedicated spreadsheets: one for unit-level inventory and one for your make and model catalog. You can push data out for editing in Sheets and import changes back into Helmful.
                     </p>
+
+                    <!-- Benefits -->
+                    <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3.5 dark:border-gray-700 dark:bg-gray-900/40">
+                            <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">inventory_2</span>
+                            <h4 class="mt-2 text-md font-semibold text-gray-900 dark:text-white">Inventory sheet</h4>
+                            <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Sync unit-level inventory including make, model, status, cost, price, HID, and serial number.</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3.5 dark:border-gray-700 dark:bg-gray-900/40">
+                            <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">directions_boat</span>
+                            <h4 class="mt-2 text-md font-semibold text-gray-900 dark:text-white">Models sheet</h4>
+                            <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Sync your make and model catalog with hull type, specs, and variants, one row per variant.</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3.5 dark:border-gray-700 dark:bg-gray-900/40">
+                            <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">upload_file</span>
+                            <h4 class="mt-2 text-md font-semibold text-gray-900 dark:text-white">Two-way sync</h4>
+                            <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Push from Helmful to Sheets for bulk editing, then import changes back when ready.</p>
+                        </div>
+                    </div>
+
+                    <!-- Server config warning -->
+                    <div
+                        v-if="!isConnected && !canConnect"
+                        class="mt-5 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-900 dark:bg-amber-900/20"
+                    >
+                        <span class="material-icons mt-0.5 shrink-0 text-[16px] text-amber-600 dark:text-amber-400">warning</span>
+                        <p class="text-md text-amber-800 dark:text-amber-300">
+                            Google OAuth is not fully configured on this server. Check that <code class="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">GOOGLE_CLIENT_ID</code>, <code class="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">GOOGLE_CLIENT_SECRET</code>, and <code class="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40">GOOGLE_REDIRECT_URI</code> are set.
+                        </p>
+                    </div>
+
+                    <!-- Connect CTA (not connected, server ready) -->
+                    <div v-if="!isConnected && canConnect" class="mt-5 border-t border-gray-100 pt-5 dark:border-gray-700">
+                        <p class="text-md text-gray-600 dark:text-gray-300">
+                            Connect any Google account for this workspace. The Google account does not need to match your Helmful login email.
+                        </p>
+                        <a
+                            :href="route('google.connect')"
+                            class="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-md font-semibold text-white hover:bg-primary-700"
+                        >
+                            <span class="material-icons text-[18px]">link</span>
+                            Connect Google
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Inventory sheet (connected) ────────────────────── -->
+            <section
+                v-if="isConnected"
+                class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Helmful Inventory</h3>
+                            <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Unit-level inventory: make, model, variant, status, condition, HID, serial number, unit year, cost, price, location, and subsidiary.</p>
+                        </div>
+                        <a
+                            v-if="sheetSettings.spreadsheet_url"
+                            :href="sheetSettings.spreadsheet_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-md font-medium text-primary-600 hover:bg-gray-50 dark:border-gray-600 dark:text-primary-400 dark:hover:bg-gray-700"
+                        >
+                            <span class="material-icons text-[15px]">open_in_new</span>
+                            Open sheet
+                        </a>
+                    </div>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-md text-gray-600 dark:text-gray-300">
+                        Import matches rows to units by <strong class="font-semibold text-gray-900 dark:text-white">HID</strong> first, then <strong class="font-semibold text-gray-900 dark:text-white">Serial ID</strong>.
+                    </p>
+
+                    <!-- Last sync metadata -->
+                    <dl v-if="sheetSettings.last_pushed_at || sheetSettings.last_pulled_at" class="mt-3 flex flex-wrap gap-x-6 gap-y-1">
+                        <div v-if="sheetSettings.last_pushed_at" class="flex items-center gap-2">
+                            <dt class="text-md text-gray-500 dark:text-gray-400">Last push</dt>
+                            <dd class="text-md text-gray-900 dark:text-white">{{ sheetSettings.last_pushed_at }}</dd>
+                        </div>
+                        <div v-if="sheetSettings.last_pulled_at" class="flex items-center gap-2">
+                            <dt class="text-md text-gray-500 dark:text-gray-400">Last import</dt>
+                            <dd class="text-md text-gray-900 dark:text-white">{{ sheetSettings.last_pulled_at }}</dd>
+                        </div>
+                    </dl>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-md font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                            :disabled="pushingInventory"
+                            @click="requestPushSheet('inventory')"
+                        >
+                            <span v-if="pushingInventory" class="material-icons animate-spin text-[16px]">sync</span>
+                            {{ pushingInventory ? 'Syncing...' : 'Sync inventory' }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            :disabled="pullingInventory"
+                            @click="pullInventorySheet"
+                        >
+                            <span v-if="pullingInventory" class="material-icons animate-spin text-[16px]">sync</span>
+                            {{ pullingInventory ? 'Importing...' : 'Import inventory' }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            :disabled="recreatingInventory"
+                            @click="recreateInventorySheet"
+                        >
+                            <span v-if="recreatingInventory" class="material-icons animate-spin text-[16px]">sync</span>
+                            {{ recreatingInventory ? 'Recreating...' : 'Recreate sheet' }}
+                        </button>
+                    </div>
+                    <p class="mt-3 text-md text-gray-500 dark:text-gray-400">
+                        You can also sync or import inventory from the Asset Units page gear menu.
+                    </p>
+                </div>
+            </section>
+
+            <!-- ── Models sheet (connected) ───────────────────────── -->
+            <section
+                v-if="isConnected"
+                class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">Helmful Models</h3>
+                            <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Make, model, and variant catalog with hull type, hull material, boat type, length, width, and all visible asset specs.</p>
+                        </div>
+                        <a
+                            v-if="sheetSettings.models_spreadsheet_url"
+                            :href="sheetSettings.models_spreadsheet_url"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-md font-medium text-primary-600 hover:bg-gray-50 dark:border-gray-600 dark:text-primary-400 dark:hover:bg-gray-700"
+                        >
+                            <span class="material-icons text-[15px]">open_in_new</span>
+                            Open sheet
+                        </a>
+                    </div>
+                </div>
+                <div class="px-6 py-4">
+                    <p class="text-md text-gray-600 dark:text-gray-300">
+                        One row per variant (or per model when no variants exist). Import matches rows by <strong class="font-semibold text-gray-900 dark:text-white">Make + Model + Variant</strong> and updates model-level attributes and specs in Helmful.
+                    </p>
+
+                    <dl v-if="sheetSettings.last_models_pushed_at || sheetSettings.last_models_pulled_at" class="mt-3 flex flex-wrap gap-x-6 gap-y-1">
+                        <div v-if="sheetSettings.last_models_pushed_at" class="flex items-center gap-2">
+                            <dt class="text-md text-gray-500 dark:text-gray-400">Last push</dt>
+                            <dd class="text-md text-gray-900 dark:text-white">{{ sheetSettings.last_models_pushed_at }}</dd>
+                        </div>
+                        <div v-if="sheetSettings.last_models_pulled_at" class="flex items-center gap-2">
+                            <dt class="text-md text-gray-500 dark:text-gray-400">Last import</dt>
+                            <dd class="text-md text-gray-900 dark:text-white">{{ sheetSettings.last_models_pulled_at }}</dd>
+                        </div>
+                    </dl>
+
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-md font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                            :disabled="pushingModels"
+                            @click="requestPushSheet('models')"
+                        >
+                            <span v-if="pushingModels" class="material-icons animate-spin text-[16px]">sync</span>
+                            {{ pushingModels ? 'Syncing...' : 'Sync models' }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            :disabled="pullingModels"
+                            @click="pullModelsSheet"
+                        >
+                            <span v-if="pullingModels" class="material-icons animate-spin text-[16px]">sync</span>
+                            {{ pullingModels ? 'Importing...' : 'Import models' }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-md font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                            :disabled="recreatingModels"
+                            @click="recreateModelsSheet"
+                        >
+                            <span v-if="recreatingModels" class="material-icons animate-spin text-[16px]">sync</span>
+                            {{ recreatingModels ? 'Recreating...' : 'Recreate sheet' }}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Disconnect ─────────────────────────────────────── -->
+            <section
+                v-if="isConnected"
+                class="rounded-xl border border-red-100 bg-white shadow-sm dark:border-red-900/40 dark:bg-gray-800"
+            >
+                <div class="border-b border-red-100 px-6 py-4 dark:border-red-900/40">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Disconnect</h3>
+                    <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Removing the Google connection stops all sheet syncing. Your inventory and model data in Helmful is not affected.</p>
+                </div>
+                <div class="px-6 py-4">
                     <button
-                        v-else
                         type="button"
-                        class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-md font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
                         @click="disconnect"
                     >
-                        Disconnect
+                        <span class="material-icons text-[15px]">link_off</span>
+                        Disconnect Google
                     </button>
                 </div>
             </section>
 
-            <template v-if="isConnected">
-                <p v-if="actionMessage" class="text-sm text-green-700 dark:text-green-300">{{ actionMessage }}</p>
-                <p v-if="actionError" class="text-sm text-red-700 dark:text-red-300">{{ actionError }}</p>
-
-                <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Helmful Inventory</h3>
-
-                    <div class="mt-3 space-y-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                        <p>
-                            Unit-level inventory management: make, model, variant, status, condition, HID, serial number,
-                            unit year, cost, asking price, location, and subsidiary.
-                        </p>
-                        <p>
-                            Import matches rows to units by
-                            <strong class="font-medium text-gray-900 dark:text-white">HID</strong>
-                            first, then
-                            <strong class="font-medium text-gray-900 dark:text-white">Serial ID</strong>.
-                        </p>
-                    </div>
-
-                    <dl class="mt-5 space-y-2 border-t border-gray-100 pt-5 text-sm dark:border-gray-700/80">
-                        <div v-if="sheetSettings.spreadsheet_url" class="flex flex-wrap gap-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Sheet</dt>
-                            <dd>
-                                <a
-                                    :href="sheetSettings.spreadsheet_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="font-medium text-primary-600 hover:underline dark:text-primary-400"
-                                >
-                                    Open Helmful Inventory
-                                </a>
-                            </dd>
-                        </div>
-                        <div v-if="sheetSettings.last_pushed_at" class="flex flex-wrap gap-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Last push</dt>
-                            <dd class="text-gray-900 dark:text-gray-100">{{ sheetSettings.last_pushed_at }}</dd>
-                        </div>
-                        <div v-if="sheetSettings.last_pulled_at" class="flex flex-wrap gap-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Last import</dt>
-                            <dd class="text-gray-900 dark:text-gray-100">{{ sheetSettings.last_pulled_at }}</dd>
-                        </div>
-                    </dl>
-
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                            :disabled="pushingInventory"
-                            @click="requestPushSheet('inventory')"
-                        >
-                            {{ pushingInventory ? 'Syncing…' : 'Sync inventory' }}
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200"
-                            :disabled="pullingInventory"
-                            @click="pullInventorySheet"
-                        >
-                            {{ pullingInventory ? 'Importing…' : 'Import inventory' }}
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200"
-                            :disabled="recreatingInventory"
-                            @click="recreateInventorySheet"
-                        >
-                            {{ recreatingInventory ? 'Recreating…' : 'Recreate inventory sheet' }}
-                        </button>
-                    </div>
-
-                    <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
-                        You can also sync or import inventory from the Asset Units page gear menu.
-                    </p>
-                </section>
-
-                <section class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Helmful Models</h3>
-
-                    <div class="mt-3 space-y-3 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                        <p>
-                            Make, model, and variant catalog with hull type, hull material, boat type, length, width,
-                            and all visible asset specs. One row per variant (or per model when no variants exist).
-                        </p>
-                        <p>
-                            Import matches rows by
-                            <strong class="font-medium text-gray-900 dark:text-white">Make + Model + Variant</strong>
-                            and updates model-level attributes and specs in Helmful.
-                        </p>
-                    </div>
-
-                    <dl class="mt-5 space-y-2 border-t border-gray-100 pt-5 text-sm dark:border-gray-700/80">
-                        <div v-if="sheetSettings.models_spreadsheet_url" class="flex flex-wrap gap-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Sheet</dt>
-                            <dd>
-                                <a
-                                    :href="sheetSettings.models_spreadsheet_url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="font-medium text-primary-600 hover:underline dark:text-primary-400"
-                                >
-                                    Open Helmful Models
-                                </a>
-                            </dd>
-                        </div>
-                        <div v-if="sheetSettings.last_models_pushed_at" class="flex flex-wrap gap-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Last push</dt>
-                            <dd class="text-gray-900 dark:text-gray-100">{{ sheetSettings.last_models_pushed_at }}</dd>
-                        </div>
-                        <div v-if="sheetSettings.last_models_pulled_at" class="flex flex-wrap gap-2">
-                            <dt class="text-gray-500 dark:text-gray-400">Last import</dt>
-                            <dd class="text-gray-900 dark:text-gray-100">{{ sheetSettings.last_models_pulled_at }}</dd>
-                        </div>
-                    </dl>
-
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-                            :disabled="pushingModels"
-                            @click="requestPushSheet('models')"
-                        >
-                            {{ pushingModels ? 'Syncing…' : 'Sync models' }}
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200"
-                            :disabled="pullingModels"
-                            @click="pullModelsSheet"
-                        >
-                            {{ pullingModels ? 'Importing…' : 'Import models' }}
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200"
-                            :disabled="recreatingModels"
-                            @click="recreateModelsSheet"
-                        >
-                            {{ recreatingModels ? 'Recreating…' : 'Recreate models sheet' }}
-                        </button>
-                    </div>
-                </section>
-            </template>
         </div>
 
         <GoogleSheetPushConfirmModal
