@@ -56,6 +56,9 @@ class NavigationMenuSyncService
             'label' => (string) ($node['label'] ?? 'Untitled'),
             'route_name' => $routeName,
             'permission_key' => $permissionKey,
+            'requires_integration' => $routeName !== null
+                ? TenantNavigationCatalog::requiresIntegrationForRoute($routeName)
+                : null,
             'sort_order' => $sortOrder++,
         ]);
 

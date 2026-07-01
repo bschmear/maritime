@@ -86,6 +86,11 @@ return [
                 ],
             ],
             [
+                'label' => 'Shipments',
+                'route' => 'shipments.index',
+                'requires_integration' => 'easypost',
+            ],
+            [
                 'label' => 'Fleet',
                 'children' => [
                     ['label' => 'All Units', 'route' => 'fleet.index'],

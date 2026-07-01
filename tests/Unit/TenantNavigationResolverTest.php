@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Integration\Models\Integration;
 use App\Domain\NavigationMenu\Models\NavigationMenu;
 use App\Domain\NavigationMenu\Models\NavigationMenuItem;
 use App\Domain\Role\Models\Role;
+use App\Enums\Integration\IntegrationType;
 use App\Services\TenantNavigation\TenantNavigationResolver;
 use App\Support\Tenant\TenantNavigationCache;
 use App\Tenancy\CurrentTenantProfile;
@@ -57,7 +59,19 @@ class TenantNavigationResolverTest extends TestCase
             $table->string('label');
             $table->string('route_name')->nullable();
             $table->string('permission_key')->nullable();
+            $table->string('requires_integration')->nullable();
             $table->unsignedInteger('sort_order')->default(0);
+            $table->timestamps();
+        });
+
+        Schema::connection('tenant')->create('integrations', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('integration_type');
+            $table->string('external_id')->nullable();
+            $table->string('name')->nullable();
+            $table->boolean('active')->default(true);
+            $table->text('access_token')->nullable();
             $table->timestamps();
         });
     }
@@ -132,5 +146,50 @@ class TenantNavigationResolverTest extends TestCase
         $second = $resolver->resolve(null);
 
         $this->assertSame($first, $second);
+    }
+
+    public function test_integration_gated_items_are_hidden_when_integration_inactive(): void
+    {
+        $menu = NavigationMenu::query()->create([
+            'name' => 'Default',
+            'is_default' => true,
+        ]);
+
+        NavigationMenuItem::query()->create([
+            'navigation_menu_id' => $menu->id,
+            'label' => 'Overview',
+            'route_name' => 'dashboard',
+            'sort_order' => 0,
+        ]);
+
+        NavigationMenuItem::query()->create([
+            'navigation_menu_id' => $menu->id,
+            'label' => 'Shipments',
+            'route_name' => 'shipments.index',
+            'requires_integration' => 'easypost',
+            'sort_order' => 1,
+        ]);
+
+        $profile = Mockery::mock(CurrentTenantProfile::class);
+        $profile->shouldReceive('hasPermission')->andReturnTrue();
+
+        $resolver = new TenantNavigationResolver($profile);
+
+        $hidden = $resolver->resolve(null);
+        $this->assertCount(1, $hidden);
+        $this->assertSame('Overview', $hidden[0]['name']);
+
+        Integration::query()->create([
+            'integration_type' => IntegrationType::EasyPost,
+            'active' => true,
+            'name' => 'EasyPost',
+            'access_token' => 'EZAKTEST',
+        ]);
+
+        TenantNavigationCache::bumpVersion();
+
+        $visible = $resolver->resolve(null);
+        $this->assertCount(2, $visible);
+        $this->assertSame('Shipments', $visible[1]['name']);
     }
 }

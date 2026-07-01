@@ -91,6 +91,50 @@ final class TenantNavigationTree
     }
 
     /**
+     * @param  list<array{name: string, href?: string, permission_key?: string|null, requires_integration?: string|null, children?: list<array<string, mixed>>}>  $tree
+     * @return list<array{name: string, href?: string, children?: list<array<string, mixed>>}>
+     */
+    public static function filterByIntegration(array $tree, callable $integrationIsActive): array
+    {
+        $filtered = [];
+
+        foreach ($tree as $node) {
+            $requiresIntegration = $node['requires_integration'] ?? null;
+            $children = $node['children'] ?? [];
+            $filteredChildren = $children !== []
+                ? self::filterByIntegration($children, $integrationIsActive)
+                : [];
+
+            $isLink = isset($node['href']);
+            $blocked = $requiresIntegration !== null && ! $integrationIsActive($requiresIntegration);
+
+            if ($blocked && $filteredChildren === []) {
+                continue;
+            }
+
+            if ($blocked && ! $isLink) {
+                if ($filteredChildren === []) {
+                    continue;
+                }
+
+                $node = [
+                    'name' => $node['name'],
+                    'children' => $filteredChildren,
+                ];
+            } elseif ($filteredChildren !== []) {
+                $node['children'] = $filteredChildren;
+            } elseif ($blocked) {
+                continue;
+            }
+
+            unset($node['requires_integration'], $node['permission_key']);
+            $filtered[] = $node;
+        }
+
+        return $filtered;
+    }
+
+    /**
      * Attach permission_key metadata before filtering (internal use).
      *
      * @param  Collection<int, NavigationMenuItem>  $items
@@ -116,6 +160,7 @@ final class TenantNavigationTree
             $node = [
                 'name' => $item->label,
                 'permission_key' => $item->permission_key,
+                'requires_integration' => $item->requires_integration,
             ];
 
             if ($item->route_name !== null && $item->route_name !== '') {

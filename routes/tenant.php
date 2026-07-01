@@ -4,6 +4,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\WordPressBoatShowController;
 use App\Http\Controllers\Api\WordPressCatalogController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\EasyPostWebhookController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountConsignmentController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\Tenant\Integrations\GoogleController;
 use App\Http\Controllers\Tenant\Integrations\MailchimpController;
 use App\Http\Controllers\Tenant\Integrations\QuickbooksController;
 use App\Http\Controllers\Tenant\Integrations\WordPressController;
+use App\Http\Controllers\Tenant\Integrations\EasyPostController;
 use App\Http\Controllers\Tenant\InventoryImageController;
 use App\Http\Controllers\Tenant\InventoryItemController;
 use App\Http\Controllers\Tenant\InventoryUnitController;
@@ -79,6 +81,7 @@ use App\Http\Controllers\Tenant\RoleController;
 use App\Http\Controllers\Tenant\SalesController;
 use App\Http\Controllers\Tenant\SchedulingController;
 use App\Http\Controllers\Tenant\ScoreController;
+use App\Http\Controllers\Tenant\ShipmentController;
 use App\Http\Controllers\Tenant\ServiceItemController;
 use App\Http\Controllers\Tenant\ServiceTicketController;
 use App\Http\Controllers\Tenant\ServiceYardController;
@@ -138,6 +141,7 @@ Route::middleware([
     });
 
     Route::post('/stripe/webhook', [StripeController::class, 'webhook']);
+    Route::post('/webhooks/easypost', EasyPostWebhookController::class)->name('webhooks.easypost');
 
     // Public routes — UUID-secured, no auth required
     Route::get('/service-tickets/{uuid}/review', [PublicController::class, 'review'])->name('service-tickets.review');
@@ -187,6 +191,8 @@ Route::middleware([
     Route::post('/deliveries/{uuid}/sign', [PublicController::class, 'signDelivery'])
         ->middleware('throttle:10,1')
         ->name('deliveries.sign');
+
+    Route::get('/shipments/{uuid}/track', [PublicController::class, 'trackShipment'])->name('shipments.track');
 
     Route::get('/contracts/{uuid}/review', [PublicController::class, 'reviewContract'])->name('contracts.review');
     Route::post('/contracts/{uuid}/sign', [PublicController::class, 'signContract'])
@@ -430,6 +436,17 @@ Route::middleware([
             Route::post('/{warrantyclaim}/submit', [WarrantyClaimController::class, 'submit'])
                 ->name('submit');
             Route::resource('/', WarrantyClaimController::class)->parameters(['' => 'warrantyclaim']);
+        });
+
+        Route::prefix('shipments')->name('shipments.')->group(function () {
+            Route::get('/', [ShipmentController::class, 'index'])->name('index');
+            Route::get('/create', [ShipmentController::class, 'create'])->name('create');
+            Route::post('/', [ShipmentController::class, 'store'])->name('store');
+            Route::get('/{shipment}', [ShipmentController::class, 'show'])->name('show');
+            Route::post('/{shipment}/rates', [ShipmentController::class, 'rates'])->name('rates');
+            Route::post('/{shipment}/buy', [ShipmentController::class, 'buy'])->name('buy');
+            Route::post('/{shipment}/notify', [ShipmentController::class, 'notify'])->name('notify');
+            Route::post('/{shipment}/refund', [ShipmentController::class, 'refund'])->name('refund');
         });
 
         Route::prefix('consignmentagreements')->name('consignmentagreements.')->group(function () {
@@ -973,6 +990,14 @@ Route::middleware([
                 Route::post('/regenerate-key', [WordPressController::class, 'regenerateKey'])->name('wordpress.regenerate-key');
                 Route::post('/test-connection', [WordPressController::class, 'testConnection'])->name('wordpress.test-connection');
                 Route::post('/push-all', [WordPressController::class, 'pushAll'])->name('wordpress.push-all');
+            });
+
+            Route::prefix('easypost')->group(function () {
+                Route::get('/', [EasyPostController::class, 'show'])->name('easypost');
+                Route::post('/', [EasyPostController::class, 'store'])->name('easypost.store');
+                Route::delete('/', [EasyPostController::class, 'destroy'])->name('easypost.destroy');
+                Route::patch('/enable', [EasyPostController::class, 'activate'])->name('easypost.enable');
+                Route::post('/test-connection', [EasyPostController::class, 'testConnection'])->name('easypost.test-connection');
             });
         });
 

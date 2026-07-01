@@ -43,6 +43,9 @@ class NavigationMenuSeeder extends Seeder
         $permissionKey = $route !== null
             ? TenantNavigationCatalog::permissionKeyForRoute($route)
             : null;
+        $requiresIntegration = isset($node['requires_integration'])
+            ? (string) $node['requires_integration']
+            : ($route !== null ? TenantNavigationCatalog::requiresIntegrationForRoute($route) : null);
 
         $item = NavigationMenuItem::query()->create([
             'navigation_menu_id' => $menuId,
@@ -50,6 +53,7 @@ class NavigationMenuSeeder extends Seeder
             'label' => (string) $node['label'],
             'route_name' => $route,
             'permission_key' => $permissionKey,
+            'requires_integration' => $requiresIntegration,
             'sort_order' => $sortOrder++,
         ]);
 

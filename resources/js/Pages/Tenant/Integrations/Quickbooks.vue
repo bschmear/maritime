@@ -328,404 +328,401 @@ const billImportButtonClass = 'inline-flex items-center gap-1.5 rounded-lg borde
         <template #header>
             <div class="col-span-full">
                 <Breadcrumb :items="breadcrumbItems" />
-                <h2 class="mt-2 text-xl font-semibold text-gray-900 dark:text-white">
-                    {{ integration.name }}
-                </h2>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    {{ integration.description }}
-                </p>
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white">{{ integration.name }}</h2>
+                        <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Accounting integration</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <Link
+                            :href="route('integrations')"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200"
+                        >
+                            <span class="material-icons text-[15px]">arrow_back</span>
+                            All integrations
+                        </Link>
+                    </div>
+                </div>
             </div>
         </template>
 
-        <div class="mx-auto max-w-2xl space-y-4 px-4 py-6">
+        <div class="mx-auto w-full max-w-3xl space-y-5 px-4 py-6">
+
+            <!-- Flash / OAuth notices -->
             <div
-                v-if="oauthNotice?.type === 'success'"
-                class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-900/20 dark:text-green-200"
+                v-if="oauthNotice?.type === 'success' || flashSuccess"
+                class="flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-md text-green-800 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-200"
             >
-                {{ oauthNotice.message }}
+                <span class="material-icons mt-0.5 shrink-0 text-[16px] text-green-600 dark:text-green-400">check_circle</span>
+                {{ oauthNotice?.type === 'success' ? oauthNotice.message : flashSuccess }}
             </div>
             <div
-                v-if="oauthNotice?.type === 'error'"
-                class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-900/20 dark:text-red-200"
+                v-if="oauthNotice?.type === 'error' || flashError"
+                class="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-md text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200"
             >
-                {{ oauthNotice.message }}
-            </div>
-            <div
-                v-if="flashSuccess"
-                class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-900/20 dark:text-green-200"
-            >
-                {{ flashSuccess }}
-            </div>
-            <div
-                v-if="flashError"
-                class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-900/20 dark:text-red-200"
-            >
-                {{ flashError }}
+                <span class="material-icons mt-0.5 shrink-0 text-[16px] text-red-600 dark:text-red-400">error</span>
+                {{ oauthNotice?.type === 'error' ? oauthNotice.message : flashError }}
             </div>
 
+            <!-- Import in progress -->
             <div
                 v-if="hasQuickbooksToken && anyImporting"
-                class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-100"
+                class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-md text-blue-900 dark:border-blue-900 dark:bg-blue-900/20 dark:text-blue-100"
                 role="status"
                 aria-live="polite"
             >
                 <div class="flex items-center gap-3">
-                    <span class="material-icons animate-spin text-lg leading-none text-blue-600 dark:text-blue-300" aria-hidden="true">sync</span>
+                    <span class="material-icons animate-spin text-[18px] text-blue-600 dark:text-blue-300" aria-hidden="true">sync</span>
                     <span>{{ importStatusMessage }}</span>
                 </div>
                 <button
                     type="button"
-                    class="inline-flex items-center rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-900 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100 dark:hover:bg-blue-900/40"
+                    class="inline-flex items-center rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-md font-medium text-blue-900 hover:bg-blue-100 disabled:opacity-60 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100 dark:hover:bg-blue-900/40"
                     :disabled="clearingImportStatus"
                     @click="clearStuckImport"
                 >
-                    {{ clearingImportStatus ? 'Clearing…' : 'Clear stuck import' }}
+                    {{ clearingImportStatus ? 'Clearing...' : 'Clear stuck import' }}
                 </button>
             </div>
 
+            <!-- Import error -->
             <div
                 v-if="hasQuickbooksToken && importErrorMessage && !anyImporting"
-                class="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-900/20 dark:text-red-100"
+                class="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-md text-red-900 dark:border-red-900 dark:bg-red-900/20 dark:text-red-100"
                 role="alert"
             >
                 <div>
-                    <p class="font-medium">Import failed</p>
+                    <p class="font-semibold">Import failed</p>
                     <p class="mt-1">{{ importErrorMessage }}</p>
                 </div>
                 <button
                     type="button"
-                    class="inline-flex shrink-0 items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-900 hover:bg-red-100 disabled:opacity-60 dark:border-red-800 dark:bg-red-950 dark:text-red-100 dark:hover:bg-red-900/40"
+                    class="inline-flex shrink-0 items-center rounded-lg border border-red-300 bg-white px-3 py-1.5 text-md font-medium text-red-900 hover:bg-red-100 disabled:opacity-60 dark:border-red-800 dark:bg-red-950 dark:text-red-100 dark:hover:bg-red-900/40"
                     :disabled="clearingImportStatus"
                     @click="clearStuckImport"
                 >
-                    {{ clearingImportStatus ? 'Clearing…' : 'Dismiss' }}
+                    {{ clearingImportStatus ? 'Clearing...' : 'Dismiss' }}
                 </button>
             </div>
 
-            <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-                <template v-if="hasQuickbooksToken">
-                    <div class="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <p class="text-sm text-gray-600 dark:text-gray-300">
-                                QuickBooks Online is linked to this workspace.
-                                <span v-if="isQuickbooksEnabled">Sync and imports are active.</span>
-                                <span v-else>The integration is disabled — Helmful will not sync with QuickBooks until you turn it back on.</span>
-                            </p>
+            <!-- ── What is QuickBooks ───────────────────────────────── -->
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+
+                <!-- Header strip -->
+                <div class="flex items-center gap-4 border-b border-gray-100 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/60">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-700">
+                        <span class="material-icons text-[22px] text-green-600 dark:text-green-400">account_balance</span>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h3 class="text-base font-semibold text-gray-900 dark:text-white">QuickBooks Online</h3>
+                            <span
+                                v-if="hasQuickbooksToken && isQuickbooksEnabled"
+                                class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-md font-semibold text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                            >
+                                <span class="h-1.5 w-1.5 rounded-full bg-green-500" />
+                                Connected &amp; enabled
+                            </span>
+                            <span
+                                v-else-if="hasQuickbooksToken"
+                                class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-md font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                            >
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                Connected — disabled
+                            </span>
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-md font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                            >
+                                Not connected
+                            </span>
                         </div>
-                        <span
-                            class="inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                            :class="isQuickbooksEnabled
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'"
-                        >
-                            {{ isQuickbooksEnabled ? 'Enabled' : 'Disabled' }}
-                        </span>
+                        <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Cloud accounting by Intuit</p>
+                    </div>
+                    <a
+                        href="https://quickbooks.intuit.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-md font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    >
+                        quickbooks.intuit.com
+                        <span class="material-icons text-[13px]">open_in_new</span>
+                    </a>
+                </div>
+
+                <!-- Body -->
+                <div class="px-6 py-5">
+                    <p class="text-md leading-relaxed text-gray-700 dark:text-gray-300">
+                        QuickBooks Online is the most widely used cloud accounting platform for small and mid-size businesses. Connecting it to Helmful keeps your books in sync automatically: contacts, invoices, bills, and payments flow between both systems so you never have to enter the same data twice.
+                    </p>
+
+                    <!-- Benefits grid -->
+                    <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3.5 dark:border-gray-700 dark:bg-gray-900/40">
+                            <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">people</span>
+                            <h4 class="mt-2 text-md font-semibold text-gray-900 dark:text-white">Contacts and customers</h4>
+                            <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Import QuickBooks customers as Helmful contacts, or push new contacts across automatically.</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3.5 dark:border-gray-700 dark:bg-gray-900/40">
+                            <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">receipt_long</span>
+                            <h4 class="mt-2 text-md font-semibold text-gray-900 dark:text-white">Invoices and payments</h4>
+                            <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Invoices created in Helmful push to QuickBooks, and payments recorded there sync back.</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3.5 dark:border-gray-700 dark:bg-gray-900/40">
+                            <span class="material-icons text-[20px] text-primary-600 dark:text-primary-400">request_quote</span>
+                            <h4 class="mt-2 text-md font-semibold text-gray-900 dark:text-white">Bills and vendors</h4>
+                            <p class="mt-1 text-md leading-relaxed text-gray-500 dark:text-gray-400">Bills and bill payments created in Helmful post to QuickBooks and link back on success.</p>
+                        </div>
                     </div>
 
+                    <!-- Sign-up callout (only when not connected) -->
                     <div
-                        v-if="isQuickbooksDisabled"
-                        class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-100"
+                        v-if="!hasQuickbooksToken"
+                        class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-100 bg-primary-50 px-4 py-3.5 dark:border-primary-900/50 dark:bg-primary-900/20"
                     >
-                        QuickBooks is disabled. Bills and bill payments will be saved in Helmful only until you enable the integration again.
+                        <div>
+                            <p class="text-md font-medium text-primary-900 dark:text-primary-200">Don't have a QuickBooks account yet?</p>
+                            <p class="mt-0.5 text-md text-primary-700 dark:text-primary-300">Sign up with Intuit and come back to connect your company once your account is ready.</p>
+                        </div>
+                        <a
+                            href="https://quickbooks.intuit.com/signup"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-md font-medium text-white hover:bg-primary-700"
+                        >
+                            Create an account
+                            <span class="material-icons text-[15px]">open_in_new</span>
+                        </a>
+                    </div>
+
+                    <!-- Connect CTA (not yet connected) -->
+                    <div v-if="!hasQuickbooksToken" class="mt-5 border-t border-gray-100 pt-5 dark:border-gray-700">
+                        <p class="text-md text-gray-600 dark:text-gray-300">
+                            Connect your QuickBooks Online company to start syncing. You'll be taken to Intuit to authorize access and returned here when done.
+                        </p>
+                        <a
+                            :href="route('quickbooks.connect')"
+                            class="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary-600 px-5 py-2.5 text-md font-semibold text-white hover:bg-primary-700"
+                        >
+                            <span class="material-icons text-[18px]">link</span>
+                            Connect with QuickBooks
+                        </a>
+                    </div>
+
+                    <!-- Connected: disabled warning -->
+                    <div
+                        v-if="hasQuickbooksToken && isQuickbooksDisabled"
+                        class="mt-5 flex flex-wrap items-start justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 dark:border-amber-900 dark:bg-amber-900/20"
+                    >
+                        <div>
+                            <p class="text-md font-semibold text-amber-900 dark:text-amber-200">Integration is disabled</p>
+                            <p class="mt-1 text-md text-amber-800 dark:text-amber-300">Bills and bill payments are being saved in Helmful only. QuickBooks will not receive any data until you enable the integration again.</p>
+                        </div>
                         <button
                             type="button"
-                            class="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-60"
+                            class="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-md font-medium text-white hover:bg-primary-700 disabled:opacity-60"
                             :disabled="enabling"
                             @click="enableIntegration"
                         >
-                            <span v-if="enabling" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                            {{ enabling ? 'Enabling…' : 'Enable QuickBooks' }}
+                            <span v-if="enabling" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                            {{ enabling ? 'Enabling...' : 'Enable QuickBooks' }}
                         </button>
                     </div>
 
-                    <p
-                        v-if="currentIntegration?.last_synced_at"
-                        class="mt-2 text-xs text-gray-500 dark:text-gray-400"
-                    >
-                        Last sync: {{ currentIntegration.last_synced_at }}
-                    </p>
-
-                    <dl class="mt-4 space-y-2 border-t border-gray-100 pt-4 text-sm dark:border-gray-700">
-                        <div v-if="quickbooks?.realm_id" class="flex justify-between gap-4">
-                            <dt class="text-gray-500 dark:text-gray-400">Realm ID</dt>
-                            <dd class="font-mono text-xs text-gray-900 dark:text-gray-100">{{ quickbooks.realm_id }}</dd>
-                        </div>
-                        <div class="flex justify-between gap-4">
-                            <dt class="text-gray-500 dark:text-gray-400">Environment</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ quickbooks?.environment || '—' }}</dd>
-                        </div>
-                        <div v-if="quickbooks?.company_name" class="flex justify-between gap-4">
-                            <dt class="text-gray-500 dark:text-gray-400">Company</dt>
-                            <dd class="text-right text-gray-900 dark:text-white">{{ quickbooks.company_name }}</dd>
-                        </div>
-                        <div class="flex justify-between gap-4">
-                            <dt class="text-gray-500 dark:text-gray-400">Connected</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ qbConnectedAt || '—' }}</dd>
-                        </div>
-                        <div class="flex justify-between gap-4">
-                            <dt class="text-gray-500 dark:text-gray-400">Access token expires</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ qbTokenExpiresAt || '—' }}</dd>
-                        </div>
-                        <div class="flex justify-between gap-4">
-                            <dt class="text-gray-500 dark:text-gray-400">Refresh token expires</dt>
-                            <dd class="text-gray-900 dark:text-white">{{ qbRefreshExpiresAt || '—' }}</dd>
-                        </div>
-                    </dl>
-
-                    <div
-                        v-if="importsAvailable"
-                        class="mt-4 space-y-4 border-t border-gray-100 pt-4 dark:border-gray-700"
-                    >
-                        <div>
-                            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Pages
-                            </p>
-                            <div class="flex flex-wrap gap-2">
-                                <Link
-                                    :href="route('contacts.index')"
-                                    class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                                >
-                                    Go to contacts
-                                </Link>
-                                <Link
-                                    :href="route('serviceitems.index')"
-                                    class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                                >
-                                    Service items
-                                </Link>
-                                <Link
-                                    :href="route('vendors.index')"
-                                    class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                                >
-                                    Vendors
-                                </Link>
-                                <Link
-                                    :href="route('bills.index')"
-                                    class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                                >
-                                    Bills
-                                </Link>
+                    <!-- Connected: metadata -->
+                    <div v-if="hasQuickbooksToken" class="mt-5 border-t border-gray-100 pt-5 dark:border-gray-700">
+                        <dl class="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                            <div v-if="quickbooks?.company_name">
+                                <dt class="text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Company</dt>
+                                <dd class="mt-1 text-md text-gray-900 dark:text-white">{{ quickbooks.company_name }}</dd>
                             </div>
-                        </div>
-
-                        <div>
-                            <p class="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Import from QuickBooks
-                            </p>
-                            <div class="flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    :class="importButtonClass"
-                                    :disabled="importingCustomers"
-                                    @click="quickBooksImportRef?.openImportModal?.()"
-                                >
-                                    <span v-if="importingCustomers" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                                    {{ importingCustomers ? 'Importing customers…' : 'Import customers' }}
-                                </button>
-                                <button
-                                    type="button"
-                                    :class="importButtonClass"
-                                    :disabled="importingServices"
-                                    @click="quickBooksServiceImportRef?.openImportModal?.()"
-                                >
-                                    <span v-if="importingServices" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                                    {{ importingServices ? 'Importing services…' : 'Import services' }}
-                                </button>
-                                <button
-                                    type="button"
-                                    :class="importButtonClass"
-                                    :disabled="importingVendors"
-                                    @click="quickBooksVendorImportRef?.openImportModal?.()"
-                                >
-                                    <span v-if="importingVendors" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                                    {{ importingVendors ? 'Importing vendors…' : 'Import vendors' }}
-                                </button>
+                            <div>
+                                <dt class="text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Environment</dt>
+                                <dd class="mt-1 text-md text-gray-900 dark:text-white">{{ quickbooks?.environment || '—' }}</dd>
                             </div>
-                        </div>
-
-                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-900/40">
-                            <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                Import bill data
-                            </p>
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Import vendors first, then chart of accounts, bills, and bill payments.
-                            </p>
-                            <div class="mt-3 flex flex-wrap gap-2">
-                                <button
-                                    type="button"
-                                    :class="billImportButtonClass"
-                                    :disabled="importingChartOfAccounts"
-                                    @click="quickBooksChartOfAccountsImportRef?.openImportModal?.()"
-                                >
-                                    <span v-if="importingChartOfAccounts" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                                    {{ importingChartOfAccounts ? 'Importing chart of accounts…' : 'Chart of accounts' }}
-                                </button>
-                                <button
-                                    type="button"
-                                    :class="billImportButtonClass"
-                                    :disabled="importingBills"
-                                    @click="quickBooksBillImportRef?.openImportModal?.()"
-                                >
-                                    <span v-if="importingBills" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                                    {{ importingBills ? 'Importing bills…' : 'Bills' }}
-                                </button>
-                                <button
-                                    type="button"
-                                    :class="billImportButtonClass"
-                                    :disabled="importingBillPayments"
-                                    @click="quickBooksBillPaymentImportRef?.openImportModal?.()"
-                                >
-                                    <span v-if="importingBillPayments" class="material-icons animate-spin text-base leading-none" aria-hidden="true">sync</span>
-                                    {{ importingBillPayments ? 'Importing bill payments…' : 'Bill payments' }}
-                                </button>
+                            <div v-if="quickbooks?.realm_id">
+                                <dt class="text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Realm ID</dt>
+                                <dd class="mt-1 font-mono text-md text-gray-900 dark:text-gray-100">{{ quickbooks.realm_id }}</dd>
                             </div>
-                        </div>
-
-                        <div class="flex flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
-                            <button
-                                type="button"
-                                class="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
-                                @click="disableIntegration"
-                            >
-                                Disable integration
-                            </button>
-                        </div>
+                            <div>
+                                <dt class="text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Connected</dt>
+                                <dd class="mt-1 text-md text-gray-900 dark:text-white">{{ qbConnectedAt || '—' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Token expires</dt>
+                                <dd class="mt-1 text-md text-gray-900 dark:text-white">{{ qbTokenExpiresAt || '—' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Refresh expires</dt>
+                                <dd class="mt-1 text-md text-gray-900 dark:text-white">{{ qbRefreshExpiresAt || '—' }}</dd>
+                            </div>
+                        </dl>
+                        <p v-if="currentIntegration?.last_synced_at" class="mt-3 text-md text-gray-500 dark:text-gray-400">
+                            Last sync: {{ currentIntegration.last_synced_at }}
+                        </p>
                     </div>
-                </template>
-                <template v-else>
-                    <p class="text-sm text-gray-600 dark:text-gray-300">
-                        Connect your QuickBooks Online company to import customers as contacts with a customer or lead profile (export to QBO can build on this connection later).
-                    </p>
-                    <a
-                        :href="route('quickbooks.connect')"
-                        class="mt-4 inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-                    >
-                        Connect with QuickBooks
-                    </a>
-                </template>
-            </div>
+                </div>
+            </section>
 
-            <div
+            <!-- ── Sync options (connected) ─────────────────────────── -->
+            <section
                 v-if="hasQuickbooksToken"
-                class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+                class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
             >
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Sync options</h3>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Choose what to sync automatically with QuickBooks Online.
-                </p>
-                <form class="mt-4 space-y-3" @submit.prevent="saveSyncSettings">
-                    <label class="flex cursor-pointer items-start gap-3">
-                        <input
-                            v-model="syncForm.sync_contacts"
-                            type="checkbox"
-                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Sync options</h3>
+                    <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Choose what syncs automatically between Helmful and QuickBooks Online.</p>
+                </div>
+                <form class="space-y-0 divide-y divide-gray-50 px-6 dark:divide-gray-700/60" @submit.prevent="saveSyncSettings">
+                    <label class="flex cursor-pointer items-start gap-3 py-4">
+                        <input v-model="syncForm.sync_contacts" type="checkbox" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                         <span>
-                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync contacts</span>
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">
-                                Push new contacts to QuickBooks when created.
-                            </span>
+                            <span class="block text-md font-semibold text-gray-900 dark:text-white">Contacts</span>
+                            <span class="block text-md text-gray-500 dark:text-gray-400">Push new contacts to QuickBooks when created in Helmful.</span>
                         </span>
                     </label>
-                    <label class="flex cursor-pointer items-start gap-3">
-                        <input
-                            v-model="syncForm.sync_invoices"
-                            type="checkbox"
-                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
+                    <label class="flex cursor-pointer items-start gap-3 py-4">
+                        <input v-model="syncForm.sync_invoices" type="checkbox" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                         <span>
-                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync invoices</span>
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">
-                                Push to QuickBooks before sending the invoice to the customer.
-                            </span>
+                            <span class="block text-md font-semibold text-gray-900 dark:text-white">Invoices</span>
+                            <span class="block text-md text-gray-500 dark:text-gray-400">Push invoices to QuickBooks before sending them to the customer.</span>
                         </span>
                     </label>
-                    <label class="flex cursor-pointer items-start gap-3">
-                        <input
-                            v-model="syncForm.sync_payments"
-                            type="checkbox"
-                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
+                    <label class="flex cursor-pointer items-start gap-3 py-4">
+                        <input v-model="syncForm.sync_payments" type="checkbox" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                         <span>
-                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync payment records</span>
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">
-                                Allow pulling payments recorded in QuickBooks onto synced invoices.
-                            </span>
+                            <span class="block text-md font-semibold text-gray-900 dark:text-white">Payment records</span>
+                            <span class="block text-md text-gray-500 dark:text-gray-400">Pull payments recorded in QuickBooks onto synced invoices in Helmful.</span>
                         </span>
                     </label>
-                    <label class="flex cursor-pointer items-start gap-3">
-                        <input
-                            v-model="syncForm.sync_bills"
-                            type="checkbox"
-                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
+                    <label class="flex cursor-pointer items-start gap-3 py-4">
+                        <input v-model="syncForm.sync_bills" type="checkbox" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                         <span>
-                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync bills</span>
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">
-                                When enabled, new bills are pushed to QuickBooks and linked back on success. When disabled, bills stay in Helmful only.
-                            </span>
+                            <span class="block text-md font-semibold text-gray-900 dark:text-white">Bills</span>
+                            <span class="block text-md text-gray-500 dark:text-gray-400">New bills are pushed to QuickBooks and linked back on success. When off, bills stay in Helmful only.</span>
                         </span>
                     </label>
-                    <label class="flex cursor-pointer items-start gap-3">
-                        <input
-                            v-model="syncForm.sync_bill_payments"
-                            type="checkbox"
-                            class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                        />
+                    <label class="flex cursor-pointer items-start gap-3 py-4">
+                        <input v-model="syncForm.sync_bill_payments" type="checkbox" class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700" />
                         <span>
-                            <span class="block text-sm font-medium text-gray-900 dark:text-white">Sync bill payments</span>
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">
-                                When enabled, new bill payments are pushed to QuickBooks and linked back on success. When disabled, payments stay in Helmful only.
-                            </span>
+                            <span class="block text-md font-semibold text-gray-900 dark:text-white">Bill payments</span>
+                            <span class="block text-md text-gray-500 dark:text-gray-400">New bill payments are pushed to QuickBooks and linked back on success. When off, they stay in Helmful only.</span>
                         </span>
                     </label>
-                    <div class="pt-2">
+                    <div class="py-4">
                         <button
                             type="submit"
-                            class="inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                            class="rounded-lg bg-primary-600 px-4 py-2 text-md font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                             :disabled="syncForm.processing"
                         >
-                            {{ syncForm.processing ? 'Saving…' : 'Save sync options' }}
+                            {{ syncForm.processing ? 'Saving...' : 'Save sync options' }}
                         </button>
                     </div>
                 </form>
-            </div>
+            </section>
 
-            <QuickBooksImport
+            <!-- ── Imports (connected) ─────────────────────────────── -->
+            <section
                 v-if="importsAvailable"
-                ref="quickBooksImportRef"
-                v-model:importing="importingCustomers"
-            />
-            <QuickBooksImport
-                v-if="importsAvailable"
-                ref="quickBooksServiceImportRef"
-                v-model:importing="importingServices"
-                record-type="serviceitem"
-            />
-            <QuickBooksImport
-                v-if="importsAvailable"
-                ref="quickBooksChartOfAccountsImportRef"
-                v-model:importing="importingChartOfAccounts"
-                record-type="chartofaccounts"
-            />
-            <QuickBooksImport
-                v-if="importsAvailable"
-                ref="quickBooksVendorImportRef"
-                v-model:importing="importingVendors"
-                record-type="vendor"
-            />
-            <QuickBooksImport
-                v-if="importsAvailable"
-                ref="quickBooksBillImportRef"
-                v-model:importing="importingBills"
-                record-type="bill"
-            />
-            <QuickBooksImport
-                v-if="importsAvailable"
-                ref="quickBooksBillPaymentImportRef"
-                v-model:importing="importingBillPayments"
-                record-type="billpayment"
-            />
+                class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+            >
+                <div class="border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Import from QuickBooks</h3>
+                    <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Pull existing records from QuickBooks into Helmful. Run imports in the order shown.</p>
+                </div>
+
+                <div class="space-y-5 px-6 py-5">
+
+                    <!-- General imports -->
+                    <div>
+                        <p class="mb-3 text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Contacts, services, and vendors</p>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" :class="importButtonClass" :disabled="importingCustomers" @click="quickBooksImportRef?.openImportModal?.()">
+                                <span v-if="importingCustomers" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                                {{ importingCustomers ? 'Importing customers...' : 'Import customers' }}
+                            </button>
+                            <button type="button" :class="importButtonClass" :disabled="importingServices" @click="quickBooksServiceImportRef?.openImportModal?.()">
+                                <span v-if="importingServices" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                                {{ importingServices ? 'Importing services...' : 'Import services' }}
+                            </button>
+                            <button type="button" :class="importButtonClass" :disabled="importingVendors" @click="quickBooksVendorImportRef?.openImportModal?.()">
+                                <span v-if="importingVendors" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                                {{ importingVendors ? 'Importing vendors...' : 'Import vendors' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bill data imports -->
+                    <div class="rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+                        <p class="text-md font-semibold text-gray-900 dark:text-white">Bill data</p>
+                        <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Import vendors first, then chart of accounts, bills, and bill payments in order.</p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button type="button" :class="billImportButtonClass" :disabled="importingChartOfAccounts" @click="quickBooksChartOfAccountsImportRef?.openImportModal?.()">
+                                <span v-if="importingChartOfAccounts" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                                {{ importingChartOfAccounts ? 'Importing...' : 'Chart of accounts' }}
+                            </button>
+                            <button type="button" :class="billImportButtonClass" :disabled="importingBills" @click="quickBooksBillImportRef?.openImportModal?.()">
+                                <span v-if="importingBills" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                                {{ importingBills ? 'Importing...' : 'Bills' }}
+                            </button>
+                            <button type="button" :class="billImportButtonClass" :disabled="importingBillPayments" @click="quickBooksBillPaymentImportRef?.openImportModal?.()">
+                                <span v-if="importingBillPayments" class="material-icons animate-spin text-[16px]" aria-hidden="true">sync</span>
+                                {{ importingBillPayments ? 'Importing...' : 'Bill payments' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick links -->
+                    <div>
+                        <p class="mb-3 text-md font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" style="font-size: 0.7rem;">Go to</p>
+                        <div class="flex flex-wrap gap-2">
+                            <Link :href="route('contacts.index')" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                                Contacts
+                            </Link>
+                            <Link :href="route('serviceitems.index')" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                                Service items
+                            </Link>
+                            <Link :href="route('vendors.index')" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                                Vendors
+                            </Link>
+                            <Link :href="route('bills.index')" class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-md font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                                Bills
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ── Danger zone ─────────────────────────────────────── -->
+            <section
+                v-if="hasQuickbooksToken && importsAvailable"
+                class="rounded-xl border border-red-100 bg-white shadow-sm dark:border-red-900/40 dark:bg-gray-800"
+            >
+                <div class="border-b border-red-100 px-6 py-4 dark:border-red-900/40">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Disconnect</h3>
+                    <p class="mt-0.5 text-md text-gray-500 dark:text-gray-400">Disabling the integration hides shipping features from navigation. Your data in Helmful is not affected.</p>
+                </div>
+                <div class="px-6 py-4">
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-md font-medium text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                        @click="disableIntegration"
+                    >
+                        <span class="material-icons text-[15px]">link_off</span>
+                        Disable integration
+                    </button>
+                </div>
+            </section>
+
         </div>
+
+        <!-- Hidden import modal triggers -->
+        <QuickBooksImport v-if="importsAvailable" ref="quickBooksImportRef" v-model:importing="importingCustomers" />
+        <QuickBooksImport v-if="importsAvailable" ref="quickBooksServiceImportRef" v-model:importing="importingServices" record-type="serviceitem" />
+        <QuickBooksImport v-if="importsAvailable" ref="quickBooksChartOfAccountsImportRef" v-model:importing="importingChartOfAccounts" record-type="chartofaccounts" />
+        <QuickBooksImport v-if="importsAvailable" ref="quickBooksVendorImportRef" v-model:importing="importingVendors" record-type="vendor" />
+        <QuickBooksImport v-if="importsAvailable" ref="quickBooksBillImportRef" v-model:importing="importingBills" record-type="bill" />
+        <QuickBooksImport v-if="importsAvailable" ref="quickBooksBillPaymentImportRef" v-model:importing="importingBillPayments" record-type="billpayment" />
+
     </TenantLayout>
 </template>

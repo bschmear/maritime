@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\TenantNavigation;
 
+use App\Domain\Integration\Models\Integration;
 use App\Domain\NavigationMenu\Models\NavigationMenu;
 use App\Domain\NavigationMenu\Models\NavigationMenuItem;
 use App\Domain\Role\Models\Role;
+use App\Enums\Integration\IntegrationType;
 use App\Support\Tenant\TenantNavigationCache;
 use App\Tenancy\CurrentTenantProfile;
 use Illuminate\Support\Collection;
@@ -36,11 +38,30 @@ class TenantNavigationResolver
 
             $treeWithPermissions = TenantNavigationTree::buildWithPermissions($items);
 
-            return TenantNavigationTree::filterByPermission(
+            $filteredByPermission = TenantNavigationTree::filterByPermission(
                 $treeWithPermissions,
                 fn (string $permission) => $this->tenantProfile->hasPermission($permission),
             );
+
+            return TenantNavigationTree::filterByIntegration(
+                $filteredByPermission,
+                fn (string $slug) => $this->integrationIsActive($slug),
+            );
         });
+    }
+
+    private function integrationIsActive(string $slug): bool
+    {
+        $type = collect(IntegrationType::cases())->first(fn (IntegrationType $case) => $case->slug() === $slug);
+
+        if ($type === null) {
+            return false;
+        }
+
+        return Integration::query()
+            ->where('integration_type', $type)
+            ->where('active', true)
+            ->exists();
     }
 
     public function findMenuForRole(?string $roleSlug): ?NavigationMenu

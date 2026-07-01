@@ -18,6 +18,7 @@ class NavigationMenuItem extends Model
         'label',
         'route_name',
         'permission_key',
+        'requires_integration',
         'sort_order',
     ];
 

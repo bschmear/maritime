@@ -8,6 +8,7 @@ use App\Domain\Delivery\Models\Delivery;
 use App\Domain\Estimate\Models\Estimate;
 use App\Domain\Invoice\Models\Invoice;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Shipment\Models\Shipment;
 use App\Domain\Survey\Models\Survey;
 use App\Domain\User\Models\User as TenantUser;
 use App\Enums\SMS;
@@ -302,6 +303,32 @@ class SmsService
 
         $label = $delivery->display_name ?? 'Delivery';
         $message = "Your delivery {$label} is on the way. Track: {$trackUrl}";
+        if (strlen($message) > 480) {
+            $message = substr($message, 0, 477).'…';
+        }
+
+        $from = config('sms.providers.twilio.phone_number');
+
+        return SmsProviderFactory::make()->send($to, $message, $from ?: null);
+    }
+
+    public function sendShipmentTrackingSms(WebUser|TenantUser $authUser, Contact $contact, Shipment $shipment, string $trackUrl): SmsResult
+    {
+        $tenantStaff = $this->resolveTenantStaffForSms($authUser);
+
+        if ($this->smsSandboxMode()) {
+            $raw = $tenantStaff?->mobile_phone ?? $tenantStaff?->office_phone ?? null;
+        } else {
+            $raw = $contact->mobile ?? $contact->phone ?? null;
+        }
+
+        $to = $this->normalizePhoneForSms($raw);
+        if ($to === null) {
+            return new SmsResult(success: false, status: 'invalid', error: 'No valid phone number for SMS.');
+        }
+
+        $label = $shipment->tracking_code ?? $shipment->display_name;
+        $message = "Your shipment {$label} is on the way. Track: {$trackUrl}";
         if (strlen($message) > 480) {
             $message = substr($message, 0, 477).'…';
         }

@@ -49,7 +49,7 @@ final class TenantNavigationCatalog
     ];
 
     /**
-     * @return list<array{route: string|null, label: string, permission_key: string|null, group_path: list<string>}>
+     * @return list<array{route: string|null, label: string, permission_key: string|null, requires_integration: string|null, group_path: list<string>}>
      */
     public static function flattened(): array
     {
@@ -59,7 +59,7 @@ final class TenantNavigationCatalog
     /**
      * @param  list<array<string, mixed>>  $nodes
      * @param  list<string>  $groupPath
-     * @return list<array{route: string|null, label: string, permission_key: string|null, group_path: list<string>}>
+     * @return list<array{route: string|null, label: string, permission_key: string|null, requires_integration: string|null, group_path: list<string>}>
      */
     private static function flattenNodes(array $nodes, array $groupPath = []): array
     {
@@ -69,12 +69,16 @@ final class TenantNavigationCatalog
             $label = (string) ($node['label'] ?? '');
             $route = isset($node['route']) ? (string) $node['route'] : null;
             $children = $node['children'] ?? [];
+            $requiresIntegration = isset($node['requires_integration'])
+                ? (string) $node['requires_integration']
+                : null;
 
             if ($route !== null) {
                 $entries[] = [
                     'route' => $route,
                     'label' => $label,
                     'permission_key' => self::permissionKeyForRoute($route),
+                    'requires_integration' => $requiresIntegration,
                     'group_path' => $groupPath,
                 ];
             }
@@ -86,6 +90,21 @@ final class TenantNavigationCatalog
         }
 
         return $entries;
+    }
+
+    public static function requiresIntegrationForRoute(?string $routeName): ?string
+    {
+        if ($routeName === null || $routeName === '') {
+            return null;
+        }
+
+        foreach (self::flattened() as $entry) {
+            if ($entry['route'] === $routeName) {
+                return $entry['requires_integration'];
+            }
+        }
+
+        return null;
     }
 
     public static function permissionKeyForRoute(?string $routeName): ?string

@@ -26,6 +26,7 @@ use App\Domain\Opportunity\Models\OpportunityFeatureRequest;
 use App\Domain\Opportunity\Services\ApplyFeatureRequestAssetOptionSelections;
 use App\Domain\Payment\Models\PaymentConfiguration;
 use App\Domain\ServiceTicket\Models\ServiceTicket;
+use App\Domain\Shipment\Models\Shipment;
 use App\Domain\ServiceTicket\Support\ServiceTicketPortalImages;
 use App\Domain\Subsidiary\Models\Subsidiary;
 use App\Domain\WarrantyClaim\Models\WarrantyClaim;
@@ -1786,5 +1787,33 @@ class PublicController extends Controller
                 ])->values()->all(),
             ];
         })->values()->all();
+    }
+
+    public function trackShipment(Request $request, string $uuid)
+    {
+        $shipment = Shipment::query()->where('uuid', $uuid)->firstOrFail();
+        $account = AccountSettings::getCurrent();
+
+        return Inertia::render('Tenant/Public/ShipmentTrack', [
+            'shipment' => [
+                'uuid' => $shipment->uuid,
+                'display_name' => $shipment->display_name,
+                'status' => $shipment->status?->value,
+                'status_label' => $shipment->status?->label(),
+                'carrier' => $shipment->carrier,
+                'service' => $shipment->service,
+                'tracking_code' => $shipment->tracking_code,
+                'public_tracking_url' => $shipment->public_tracking_url,
+                'label_url' => $shipment->label_url,
+                'tracking_events' => $shipment->tracking_events ?? [],
+                'recipient_name' => $shipment->recipient_name,
+                'to_address' => $shipment->to_address,
+                'purchased_at' => $shipment->purchased_at?->toIso8601String(),
+            ],
+            'account' => $account ? [
+                'name' => $account->name,
+                'logo_url' => $account->logo_url ?? null,
+            ] : null,
+        ]);
     }
 }

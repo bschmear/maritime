@@ -36,6 +36,7 @@ enum RecordType: string
     case Bill = 'bill';
     case BillPayment = 'billpayment';
     case NavigationMenu = 'navigationmenu';
+    case Shipment = 'shipment';
 
     /**
      * Returns the human-readable domain name (usually matches controller group)
@@ -75,6 +76,7 @@ enum RecordType: string
             self::Bill => 'Bill',
             self::BillPayment => 'BillPayment',
             self::NavigationMenu => 'NavigationMenu',
+            self::Shipment => 'Shipment',
         };
     }
 
@@ -116,6 +118,7 @@ enum RecordType: string
             self::Bill => 'App\\Domain\\Bill',
             self::BillPayment => 'App\\Domain\\BillPayment',
             self::NavigationMenu => 'App\\Domain\\NavigationMenu',
+            self::Shipment => 'App\\Domain\\Shipment',
         };
     }
 
@@ -157,6 +160,7 @@ enum RecordType: string
             self::Bill => 'Bill',
             self::BillPayment => 'Bill Payment',
             self::NavigationMenu => 'Navigation Menu',
+            self::Shipment => 'Shipment',
         };
     }
 
@@ -198,6 +202,7 @@ enum RecordType: string
             self::Bill => 'bills',
             self::BillPayment => 'bill-payments',
             self::NavigationMenu => 'navigation-menus',
+            self::Shipment => 'shipments',
         };
     }
 

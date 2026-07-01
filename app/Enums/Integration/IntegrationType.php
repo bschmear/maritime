@@ -8,6 +8,7 @@ enum IntegrationType: int
     case QuickBooks = 2;
     case Google = 3;
     case WordPress = 4;
+    case EasyPost = 5;
 
     public function isEnabled(): bool
     {
@@ -23,6 +24,7 @@ enum IntegrationType: int
             self::QuickBooks => 'QuickBooks Online',
             self::Google => 'Google Workspace',
             self::WordPress => 'WordPress',
+            self::EasyPost => 'EasyPost',
         };
     }
 
@@ -33,6 +35,7 @@ enum IntegrationType: int
             self::QuickBooks => 'Accounting platform — sync customers with contacts and leads in Helmful.',
             self::Google => 'Connect Google Drive and Sheets to sync inventory with a shared spreadsheet.',
             self::WordPress => 'Sync boat shows and events to your WordPress site as custom post types.',
+            self::EasyPost => 'Create shipments, compare carrier rates, buy labels, and send tracking links to contacts and vendors.',
         };
     }
 
@@ -43,6 +46,7 @@ enum IntegrationType: int
             self::QuickBooks => 'get',
             self::Google => 'get',
             self::WordPress => 'get',
+            self::EasyPost => 'get',
         };
     }
 
@@ -53,6 +57,7 @@ enum IntegrationType: int
             self::QuickBooks => 'account_balance_wallet',
             self::Google => 'cloud',
             self::WordPress => 'language',
+            self::EasyPost => 'local_shipping',
         };
     }
 
@@ -63,6 +68,7 @@ enum IntegrationType: int
             self::QuickBooks => 'accounting',
             self::Google => 'productivity',
             self::WordPress => 'cms',
+            self::EasyPost => 'shipping',
         };
     }
 
@@ -73,6 +79,7 @@ enum IntegrationType: int
             self::QuickBooks => true,
             self::Google => true,
             self::WordPress => false,
+            self::EasyPost => false,
         };
     }
 
@@ -83,6 +90,7 @@ enum IntegrationType: int
             self::QuickBooks => 'quickbooks',
             self::Google => 'google',
             self::WordPress => 'wordpress',
+            self::EasyPost => 'easypost',
         };
     }
 
