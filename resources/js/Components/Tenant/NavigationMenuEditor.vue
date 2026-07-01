@@ -15,6 +15,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    readOnly: {
+        type: Boolean,
+        default: false,
+    },
     depth: {
         type: Number,
         default: 0,
@@ -203,7 +207,7 @@ function initSortable() {
     sortable?.destroy();
     sortable = null;
 
-    if (!listRef.value) {
+    if (!listRef.value || props.readOnly) {
         return;
     }
 
@@ -288,12 +292,18 @@ const paddingClass = computed(() => {
                     />
 
                     <button
+                        v-if="!readOnly"
                         type="button"
                         class="drag-handle mt-2 cursor-grab text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                         title="Drag to reorder"
                     >
                         <span class="material-icons text-base">drag_indicator</span>
                     </button>
+                    <span
+                        v-else
+                        class="mt-2 inline-block w-6 shrink-0"
+                        aria-hidden="true"
+                    />
 
                     <div class="min-w-0 flex-1 space-y-2">
                         <div class="flex flex-wrap items-center gap-2">
@@ -301,12 +311,14 @@ const paddingClass = computed(() => {
                                 :value="item.label"
                                 type="text"
                                 class="min-w-[10rem] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                :readonly="readOnly"
                                 @input="updateItem(index, { label: $event.target.value })"
                             />
 
                             <select
                                 :value="item.route_name ?? ''"
                                 class="min-w-[12rem] flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                :disabled="readOnly"
                                 @change="updateItem(index, { route_name: $event.target.value || null })"
                             >
                                 <option value="">Group (no link)</option>
@@ -344,6 +356,7 @@ const paddingClass = computed(() => {
                     </div>
 
                     <button
+                        v-if="!readOnly"
                         type="button"
                         class="rounded-lg p-2 text-gray-500 hover:bg-gray-200 hover:text-red-600 dark:hover:bg-gray-700"
                         title="Remove"
@@ -358,13 +371,14 @@ const paddingClass = computed(() => {
                     :model-value="item.children"
                     :route-catalog="routeCatalog"
                     :role-permission-keys="rolePermissionKeys"
+                    :read-only="readOnly"
                     :depth="depth + 1"
                     @update:model-value="updateChildren(index, $event)"
                 />
             </li>
         </ul>
 
-        <div v-if="depth > 0" class="mt-2 flex flex-wrap gap-2">
+        <div v-if="depth > 0 && !readOnly" class="mt-2 flex flex-wrap gap-2">
             <button
                 type="button"
                 class="inline-flex items-center rounded-lg border border-dashed border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -381,7 +395,7 @@ const paddingClass = computed(() => {
             </button>
         </div>
 
-        <div v-if="depth === 0" class="mt-3 flex flex-wrap gap-2">
+        <div v-if="depth === 0 && !readOnly" class="mt-3 flex flex-wrap gap-2">
             <button
                 type="button"
                 class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"

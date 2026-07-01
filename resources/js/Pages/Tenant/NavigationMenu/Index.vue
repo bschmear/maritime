@@ -79,28 +79,37 @@ const deleteMenu = (menu) => {
                 <div class="border-b border-gray-200 px-4 py-5 sm:px-6 dark:border-gray-700">
                     <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Navigation menus</h1>
                     <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                        Customize the top navigation for your workspace. The default menu applies to all roles unless a role has its own menu.
+                        Customize the top navigation for your workspace. The application default menu applies to all roles unless you create a role-specific menu.
                     </p>
                 </div>
 
                 <ul class="divide-y divide-gray-200 dark:divide-gray-700">
                     <li
                         v-for="menu in menus"
-                        :key="menu.id"
+                        :key="menu.is_file_default ? 'default' : menu.id"
                         class="flex items-center justify-between gap-4 px-4 py-4 sm:px-6"
                     >
                         <div>
                             <p class="font-medium text-gray-900 dark:text-white">
                                 {{ menu.name }}
                                 <span
-                                    v-if="menu.is_default"
+                                    v-if="menu.is_file_default"
+                                    class="ml-2 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-200"
+                                >
+                                    Application default
+                                </span>
+                                <span
+                                    v-else-if="menu.is_default"
                                     class="ml-2 inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200"
                                 >
-                                    Default
+                                    Workspace override
                                 </span>
                             </p>
                             <p v-if="menu.role" class="text-sm text-gray-500 dark:text-gray-400">
                                 Role: {{ menu.role.display_name }}
+                            </p>
+                            <p v-else-if="menu.is_file_default" class="text-sm text-gray-500 dark:text-gray-400">
+                                Shipped with Helmful; used when no workspace or role menu exists
                             </p>
                             <p v-else class="text-sm text-gray-500 dark:text-gray-400">
                                 Used when no role-specific menu exists
@@ -112,10 +121,10 @@ const deleteMenu = (menu) => {
                                 :href="menu.edit_url"
                                 class="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                             >
-                                Edit
+                                {{ menu.is_file_default ? 'View' : 'Edit' }}
                             </Link>
                             <button
-                                v-if="!menu.is_default"
+                                v-if="!menu.is_default && !menu.is_file_default"
                                 type="button"
                                 class="inline-flex items-center rounded-lg border border-transparent bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
                                 @click="deleteMenu(menu)"

@@ -22,6 +22,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    readOnly: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const page = usePage();
@@ -40,12 +44,18 @@ const breadcrumbItems = computed(() => [
 ]);
 
 const subtitle = computed(() => {
+    if (props.readOnly) {
+        return 'Read-only preview of the application default menu shipped with Helmful.';
+    }
+
     if (props.menu.is_default) {
-        return 'Default menu used for all roles without a custom menu.';
+        return 'Workspace default menu used for all roles without a custom menu.';
     }
 
     return `Custom menu for the ${props.menu.role?.display_name ?? 'role'} role.`;
 });
+
+const pageTitle = computed(() => (props.readOnly ? props.menu.name : `Edit ${props.menu.name}`));
 
 const save = () => {
     form.put(route('navigation-menus.update', props.menu.id), {
@@ -59,7 +69,7 @@ const onItemsChange = (items) => {
 </script>
 
 <template>
-    <Head :title="`Edit ${menu.name}`" />
+    <Head :title="pageTitle" />
 
     <TenantLayout>
         <template #header>
@@ -71,6 +81,13 @@ const onItemsChange = (items) => {
         <div class="mx-auto max-w-5xl space-y-6">
             <div v-if="flashSuccess" class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/30 dark:text-green-200">
                 {{ flashSuccess }}
+            </div>
+
+            <div
+                v-if="readOnly"
+                class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-100"
+            >
+                This menu is managed in the application configuration file (<code class="font-mono text-xs">tenant_navigation.json</code>) and cannot be edited here. Role menus are copied from this default when you create them.
             </div>
 
             <div class="overflow-hidden rounded-lg bg-white shadow-lg dark:bg-gray-800">
@@ -88,6 +105,7 @@ const onItemsChange = (items) => {
                             Back
                         </Link>
                         <button
+                            v-if="!readOnly"
                             type="button"
                             class="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
                             :disabled="form.processing"
@@ -99,7 +117,7 @@ const onItemsChange = (items) => {
                 </div>
 
                 <div class="space-y-6 px-4 py-5 sm:px-6">
-                    <div>
+                    <div v-if="!readOnly">
                         <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Menu name</label>
                         <input
                             v-model="form.name"
@@ -112,13 +130,19 @@ const onItemsChange = (items) => {
                     <div>
                         <h2 class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Menu structure</h2>
                         <p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                            Drag rows to reorder. Choose “Group (no link)” for parent items. Items flagged as missing permission are still shown here so you can see what the role cannot access.
+                            <template v-if="readOnly">
+                                Preview of top-level groups and links. Use collapse controls to scan nested sections.
+                            </template>
+                            <template v-else>
+                                Drag rows to reorder. Choose “Group (no link)” for parent items. Items flagged as missing permission are still shown here so you can see what the role cannot access.
+                            </template>
                         </p>
 
                         <NavigationMenuEditor
-                            :model-value="form.items"
+                            :model-value="readOnly ? items : form.items"
                             :route-catalog="routeCatalog"
                             :role-permission-keys="rolePermissionKeys"
+                            :read-only="readOnly"
                             @update:model-value="onItemsChange"
                         />
 

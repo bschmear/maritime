@@ -53,7 +53,7 @@ final class TenantNavigationCatalog
      */
     public static function flattened(): array
     {
-        return self::flattenNodes(config('tenant_navigation', []));
+        return self::flattenNodes(TenantDefaultNavigation::nodes());
     }
 
     /**

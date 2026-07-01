@@ -33,6 +33,34 @@ class NavigationMenuSyncService
         TenantNavigationCache::bumpVersion();
     }
 
+    public function syncFromDefaultFile(NavigationMenu $menu): void
+    {
+        $nodes = array_map(
+            fn (array $node) => $this->configNodeToEditorNode($node),
+            TenantDefaultNavigation::nodes(),
+        );
+
+        $this->sync($menu, $nodes);
+    }
+
+    /**
+     * @param  array<string, mixed>  $node
+     * @return array{label: string, route_name: string|null, children: list<array<string, mixed>>}
+     */
+    private function configNodeToEditorNode(array $node): array
+    {
+        $route = isset($node['route']) ? (string) $node['route'] : null;
+
+        return [
+            'label' => (string) ($node['label'] ?? 'Untitled'),
+            'route_name' => $route,
+            'children' => array_map(
+                fn (array $child) => $this->configNodeToEditorNode($child),
+                is_array($node['children'] ?? null) ? $node['children'] : [],
+            ),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $node
      */

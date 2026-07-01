@@ -833,6 +833,7 @@ Route::middleware([
 
         Route::prefix('navigation-menus')->name('navigation-menus.')->group(function () {
             Route::get('/', [NavigationMenuController::class, 'index'])->name('index');
+            Route::get('/default', [NavigationMenuController::class, 'showDefault'])->name('default');
             Route::post('/', [NavigationMenuController::class, 'store'])->name('store');
             Route::get('/{navigationMenu}/edit', [NavigationMenuController::class, 'edit'])->name('edit');
             Route::put('/{navigationMenu}', [NavigationMenuController::class, 'update'])->name('update');

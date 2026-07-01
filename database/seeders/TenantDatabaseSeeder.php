@@ -32,7 +32,6 @@ class TenantDatabaseSeeder extends Seeder
             DeliveryChecklistCategorySeeder::class,
             AssetOptionCategorySeeder::class,
             ChartOfAccountSeeder::class,
-            NavigationMenuSeeder::class,
         ]);
     }
 }

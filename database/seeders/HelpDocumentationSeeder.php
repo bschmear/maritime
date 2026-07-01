@@ -296,10 +296,10 @@ HTML,
 <p>You can also go directly to <strong>Navigation menus</strong> from that account page if you have administrator access.</p>
 <h3>Default menu vs role menus</h3>
 <ul>
-<li><strong>Default menu</strong> — Used for every role unless you create a custom menu for that role. New workspaces are seeded with a standard menu that matches Helmful’s default page groupings.</li>
-<li><strong>Role menu</strong> — A full replacement menu for one role (for example Manager or Employee). Create one from the default menu, then edit it independently.</li>
+<li><strong>Application default</strong> — Shipped with Helmful in a configuration file. Every workspace uses this menu unless you create a custom menu for a role. Administrators can open it as a read-only preview from the Navigation menus page.</li>
+<li><strong>Role menu</strong> — A full replacement menu for one role (for example Manager or Employee). Create one from the application default, then edit it independently.</li>
 </ul>
-<p>If a role has no custom menu, users with that role see the <strong>default</strong> menu.</p>
+<p>If a role has no custom menu, users with that role see the <strong>application default</strong> menu.</p>
 <h3>Edit the menu structure</h3>
 <p>Open a menu and click <strong>Edit</strong>. In the builder you can:</p>
 <ul>
@@ -315,15 +315,15 @@ HTML,
 <h3>Create a menu for a role</h3>
 <ol>
 <li>On the Navigation menus page, choose a role under <strong>Create role menu</strong>.</li>
-<li>Click <strong>Create from default</strong>. Helmful copies the current default menu as a starting point.</li>
+<li>Click <strong>Create from default</strong>. Helmful copies the current application default menu as a starting point.</li>
 <li>Edit and save. Users with that role will see this menu instead of the default.</li>
 </ol>
-<p>To remove a role override, delete that role’s menu from the list. The role will fall back to the default menu.</p>
+<p>To remove a role override, delete that role’s menu from the list. The role will fall back to the application default menu.</p>
 <h3>Tips</h3>
 <ul>
 <li>Keep group names short—they appear in the top bar on desktop and in the mobile menu.</li>
 <li>If someone reports a missing page, check both their <strong>role menu</strong> (if any) and their <strong>role permissions</strong> under Company → Roles.</li>
-<li>The default menu is not deletable; you can only edit it.</li>
+<li>The application default menu cannot be edited in the workspace; use role menus to customize navigation for specific roles.</li>
 </ul>
 HTML,
             ],

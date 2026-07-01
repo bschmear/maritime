@@ -148,6 +148,20 @@ class TenantNavigationResolverTest extends TestCase
         $this->assertSame($first, $second);
     }
 
+    public function test_falls_back_to_json_when_no_menu_in_database(): void
+    {
+        $profile = Mockery::mock(CurrentTenantProfile::class);
+        $profile->shouldReceive('hasPermission')->andReturnTrue();
+
+        $resolver = new TenantNavigationResolver($profile);
+
+        $nav = $resolver->resolve(null);
+
+        $this->assertNotEmpty($nav);
+        $this->assertSame('Overview', $nav[0]['name']);
+        $this->assertSame('dashboard', $nav[0]['href']);
+    }
+
     public function test_integration_gated_items_are_hidden_when_integration_inactive(): void
     {
         $menu = NavigationMenu::query()->create([

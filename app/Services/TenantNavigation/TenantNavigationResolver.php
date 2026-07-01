@@ -25,18 +25,7 @@ class TenantNavigationResolver
     public function resolve(?string $roleSlug): array
     {
         return TenantNavigationCache::remember($roleSlug, function () use ($roleSlug) {
-            $menu = $this->findMenuForRole($roleSlug);
-            if ($menu === null) {
-                return [];
-            }
-
-            $items = NavigationMenuItem::query()
-                ->where('navigation_menu_id', $menu->id)
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get();
-
-            $treeWithPermissions = TenantNavigationTree::buildWithPermissions($items);
+            $treeWithPermissions = $this->resolveTreeWithMetadata($roleSlug);
 
             $filteredByPermission = TenantNavigationTree::filterByPermission(
                 $treeWithPermissions,
@@ -48,6 +37,26 @@ class TenantNavigationResolver
                 fn (string $slug) => $this->integrationIsActive($slug),
             );
         });
+    }
+
+    /**
+     * @return list<array{name: string, href?: string, permission_key?: string|null, requires_integration?: string|null, children?: list<array<string, mixed>>}>
+     */
+    public function resolveTreeWithMetadata(?string $roleSlug): array
+    {
+        $menu = $this->findMenuForRole($roleSlug);
+
+        if ($menu !== null) {
+            $items = NavigationMenuItem::query()
+                ->where('navigation_menu_id', $menu->id)
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            return TenantNavigationTree::buildWithPermissions($items);
+        }
+
+        return TenantDefaultNavigation::treeWithMetadata();
     }
 
     private function integrationIsActive(string $slug): bool
@@ -174,6 +183,7 @@ class TenantNavigationResolver
             'label' => $item->label,
             'route_name' => $item->route_name,
             'permission_key' => $item->permission_key,
+            'requires_integration' => $item->requires_integration,
             'sort_order' => $item->sort_order,
         ]);
 
