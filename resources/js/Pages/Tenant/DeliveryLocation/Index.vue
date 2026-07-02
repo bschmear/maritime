@@ -55,9 +55,12 @@ const breadcrumbItems = computed(() => [
                     v-model="search"
                     type="text"
                     placeholder="Search by name, city…"
-                    class="flex-1 min-w-[240px] rounded-md border-gray-300 text-sm"
+                    class="flex-1 min-w-[240px] rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-primary-500 dark:focus:border-primary-400"
                 />
-                <select v-model="status" class="rounded-md border-gray-300 text-sm">
+                <select
+                    v-model="status"
+                    class="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm focus:ring-primary-500 dark:focus:ring-primary-400 focus:border-primary-500 dark:focus:border-primary-400"
+                >
                     <option value="all">All</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>

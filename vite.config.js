@@ -27,9 +27,6 @@ export default defineConfig(({ mode }) => {
                         if (id.includes('pdfjs-dist')) {
                             return 'pdfjs';
                         }
-                        if (id.includes('maplibre-gl')) {
-                            return 'maplibre';
-                        }
                         if (id.includes('@tiptap')) {
                             return 'tiptap';
                         }

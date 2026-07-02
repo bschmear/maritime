@@ -383,7 +383,7 @@ const convertToCustomer = () => {
 
                 <!-- Sidebar -->
                 <div class="space-y-4">
-                    <div class="sticky top-[140px] space-y-4">
+                    <div class="space-y-4">
                         <!-- Record info -->
                         <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                             <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
@@ -433,8 +433,16 @@ const convertToCustomer = () => {
                             </ul>
                         </div>
 
-                        <!-- Linked records -->
-                        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                       
+                        <ScorePanel
+                            :scorable-type="scoreScorableType"
+                            :scorable-id="record.id"
+                            :subscription-level="3"
+                            :initial-scores="scores"
+                        />
+                    </div>
+                     <!-- Linked records -->
+                     <div class=" sticky top-[140px] rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                             <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
                                 <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Linked records</span>
                             </div>
@@ -489,13 +497,6 @@ const convertToCustomer = () => {
                             </div>
                         </div>
 
-                        <ScorePanel
-                            :scorable-type="scoreScorableType"
-                            :scorable-id="record.id"
-                            :subscription-level="3"
-                            :initial-scores="scores"
-                        />
-                    </div>
                 </div>
             </div>
 

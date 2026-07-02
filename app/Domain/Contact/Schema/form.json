@@ -102,7 +102,9 @@
     {
       "label": "Addresses",
       "domain": "ContactAddress",
-      "modelRelationship": "addresses"
+      "modelRelationship": "addresses",
+      "sublistKind": "contactAddressAutocomplete",
+      "createLabel": "Add address"
     },
     {
       "label": "Vendors",

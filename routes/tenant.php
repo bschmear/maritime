@@ -8,6 +8,7 @@ use App\Http\Controllers\EasyPostWebhookController;
 use App\Http\Controllers\FaviconController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Tenant\AccountConsignmentController;
+use App\Http\Controllers\Tenant\AddressAutocompleteController;
 use App\Http\Controllers\Tenant\AccountController;
 use App\Http\Controllers\Tenant\AccountDeliveryManagementController;
 use App\Http\Controllers\Tenant\AccountSetupController;
@@ -1042,6 +1043,9 @@ Route::middleware([
                 Route::delete('/{id}', [NotificationController::class, 'destroy'])
                     ->name('destroy');
             });
+
+        Route::get('/address-autocomplete', [AddressAutocompleteController::class, 'search'])
+            ->name('address-autocomplete.search');
 
         Route::prefix('favorites')
             ->name('favorites.')

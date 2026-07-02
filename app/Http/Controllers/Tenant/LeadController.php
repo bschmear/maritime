@@ -237,7 +237,16 @@ class LeadController extends BaseController
 
         return inertia(
             'Tenant/'.$this->domainName.'/Index',
-            $this->indexInertiaProps($request, $records, $schema, $fieldsSchema, $formSchema, $enumOptions, $appliedFilters, $overview)
+            $this->indexInertiaProps(
+                $request,
+                $records,
+                $schema,
+                $fieldsSchema,
+                $formSchema,
+                $enumOptions,
+                $appliedFilters,
+                overview: $overview,
+            )
         );
     }
 

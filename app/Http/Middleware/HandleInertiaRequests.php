@@ -133,9 +133,6 @@ class HandleInertiaRequests extends Middleware
                 'onTrial' => $trialEndsAt !== null,
                 'trialEndsAt' => $trialEndsAt,
             ],
-            'radar' => [
-                'publishable' => config('services.radar.publishable'),
-            ],
             'pwa' => fn () => $this->rootView($request) === 'app' && $request->isPwa(),
             'workspace_nav' => fn () => $this->workspaceNavAccounts($request),
             'workspace_plan' => fn () => tenant() ? WorkspacePlanCache::get() : null,

@@ -30,6 +30,7 @@ const showSendSurveyModal = ref(false);
 const isDeleting      = ref(false);
 const postingAddress  = ref(false);
 const sendingPortal   = ref(false);
+const contactAddressAutocompleteRef = ref(null);
 
 const contactLabel = computed(() => {
     const r = props.record;
@@ -72,10 +73,17 @@ const onContactAddressSaved = (payload) => {
     postingAddress.value = true;
     router.post(route(`${props.recordType}.addresses.store`, props.record.id), payload, {
         preserveScroll: true,
+        onSuccess: () => {
+            router.reload({ only: ['record'], preserveScroll: true });
+        },
         onFinish: () => {
             postingAddress.value = false;
         },
     });
+};
+
+const onOpenContactAddressAutocomplete = () => {
+    contactAddressAutocompleteRef.value?.open();
 };
 
 /** Sublist edits don’t update this page’s `record.addresses`; reload that prop so Primary address stays in sync. */
@@ -427,6 +435,7 @@ const confirmDelete = () => {
                         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-3">
                             <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Primary address</span>
                             <ContactAddressAutocomplete
+                                ref="contactAddressAutocompleteRef"
                                 :disabled="postingAddress"
                                 @saved="onContactAddressSaved"
                             />
@@ -485,7 +494,7 @@ const confirmDelete = () => {
 
                 <!-- Sidebar 1/3 -->
                 <div class="space-y-4">
-                    <div class="sticky top-[140px] space-y-4">
+                    <div class="space-y-4">
                         <!-- Record info -->
                         <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden ">
                             <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
@@ -571,8 +580,10 @@ const confirmDelete = () => {
                             </div>
                         </div>
 
-                        <!-- Roles -->
-                        <div class="rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+                       
+                    </div>
+ <!-- Roles -->
+ <div class="sticky top-[140px]  rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
                             <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
                                 <span class="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Roles</span>
                             </div>
@@ -602,8 +613,6 @@ const confirmDelete = () => {
                                 </li>
                             </ul>
                         </div>
-                    </div>
-
                 </div>
             </div>
 
@@ -614,6 +623,7 @@ const confirmDelete = () => {
                 :parent-domain="domainName"
                 :sublists="visibleSublists"
                 @sublist-mutated="onSublistMutated"
+                @open-contact-address-autocomplete="onOpenContactAddressAutocomplete"
             />
 
         </div>

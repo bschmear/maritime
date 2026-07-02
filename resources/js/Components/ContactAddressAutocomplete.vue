@@ -1,14 +1,9 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { usePage } from '@inertiajs/vue3';
-import { loadRadar } from '../Utils/RadarLoader';
 import Modal from '@/Components/Modal.vue';
+import AddressSearchInput from '@/Components/AddressSearchInput.vue';
 
 const props = defineProps({
-    id: {
-        type: String,
-        default: () => `contact-address-radar-${Math.random().toString(36).slice(2, 11)}`,
-    },
     disabled: { type: Boolean, default: false },
     buttonLabel: { type: String, default: 'Add address' },
 });
@@ -16,11 +11,11 @@ const props = defineProps({
 const emit = defineEmits(['saved']);
 
 const modalOpen = ref(false);
-const radarLoaded = ref(false);
 const unitInput = ref('');
 const addressInfo = ref(null);
 const labelInput = ref('');
 const isPrimary = ref(false);
+const addressSearchRef = ref(null);
 
 const canSave = computed(() => !!addressInfo.value);
 
@@ -32,11 +27,7 @@ const openModal = () => {
     isPrimary.value = false;
     unitInput.value = '';
     addressInfo.value = null;
-    radarLoaded.value = false;
     modalOpen.value = true;
-    setTimeout(() => {
-        initializeRadar();
-    }, 100);
 };
 
 const closeModal = () => {
@@ -45,59 +36,23 @@ const closeModal = () => {
 
 watch(modalOpen, (open) => {
     if (!open) {
-        radarLoaded.value = false;
         addressInfo.value = null;
-        const el = document.getElementById(props.id);
-        if (el) {
-            el.innerHTML = '';
-        }
+        addressSearchRef.value?.reset();
     }
 });
 
-const initializeRadar = async () => {
-    const container = document.getElementById(props.id);
-    if (!container) {
-        return;
-    }
+const onAddressSelected = (result) => {
+    addressInfo.value = result;
+};
 
-    try {
-        const radar = await loadRadar();
-        const page = usePage();
-        const publishableKey = page.props.radar?.publishable;
-
-        if (!publishableKey) {
-            console.error('Radar publishable key not found in Inertia props');
-            return;
-        }
-
-        if (!window.radarInitialized) {
-            radar.initialize(publishableKey);
-            window.radarInitialized = true;
-        }
-
-        container.innerHTML = '';
-
-        radar.ui.autocomplete({
-            container: props.id,
-            responsive: true,
-            width: '100%',
-            debounceMS: 300,
-            minCharacters: 3,
-            onSelection: (result) => {
-                addressInfo.value = result;
-            },
-        });
-
-        radarLoaded.value = true;
-    } catch (error) {
-        console.error('Failed to initialize Radar autocomplete:', error);
-    }
+const onAddressCleared = () => {
+    addressInfo.value = null;
 };
 
 const buildStreetLine = (result) => {
     let street = (result.number ? `${result.number} ` : '') + (result.street || '');
-    if (!street && result.addressLabel) {
-        street = result.addressLabel;
+    if (!street && (result.addressLabel || result.placeLabel)) {
+        street = result.addressLabel || result.placeLabel;
     }
     return street;
 };
@@ -124,6 +79,7 @@ const saveAddress = () => {
     });
     closeModal();
 };
+defineExpose({ open: openModal });
 </script>
 
 <template>
@@ -171,7 +127,12 @@ const saveAddress = () => {
                         <label class="mb-2 block text-sm font-medium text-gray-900 dark:text-white">
                             Address search
                         </label>
-                        <div :id="id" class="relative w-full" style="min-height: 50px"></div>
+                        <AddressSearchInput
+                            ref="addressSearchRef"
+                            :disabled="disabled"
+                            @select="onAddressSelected"
+                            @clear="onAddressCleared"
+                        />
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                             Type at least 3 characters, then pick a result.
                         </p>

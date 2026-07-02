@@ -39,7 +39,7 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['sublist-mutated']);
+const emit = defineEmits(['sublist-mutated', 'open-contact-address-autocomplete']);
 
 /** Let parent pages refresh eager-loaded data (e.g. Contact.addresses when a ContactAddress row changes). */
 const emitSublistMutatedIfNeeded = () => {
@@ -1503,6 +1503,11 @@ const loadSublistSchema = async (sublist) => {
 const openSublistCreateModal = async () => {
     if (activeTab.value?.sublistKind === 'assetUnitMso') {
         showAssetUnitMsoModal.value = true;
+        return;
+    }
+
+    if (activeTab.value?.sublistKind === 'contactAddressAutocomplete') {
+        emit('open-contact-address-autocomplete');
         return;
     }
 
