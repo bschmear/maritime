@@ -10,7 +10,7 @@ return new class extends Migration
         DB::statement(
             'CREATE UNIQUE INDEX navigation_menus_workspace_default_unique
              ON navigation_menus (is_default)
-             WHERE is_default = 1 AND role_id IS NULL'
+             WHERE is_default = true AND role_id IS NULL'
         );
     }
 
